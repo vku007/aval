@@ -1,0 +1,195 @@
+step1:
+
+
+AWS_REGION=eu-west-3   # or your preferred region
+DOMAIN=vkp-consulting.fr
+
+aws s3api create-bucket \
+  --bucket $DOMAIN \
+  --region $AWS_REGION \
+  --create-bucket-configuration LocationConstraint=$AWS_REGION
+
+# Block public access (we'll use CloudFront OAC)
+aws s3api put-public-access-block --bucket $DOMAIN --public-access-block-configuration \
+  "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+# Create a basic site skeleton locally and upload
+mkdir site && cat > site/index.html <<'HTML'
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VKP Consulting</title>
+<link rel="icon" href="data:,">
+<style>body{font:16px/1.5 system-ui;margin:0;display:grid;place-items:center;height:100vh}
+.card{max-width:640px;padding:2rem;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+h1{margin:0 0 .5rem} .muted{color:#555}</style>
+<body><div class="card">
+<h1>VKP Consulting</h1>
+<p class="muted">Technology consulting & software delivery.</p>
+<p>Contact: <a href="mailto:hello@vkp-consulting.fr">hello@vkp-consulting.fr</a></p>
+</div></body>
+</html>
+HTML
+
+aws s3 sync ./site s3://$DOMAIN --delete \
+  --cache-control "public,max-age=300"  # short cache for html while iterating
+
+
+Step 2 
+from https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html
+To use a certificate in AWS Certificate Manager (ACM) to require HTTPS between viewers and CloudFront, make sure you request (or import) the certificate in the US East (N. Virginia) Region (us-east-1).
+
+
+CERT_ARN=$(aws acm request-certificate --region us-east-1 \
+  --domain-name vkp-consulting.fr \
+  --subject-alternative-names www.vkp-consulting.fr \
+  --validation-method DNS \
+  --query CertificateArn --output text)
+
+echo $CERT_ARN
+
+output:
+
+arn:aws:acm:us-east-1:088455116440:certificate/e3774345-7028-415a-ab57-bd1f8e02a021
+
+
+Now fetch the DNS validation records and add them to Route 53 (next step can be automated if the hosted zone is in Route 53):
+
+aws acm describe-certificate --region us-east-1 --certificate-arn $CERT_ARN \
+  --query "Certificate.DomainValidationOptions[].ResourceRecord"
+
+Now fetch the DNS validation records and add them to Route 53 (next step can be automated if the hosted zone is in Route 53):
+
+aws acm describe-certificate --region us-east-1 --certificate-arn arn:aws:acm:us-east-1:088455116440:certificate/e3774345-7028-415a-ab57-bd1f8e02a021 \
+  --query "Certificate.DomainValidationOptions[].ResourceRecord"  
+
+
+Step 3
+3) Add DNS validation records in Route 53
+
+Find your hosted zone ID and create the CNAMEs returned above:
+
+HZ_ID=$(aws route53 list-hosted-zones-by-name --dns-name vkp-consulting.fr \
+  --query "HostedZones[0].Id" --output text | sed 's|/hostedzone/||')
+
+# Create a changes.json file with both validation CNAMEs (from step 2) then:
+aws route53 change-resource-record-sets --hosted-zone-id $HZ_ID --change-batch file://changes.json
+
+
+Wait until the certificate status becomes ISSUED (you can poll with describe-certificate).
+WARNING! Check changes.json, it was created by chatgpt based on error!
+the output:
+{
+    "ChangeInfo": {
+        "Id": "/change/C02203212ZI7W4R5XRHRW",
+        "Status": "PENDING",
+        "SubmittedAt": "2025-09-23T19:30:00.345000+00:00",
+        "Comment": "ACM DNS validation for vkp-consulting.fr"
+    }
+}
+
+
+Watch the change:
+
+aws route53 get-change --id <change-id-from-previous-command>
+
+
+aws route53 get-change --id /change/C02203212ZI7W4R5XRHRW
+
+
+main@Mac aval % aws acm describe-certificate --region us-east-1 --certificate-arn arn:aws:acm:us-east-1:088455116440:certificate/e3774345-7028-415a-ab57-bd1f8e02a021 \
+
+
+
+4) Create CloudFront (with OAC) to serve the site
+
+Origin: your S3 bucket (the bucket itself, not the S3 website endpoint)
+
+Create Origin Access Control (OAC) so only CloudFront can read the bucket
+
+Default root object: index.html
+
+CLI sketch (CloudFront JSONs are verbose; console is fine), but here’s the gist:
+
+Create OAC:
+
+OAC_ID=$(aws cloudfront create-origin-access-control --origin-access-control-config '{
+  "Name": "OAC-vkp",
+  "SigningProtocol": "sigv4",
+  "SigningBehavior": "always",
+  "OriginAccessControlOriginType": "s3"
+}' --query 'OriginAccessControl.Id' --output text)
+
+id: E3QY4UMB9YVA18
+
+Create distribution (prepare a cf-dist.json with your bucket ARN/name, $CERT_ARN, alt names):
+
+Alternate domain names: vkp-consulting.fr, www.vkp-consulting.fr
+
+Viewer certificate: use $CERT_ARN
+
+Default behavior: GET/HEAD allowed, HTTP→HTTPS redirect
+
+Custom error responses (optional): map 403/404 → /index.html if you later build an SPA
+
+DIST_ID=$(aws cloudfront create-distribution --distribution-config file://cf-dist.json \
+  --query 'Distribution.Id' --output text)
+DOMAIN_NAME=$(aws cloudfront get-distribution --id $DIST_ID --query 'Distribution.DomainName' --output text)
+echo $DOMAIN_NAME
+
+
+Update the S3 bucket policy to allow only this distribution (AWS will show you the exact JSON in the console when attaching OAC). Apply that policy.
+
+WARNING!
+gpt created cf-dist template
+
+bucket domain is 
+aws s3api get-bucket-location --bucket vkp-consulting.fr --query LocationConstraint
+
+BUCKET_REGION_DOMAIN → your bucket’s regional domain (e.g. vkp-consulting.fr.s3.eu-north-1 .amazonaws.com)
+OAC_ID → the Origin Access Control ID you created in step 4
+
+ACM_CERT_ARN → the ARN of your us-east-1 certificate
+
+and run:
+
+aws cloudfront create-distribution \
+  --distribution-config file://cf-dist.json \
+  --query 'Distribution.{Id:Id, DomainName:DomainName}'
+
+  out:
+  {
+    "Id": "EJWBLACWDMFAZ",
+    "DomainName": "d1kcdf4orzsjcw.cloudfront.net"
+}
+
+run bucketPolicy.sh
+
+apply:
+
+aws s3api put-bucket-policy \
+  --bucket "vkp-consulting.fr" \
+  --policy file://bucket-policy.final.json
+
+
+  for deploy update use this (deployUpdate.sh)
+
+  aws s3 sync ./site s3://vkp-consulting.fr --delete \
+  --cache-control "public,max-age=300"
+aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
+
+SPA-style fallback (serve index.html with 200)
+
+If you’d prefer no redirect (common for SPAs), add Custom error responses:
+
+Error code: 403 → Response page path: /index.html → HTTP response code: 200
+
+Error code: 404 → Response page path: /index.html → HTTP response code: 200
+
+Set Error caching min TTL small (0–5s).
+
+Console path: CloudFront → your distribution → Error pages → Create custom error response (repeat for 403 & 404).
+
+Result: Browser stays on the original URL, but gets the index.html content (status 200).
+

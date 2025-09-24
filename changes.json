@@ -1,0 +1,27 @@
+{
+    "Comment": "ACM DNS validation for vkp-consulting.fr",
+    "Changes": [
+      {
+        "Action": "UPSERT",
+        "ResourceRecordSet": {
+          "Name": "_555216e9c1a6be2474e4132eb8b27f32.vkp-consulting.fr.",
+          "Type": "CNAME",
+          "TTL": 300,
+          "ResourceRecords": [
+            { "Value": "_7fade93eeefbbf91f4ae228acf90c00c.xlfgrmvvlj.acm-validations.aws." }
+          ]
+        }
+      },
+      {
+        "Action": "UPSERT",
+        "ResourceRecordSet": {
+          "Name": "_018f0deebf3665a81018f466c9c44e79.www.vkp-consulting.fr.",
+          "Type": "CNAME",
+          "TTL": 300,
+          "ResourceRecords": [
+            { "Value": "_a6faffe5cd16814c382110ae40633063.xlfgrmvvlj.acm-validations.aws." }
+          ]
+        }
+      }
+    ]
+}
