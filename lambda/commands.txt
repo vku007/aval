@@ -1,0 +1,165 @@
+creation simple JS based api. Deployed as lambda function
+
+1. Create the Lambda + IAM role
+
+Create API:
+
+
+Part 1 — Create the HTTP API (API Gateway) and integrate Lambda
+
+Open API Gateway (HTTP APIs)
+
+Console: API Gateway → left menu HTTP APIs → Create API.
+
+Choose “Build” under HTTP API
+
+You’ll land on Create an API (HTTP API).
+
+Add an integration
+
+Integrations → Add integration → Lambda.
+
+Lambda function: choose vkp-simple-service (region: eu-north-1).
+
+If it prompts, allow API Gateway to add invoke permissions to the function (click OK/Allow).
+
+Define routes
+
+Routes → Add route (twice):
+
+Route 1: Method = ANY, Path = /api → Attach integration = your Lambda.
+
+Route 2: Method = ANY, Path = /api/{proxy+} → Attach integration = your Lambda.
+
+Enable CORS (recommended)
+
+Configure CORS →
+
+Allow origins: https://vkp-consulting.fr, https://www.vkp-consulting.fr
+
+Allow methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+
+Allow headers: content-type, authorization
+
+Save.
+
+Create the API
+
+Next → Name it e.g. vkp-http-api → Create.
+
+Stage
+
+In HTTP APIs, you can use the default stage ($default) with Auto-deploy ON by default.
+
+Verify: left menu Stages → ensure you have $default and Auto-deploy is On.
+
+Note the Invoke URL shown at the top (looks like https://<api-id>.execute-api.eu-north-1.amazonaws.com).
+
+✅ At this point, your API works directly at
+https://<api-id>.execute-api.eu-north-1.amazonaws.com/api
+
+Part 2 — Make sure your Lambda handler matches HTTP API v2.0
+
+HTTP APIs send payload v2.0 by default. Your handler should read the method from event.requestContext.http.method.
+
+If your current code uses event.httpMethod, either:
+
+update the handler to v2.0 (recommended), or
+
+in API Gateway → Integrations → your integration → set Payload format version to 1.0.
+
+(If you want the exact TS handler for v2.0, I can paste it again.)
+
+Part 3 — Point CloudFront /api/* to this API (Console)
+
+You already have a CloudFront distribution for vkp-consulting.fr. We’ll add a second origin (API Gateway) and a cache behavior for /api/*.
+
+Find your API domain
+
+From API Gateway’s API page: copy the Invoke URL (it’s https://<api-id>.execute-api.eu-north-1.amazonaws.com).
+
+The DomainName you need is <api-id>.execute-api.eu-north-1.amazonaws.com.
+
+Stage is $default, so no path prefix is needed.
+
+Open your CloudFront distribution
+
+Console: CloudFront → Distributions → click the distribution that has Alternate domain names = vkp-consulting.fr.
+
+Add an origin
+
+Tab Origins → Create origin:
+
+Origin domain: paste <api-id>.execute-api.eu-north-1.amazonaws.com (select the exact match from the dropdown).
+
+Origin name: apigw-eu-north-1 (any name).
+
+Origin protocol policy: HTTPS only.
+
+Origin SSL protocols: ensure TLSv1.2 is included.
+
+Origin path: (leave empty) because stage is $default.
+
+Leave the rest default → Create origin.
+
+Add a behavior for /api/*
+
+Tab Behaviors → Create behavior:
+
+Path pattern: /api/*
+
+Origin and origin group: choose the origin you just created (e.g., apigw-eu-north-1).
+
+Viewer protocol policy: Redirect HTTP to HTTPS.
+
+Allowed HTTP methods: GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE.
+
+Cache key and origin requests:
+
+Cache policy: CachingDisabled (AWS managed).
+
+Origin request policy: AllViewerExceptHostHeader (AWS managed).
+
+Compression: On.
+
+Leave the rest default → Create behavior.
+
+(Optional) Ensure your Default behavior (the website) has Viewer protocol policy = Redirect HTTP to HTTPS.
+
+Wait for deployment
+
+Distribution status changes to Deployed once the update finishes.
+
+Part 4 — Test
+# HTTP -> HTTPS redirect at edge
+curl -I http://vkp-consulting.fr/api/
+
+# Actual call (GET)
+curl -i https://vkp-consulting.fr/api/
+
+# POST JSON
+curl -i https://vkp-consulting.fr/api/ \
+  -H 'content-type: application/json' \
+  --data '{"hello":"VKP"}'
+
+What to expect
+
+301 from HTTP → HTTPS.
+
+200 (or your handler’s response) for HTTPS calls.
+
+If you get 405 for POST: your handler is likely reading event.httpMethod (v1).
+
+Fix by switching to v2.0 handler or set Payload format version = 1.0 on the integration.
+
+If you get 403 from CloudFront: the /api/* behavior isn’t selected or the origin is wrong; re-check the behavior’s Origin and that Origin path is empty for $default.
+
+Part 5 — (Optional) Lock down CORS & headers
+
+Since the site and API share the same host (vkp-consulting.fr) when called via CloudFront, CORS is generally not triggered.
+
+If you call the API from a different origin or directly, keep the API’s CORS settings from Step 1.
+
+You can also attach a Response headers policy on the /api/* behavior (e.g., security headers).
+
+If you want, tell me your new API ID (from the console) and I’ll double-check the exact CloudFront fields you should see and what to click in screenshots terms.

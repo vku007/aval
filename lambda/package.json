@@ -1,0 +1,19 @@
+{
+    "name": "vkp-lambda",
+    "type": "module",
+    "private": true,
+  "scripts": {
+      "build": "esbuild src/handler.ts --bundle --platform=node --target=node20 --outfile=dist/index.mjs --format=esm",
+      "zip": "cd dist && zip -r ../lambda.zip .",
+      "test": "vitest run",
+      "test:watch": "vitest"
+    },
+  "devDependencies": {
+      "esbuild": "^0.23.0",
+      "@types/aws-lambda": "^8.10.130",
+      "typescript": "^5.6.0",
+      "vitest": "^2.1.1",
+      "@types/node": "^22.7.5"
+    }
+  }
+  
