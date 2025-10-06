@@ -1,0 +1,20 @@
+# Node and build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+
+# Archives
+*.zip
+
+# OS / editor
+.DS_Store
+*.log
+
+# Lambda-specific
+lambda/node_modules/
+lambda/dist/
+lambda/lambda.zip
+
