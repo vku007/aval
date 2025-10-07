@@ -1,0 +1,320 @@
+1) Architecture & decisions (lock first)
+
+Runtime: Node.js 20.x (Lambda), TypeScript, ESM, esbuild bundling.
+
+API layer: API Gateway HTTP API (payload v2.0).
+
+Storage: One S3 bucket (env-driven). Keys live under json/<name>.json.
+
+Auth (baseline): start open; leave toggles for Cognito JWT or IAM auth later.
+
+Security: OAC-protected S3 (no public access). API behind CloudFront at /api/* (already set).
+
+Concurrency control: ETag + conditional headers (If-Match / If-None-Match).
+
+Large bodies: guard to ≤ 10MB (API Gateway limit). For bigger, return presigned URL flow (optional milestone).
+
+Observability: JSON logs, structured error responses, CloudWatch metrics, X-Ray tracing enabled.
+
+2) API design (resources, methods, headers)
+
+Base path: /api
+
+Resources
+
+GET /files?prefix=&limit=&cursor= → list names (paginated)
+
+GET /files/{name} → return JSON body + metadata
+
+Supports If-None-Match → 304 Not Modified
+
+POST /files → create new file
+
+Body JSON: { name: string, data: unknown }
+
+409 if file exists (unless If-None-Match: *)
+
+PUT /files/{name} → create or replace
+
+Accept If-Match (ETag) to prevent lost updates → 412 if mismatch
+
+PATCH /files/{name} (optional) → partial update (merge strategy)
+
+Requires If-Match
+
+DELETE /files/{name} → delete
+
+Accept If-Match (optional) → 412 if mismatch; 204 on success
+
+GET /files/{name}/meta (optional) → S3 head: ETag, size, lastModified
+
+Content & headers
+
+Content-Type: application/json always for bodies.
+
+Return ETag on all read/write responses.
+
+Error model: RFC 7807 (application/problem+json) with fields: type, title, status, detail, instance.
+
+3) S3 keying & validation rules
+
+Key = json/${encodeURIComponent(name)}.json; name regex: ^[a-zA-Z0-9._-]{1,128}$.
+
+Server-side encryption: AES-256 (S3 managed).
+
+Tag objects with app=vkp-api, env=<env> for ops.
+
+4) Project layout
+lambda/
+  src/
+    app.ts                 # router + handlers
+    s3.ts                  # S3 client & helpers (get/put/delete/list/head)
+    errors.ts              # typed errors + problem+json builder
+    validation.ts          # zod schemas for inputs
+    logging.ts             # JSON logger (pino-lite or console)
+    types.ts               # shared types
+  package.json
+  tsconfig.json
+  esbuild.config.mjs
+  jest.config.js (or vitest)
+
+5) Core implementation tasks
+
+Scaffold TS Lambda
+
+npm i -D typescript esbuild @types/aws-lambda zod
+
+Scripts: build (esbuild), zip.
+
+HTTP API v2 handler
+
+Parse method: event.requestContext.http.method; path & params from event.pathParameters; query from event.queryStringParameters.
+
+Normalize responses with helper json(status, body, headers?).
+
+Validation
+
+zod schemas: nameSchema, createSchema { name,data }, listQuery.
+
+S3 helpers (AWS SDK v3)
+
+getJson(name): {etag, lastModified, body} (uses GetObject + stream→string)
+
+putJson(name, data, {ifMatch?, ifNoneMatch?}): etag
+
+deleteJson(name, {ifMatch?})
+
+headJson(name): {etag, size, lastModified}
+
+listJson({prefix, limit, cursor}) (ListObjectsV2 with ContinuationToken)
+
+Map conditional headers to S3: IfMatch, IfNoneMatch.
+
+Handlers
+
+GET /files → call listJson; return { items: [{name, etag, size, lastModified}], nextCursor }
+
+GET /files/{name} → honor If-None-Match; return 200 with body & ETag or 304.
+
+POST /files → require If-None-Match: * or enforce non-existence via HeadObject; 409 if exists; 201 with Location.
+
+PUT /files/{name} → write; if If-Match mismatch → 412.
+
+PATCH /files/{name} (optional) → read→merge→write with If-Match.
+
+DELETE /files/{name} → delete; if If-Match & mismatch → 412; else 204.
+
+Error handling
+
+Convert known cases to problem+json (e.g., NoSuchKey → 404).
+
+Catch-all 500 with correlation id.
+
+CORS
+
+Return Access-Control-Allow-Origin: https://vkp-consulting.fr (env var).
+
+Handle OPTIONS quickly (204).
+
+Limits & security
+
+Reject bodies > 1MB (configurable) unless using presigned flow.
+
+Sanitize name to prevent traversal; enforce whitelist regex.
+
+SSE: set ServerSideEncryption: 'AES256' on PutObject.
+
+6) IAM & configuration
+
+Lambda execution role grants S3 access only to the bucket and json/* prefix:
+
+s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket (prefix condition), s3:HeadObject.
+
+Env vars (Lambda):
+
+BUCKET_NAME, JSON_PREFIX=json/, CORS_ORIGIN=https://vkp-consulting.fr, MAX_BODY_BYTES=1048576
+
+API Gateway integration = Lambda proxy (AWS_PROXY), payload v2.0.
+
+CloudFront behavior for /api/*:
+
+Origin = <api-id>.execute-api.<region>.amazonaws.com
+
+HTTPS only, CachingDisabled, AllViewerExceptHostHeader.
+
+7) Deployment (pick one)
+
+IaC (recommended): CDK (TypeScript) or Terraform to define:
+
+S3 bucket, Lambda, role & policy, API Gateway routes, CloudFront behavior.
+
+Lightweight: AWS SAM or Serverless Framework (easy local testing).
+
+Manual CLI (fallback): create-function, create-api, routes, etc. (you already did most).
+
+8) Testing plan (acceptance criteria)
+
+Unit
+
+Validate name regex; reject invalid.
+
+putJson honors If-Match/If-None-Match.
+
+Error mapping (404/409/412) correctness.
+
+Integration (pre-prod)
+
+POST /files with If-None-Match:* → 201 + Location + ETag.
+
+GET /files/{name} → 200 JSON; repeat with If-None-Match: <etag> → 304.
+
+PUT /files/{name} without If-Match → success; then with stale If-Match → 412.
+
+DELETE /files/{name} with correct If-Match → 204; GET → 404.
+
+GET /files?prefix=x&limit=2 paginates and returns nextCursor.
+
+Load
+
+100 RPS read; ensure P95 < 100ms (in-region).
+
+9) Observability & ops
+
+Logging: one JSON line per request with ts, method, path, status, duration_ms, requestId, name.
+
+Metrics: count success/fail per route; emit PutMetricData (optional) or use CloudWatch embedded metrics format.
+
+Tracing: enable X-Ray for Lambda & API Gateway.
+
+Alarms: 5XX rate, p95 latency, throttles, DLQ (if you add async ops later).
+
+10) Optional milestone: presigned uploads/downloads
+
+Endpoints:
+
+POST /files/{name}:uploadUrl → presigned PUT (Content-Type: application/json)
+
+GET /files/{name}:downloadUrl → presigned GET
+
+Enforce name policy; set short expiry (e.g., 5 min).
+
+11) Security hardening (phase 2)
+
+AuthN/AuthZ: Cognito JWT authorizer (HTTP API) or IAM auth; enforce per-route policies (e.g., write requires role).
+
+Schema enforcement: reject non-JSON or large JSON; optionally validate against provided JSON Schema per file type.
+
+WAF: attach to CloudFront (rate limits, IP allow/deny, bot control).
+
+Backups: S3 bucket versioning + lifecycle; optional Glacier.
+
+12) Deliverables checklist
+
+ Git repo with TS Lambda, build, and tests.
+
+ IaC templates (CDK/Terraform/SAM) for bucket, role, Lambda, API, CF behavior.
+
+ README with runbooks: deploy, rollback, rotate keys, change bucket, set auth.
+
+ Postman collection / .http files (VS Code) for all routes.
+
+ CloudWatch dashboards/alarms JSON (optional).
+
+Quick starter code stubs (handler shape)
+// app.ts
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
+import { z } from "zod";
+import * as s3 from "./s3";
+import { problem } from "./errors";
+
+const nameSchema = z.string().regex(/^[a-zA-Z0-9._-]{1,128}$/);
+
+const corsOrigin = process.env.CORS_ORIGIN ?? "*";
+
+function res(status: number, body?: unknown, extraHeaders: Record<string,string> = {}): APIGatewayProxyResultV2 {
+  return {
+    statusCode: status,
+    headers: {
+      "content-type": "application/json",
+      "access-control-allow-origin": corsOrigin,
+      "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      "access-control-allow-headers": "content-type,authorization",
+      ...extraHeaders,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  };
+}
+
+export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
+  const m = event.requestContext.http.method;
+  const p = event.rawPath;
+  if (m === "OPTIONS") return res(204);
+
+  try {
+    if (p === "/api" && m === "GET") {
+      const { prefix = "", limit, cursor } = event.queryStringParameters ?? {};
+      const out = await s3.listJson({ prefix, limit: limit ? Number(limit) : undefined, cursor: cursor ?? undefined });
+      return res(200, out);
+    }
+
+    if (p === "/api" && m === "POST") {
+      const body = event.body ? JSON.parse(event.body) : {};
+      const name = nameSchema.parse(body.name);
+      const data = body.data ?? {};
+      const ifNoneMatch = event.headers?.["if-none-match"];
+      const etag = await s3.putJson(name, data, { ifNoneMatch });
+      return res(201, { name, etag }, { Location: `/api/files/${name}` , ETag: etag });
+    }
+
+    const match = event.pathParameters?.["name"];
+    if (match && p.startsWith("/api/files/")) {
+      const name = nameSchema.parse(match);
+
+      if (m === "GET") {
+        const inm = event.headers?.["if-none-match"];
+        const got = await s3.getJson(name, { ifNoneMatch: inm });
+        return res(got.status, got.body, { ETag: got.etag });
+      }
+
+      if (m === "PUT" || m === "PATCH") {
+        const ifMatch = event.headers?.["if-match"];
+        const body = event.body ? JSON.parse(event.body) : {};
+        const etag = await s3.putJson(name, m === "PATCH" ? { __patch__: body } : body, { ifMatch, patch: m==="PATCH" });
+        return res(200, { name, etag }, { ETag: etag });
+      }
+
+      if (m === "DELETE") {
+        const ifMatch = event.headers?.["if-match"];
+        await s3.deleteJson(name, { ifMatch });
+        return res(204);
+      }
+    }
+
+    return problem(404, "Not Found", "No route", event);
+  } catch (e:any) {
+    return problem(e.status ?? 500, e.title ?? "Server error", e.detail ?? e.message, event);
+  }
+}
+
+
+The s3.ts helper should translate conditional headers → S3’s IfMatch/IfNoneMatch, manage 304 and 412, and for PATCH read→merge→write atomically.

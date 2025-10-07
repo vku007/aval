@@ -2,7 +2,10 @@ creation simple JS based api. Deployed as lambda function
 
 1. Create the Lambda + IAM role
 
-Create API:
+
+
+
+2. Create API:
 
 
 Part 1 — Create the HTTP API (API Gateway) and integrate Lambda
@@ -163,3 +166,9 @@ If you call the API from a different origin or directly, keep the API’s CORS s
 You can also attach a Response headers policy on the /api/* behavior (e.g., security headers).
 
 If you want, tell me your new API ID (from the console) and I’ll double-check the exact CloudFront fields you should see and what to click in screenshots terms.
+
+
+-----
+
+so, i've created new API function, and it should be added to existed distribution. but with different API route:
+apiV2/

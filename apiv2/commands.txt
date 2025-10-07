@@ -1,0 +1,52 @@
+due to consistency lag had to create function manually
+
+aws lambda create-function \
+  --function-name "vkp-api2-service" \
+  --runtime nodejs20.x \
+  --role "arn:aws:iam::088455116440:role/vkp-api2-service-role" \
+  --handler index.handler \
+  --architectures arm64 \
+  --zip-file fileb://lambda.zip \
+  --environment "Variables={CORS_ORIGIN=https://vkp-consulting.fr}" \
+  --region eu-north-1 
+
+  in addition, some variables should be added to lambda manually:
+
+  Environment variables (Lambda)
+
+BUCKET_NAME (required): your S3 bucket
+
+JSON_PREFIX (default: json/)
+
+CORS_ORIGIN (default: https://vkp-consulting.fr)
+
+ENVIRONMENT (e.g., prod)
+
+
+APP_TAG (default: vkp-api)
+
+MAX_BODY_BYTES (default: 1048576)
+
+
+so, fist create bucket,
+next add bucket policy
+and Inline IAM policy on the Lambda role (defense-in-depth)
+
+
+next we need to add route to lambda
+
+we aready have API, we just add route
+
+== Done ==
+Direct URL:  https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2
+Proxy URL:   https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/anything
+main@Mac apiv2 % 
+
+next, have to fix bucket policy:
+fix_bucket_policy.sh
+
+
+usage:
+
+create
+curl -i "https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files" -H 'content-type: application/json' --data '{"name":"test","data":{"f1":"v1"}}'

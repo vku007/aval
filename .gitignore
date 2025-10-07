@@ -18,3 +18,7 @@ lambda/node_modules/
 lambda/dist/
 lambda/lambda.zip
 
+apiv2/node_modules/
+apiv2/dist/
+apiv2/lambda.zip
+
