@@ -41,9 +41,19 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   const ctx = event.requestContext;
   const method = ctx.http.method;
   const path = event.rawPath;
+  const requestId = ctx.requestId;
 
   // CORS preflight
   if (method === "OPTIONS") return res(204);
+
+  // Content-Type validation for mutation methods
+  if (["POST", "PUT", "PATCH"].includes(method)) {
+    const ct = event.headers?.["content-type"]?.toLowerCase();
+    if (!ct || !ct.includes("application/json")) {
+      log("warn", { requestId, method, path, event: "unsupported_media_type", contentType: ct });
+      return problem(415, "Unsupported Media Type", "Content-Type must be application/json", event);
+    }
+  }
 
   const t0 = Date.now();
   try {
@@ -146,14 +156,31 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       }
     }
 
-    return problem(404, "Not Found", "No matching route", event);
+    // No matching route - return 405 with Allow header
+    return {
+      statusCode: 405,
+      headers: {
+        "content-type": "application/problem+json",
+        "access-control-allow-origin": corsOrigin,
+        "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "access-control-allow-headers": "content-type,authorization,if-match,if-none-match",
+        "allow": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+      },
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Method Not Allowed",
+        status: 405,
+        detail: `${method} not allowed on ${path}`,
+        instance: path
+      })
+    };
   } catch (e: any) {
     const status = e.status ?? 500;
     const title = e.title ?? "Internal Server Error";
     const detail = e.detail ?? e.message ?? String(e);
-    log("error", { status, title, detail });
+    log("error", { requestId, method, path, event: "error", status, title, detail });
     return problem(status, title, detail, event);
   } finally {
-    log("req", { method, path, ms: Date.now() - t0 });
+    log("info", { requestId, method, path, event: "request", duration_ms: Date.now() - t0 });
   }
 }

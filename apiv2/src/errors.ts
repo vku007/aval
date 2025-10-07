@@ -18,7 +18,8 @@ export const problem = (
   status: number,
   title: string,
   detail: string | undefined,
-  event: APIGatewayProxyEventV2
+  event: APIGatewayProxyEventV2,
+  corsOrigin = process.env.CORS_ORIGIN ?? "https://vkp-consulting.fr"
 ): APIGatewayProxyResultV2 => {
   const body = {
     type: "about:blank",
@@ -30,7 +31,10 @@ export const problem = (
   return {
     statusCode: status,
     headers: {
-      "content-type": "application/problem+json"
+      "content-type": "application/problem+json",
+      "access-control-allow-origin": corsOrigin,
+      "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      "access-control-allow-headers": "content-type,authorization,if-match,if-none-match"
     },
     body: JSON.stringify(body)
   };
