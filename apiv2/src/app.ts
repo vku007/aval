@@ -57,6 +57,9 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
   const t0 = Date.now();
   try {
+    // Debug logging
+    log("info", { requestId, event: "route_debug", path, method, pathParameters: event.pathParameters });
+
     // GET /apiv2/files (list)
     if (method === "GET" && path === "/apiv2/files") {
       const q = listQuerySchema.parse(event.queryStringParameters ?? {});
@@ -82,7 +85,18 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     // Routes with /apiv2/files/{name} and /apiv2/files/{name}/meta
-    const nameParam = event.pathParameters?.["name"];
+    // API Gateway uses {proxy+} parameter, extract name from it
+    const proxyParam = event.pathParameters?.["proxy"];
+    let nameParam: string | null = null;
+    if (proxyParam?.startsWith("files/")) {
+      const afterFiles = proxyParam.slice(6); // Remove "files/"
+      // Check if it ends with /meta
+      if (afterFiles.endsWith("/meta")) {
+        nameParam = afterFiles.slice(0, -5); // Remove "/meta"
+      } else {
+        nameParam = afterFiles;
+      }
+    }
 
     // GET /apiv2/files/{name}/meta
     if (method === "GET" && nameParam && path.endsWith("/meta")) {

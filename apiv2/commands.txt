@@ -50,3 +50,13 @@ usage:
 
 create
 curl -i "https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files" -H 'content-type: application/json' --data '{"name":"test","data":{"f1":"v1"}}'
+curl -i "https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files" -H 'content-type: application/json' --data '{"name":"test2","data":{"f1":"v122"}}'
+
+
+curl -i "https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files/test2" -H 'content-type: application/json' 
+
+
+GET /files/{name}
+
+
+
