@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entity Manager - VKP API</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+
+    .content {
+      padding: 2rem;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #667eea;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #555;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    textarea {
+      font-family: 'Monaco', 'Courier New', monospace;
+      min-height: 150px;
+      resize: vertical;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    .entities-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .entity-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #fafafa;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+    }
+
+    .entity-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+
+    .entity-card.selected {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+
+    .entity-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      color: #333;
+      word-break: break-all;
+    }
+
+    .entity-meta {
+      font-size: 0.875rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+
+    .entity-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .tab:hover {
+      color: #667eea;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    code {
+      background: #f4f4f4;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📦 Entity Manager</h1>
+      <p>Manage JSON entities via VKP API</p>
+    </header>
+
+    <div class="content">
+      <div id="alert-container"></div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="browse">Browse</div>
+        <div class="tab" data-tab="create">Create</div>
+        <div class="tab" data-tab="edit">Edit</div>
+      </div>
+
+      <!-- Browse Tab -->
+      <div class="tab-content active" data-content="browse">
+        <div class="section">
+          <div class="section-title">Entities</div>
+          <div class="form-group">
+            <input type="text" id="search-prefix" placeholder="Filter by prefix...">
+          </div>
+          <button class="btn" onclick="app.loadEntities()">🔄 Refresh</button>
+          <div id="entities-list" class="entities-list">
+            <div class="loading">
+              <div class="spinner"></div>
+              <p>Loading entities...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Tab -->
+      <div class="tab-content" data-content="create">
+        <div class="section">
+          <div class="section-title">Create New Entity</div>
+          <form id="create-form" onsubmit="app.createEntity(event)">
+            <div class="form-group">
+              <label for="create-name">Name <code>^[a-zA-Z0-9._-]{1,128}$</code></label>
+              <input type="text" id="create-name" required pattern="[a-zA-Z0-9._-]+" 
+                     placeholder="e.g., user.config, data-2025">
+            </div>
+            <div class="form-group">
+              <label for="create-data">JSON Data</label>
+              <textarea id="create-data" required placeholder='{"key": "value"}'></textarea>
+            </div>
+            <button type="submit" class="btn">✨ Create Entity</button>
+            <button type="button" class="btn btn-secondary" onclick="app.resetCreateForm()">Clear</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Edit Tab -->
+      <div class="tab-content" data-content="edit">
+        <div class="section">
+          <div class="section-title">Edit Entity</div>
+          <div id="edit-placeholder" class="alert alert-info">
+            Select an entity from the Browse tab to edit
+          </div>
+          <form id="edit-form" class="hidden" onsubmit="app.updateEntity(event)">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" id="edit-name" readonly style="background: #f0f0f0;">
+            </div>
+            <div class="form-group">
+              <label>ETag (current version)</label>
+              <input type="text" id="edit-etag" readonly style="background: #f0f0f0;">
+            </div>
+            <div class="form-group">
+              <label for="edit-data">JSON Data</label>
+              <textarea id="edit-data" required></textarea>
+            </div>
+            <div class="form-group">
+              <label for="update-mode">Update Mode</label>
+              <select id="update-mode">
+                <option value="replace">Replace (PUT) - Full replacement</option>
+                <option value="merge">Merge (PATCH) - Deep merge with existing</option>
+              </select>
+            </div>
+            <button type="submit" class="btn">💾 Save Changes</button>
+            <button type="button" class="btn btn-danger" onclick="app.deleteEntity()">🗑️ Delete</button>
+            <button type="button" class="btn btn-secondary" onclick="app.cancelEdit()">Cancel</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://vkp-consulting.fr/apiv2';
+
+    const app = {
+      selectedEntity: null,
+      entities: [],
+
+      async request(method, path, body = null, headers = {}) {
+        const opts = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...headers
+          }
+        };
+        if (body) opts.body = JSON.stringify(body);
+
+        const res = await fetch(`${API_BASE}${path}`, opts);
+        
+        if (res.status === 204) return null;
+        if (res.status === 304) return { notModified: true };
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.detail || data.title || `HTTP ${res.status}`);
+        }
+        
+        return { data, etag: res.headers.get('ETag')?.replace(/"/g, '') };
+      },
+
+      showAlert(message, type = 'info') {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+      },
+
+      switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
+      },
+
+      async loadEntities() {
+        const list = document.getElementById('entities-list');
+        list.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+
+        try {
+          const prefix = document.getElementById('search-prefix').value;
+          const params = new URLSearchParams();
+          if (prefix) params.set('prefix', prefix);
+          
+          const result = await this.request('GET', `/files?${params}`);
+          this.entities = result.data.items;
+
+          if (this.entities.length === 0) {
+            list.innerHTML = '<div class="alert alert-info">No entities found</div>';
+            return;
+          }
+
+          list.innerHTML = this.entities.map(e => `
+            <div class="entity-card" onclick="app.selectEntity('${e.name}')">
+              <div class="entity-name">${e.name}</div>
+              <div class="entity-meta">
+                Size: ${e.size ? Math.round(e.size / 1024 * 10) / 10 : 0} KB<br>
+                Modified: ${e.lastModified ? new Date(e.lastModified).toLocaleString() : 'N/A'}
+              </div>
+              <div class="entity-actions">
+                <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.name}')">👁️ View</button>
+                <button class="btn btn-small" onclick="event.stopPropagation(); app.editEntity('${e.name}')">✏️ Edit</button>
+              </div>
+            </div>
+          `).join('');
+        } catch (err) {
+          list.innerHTML = `<div class="alert alert-error">Error: ${err.message}</div>`;
+        }
+      },
+
+      selectEntity(name) {
+        document.querySelectorAll('.entity-card').forEach(c => c.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+        this.selectedEntity = name;
+      },
+
+      async viewEntity(name) {
+        try {
+          const result = await this.request('GET', `/files/${name}`);
+          alert(JSON.stringify(result.data, null, 2));
+        } catch (err) {
+          this.showAlert(`Error viewing ${name}: ${err.message}`, 'error');
+        }
+      },
+
+      async editEntity(name) {
+        try {
+          const result = await this.request('GET', `/files/${name}`);
+          
+          document.getElementById('edit-name').value = name;
+          document.getElementById('edit-etag').value = result.etag || 'N/A';
+          document.getElementById('edit-data').value = JSON.stringify(result.data, null, 2);
+          document.getElementById('edit-placeholder').classList.add('hidden');
+          document.getElementById('edit-form').classList.remove('hidden');
+          
+          this.selectedEntity = { name, etag: result.etag };
+          this.switchTab('edit');
+        } catch (err) {
+          this.showAlert(`Error loading ${name}: ${err.message}`, 'error');
+        }
+      },
+
+      async createEntity(event) {
+        event.preventDefault();
+        
+        const name = document.getElementById('create-name').value;
+        const dataText = document.getElementById('create-data').value;
+        
+        try {
+          const data = JSON.parse(dataText);
+          await this.request('POST', '/files', { name, data });
+          
+          this.showAlert(`Entity "${name}" created successfully!`, 'success');
+          this.resetCreateForm();
+          this.switchTab('browse');
+          this.loadEntities();
+        } catch (err) {
+          this.showAlert(`Error creating entity: ${err.message}`, 'error');
+        }
+      },
+
+      async updateEntity(event) {
+        event.preventDefault();
+        
+        const name = this.selectedEntity.name;
+        const etag = this.selectedEntity.etag;
+        const dataText = document.getElementById('edit-data').value;
+        const mode = document.getElementById('update-mode').value;
+        
+        try {
+          const data = JSON.parse(dataText);
+          const method = mode === 'replace' ? 'PUT' : 'PATCH';
+          const headers = etag ? { 'If-Match': etag } : {};
+          
+          await this.request(method, `/files/${name}`, data, headers);
+          
+          this.showAlert(`Entity "${name}" updated successfully!`, 'success');
+          this.cancelEdit();
+          this.switchTab('browse');
+          this.loadEntities();
+        } catch (err) {
+          this.showAlert(`Error updating entity: ${err.message}`, 'error');
+        }
+      },
+
+      async deleteEntity() {
+        if (!confirm(`Delete "${this.selectedEntity.name}"?`)) return;
+        
+        const name = this.selectedEntity.name;
+        const etag = this.selectedEntity.etag;
+        
+        try {
+          const headers = etag ? { 'If-Match': etag } : {};
+          await this.request('DELETE', `/files/${name}`, null, headers);
+          
+          this.showAlert(`Entity "${name}" deleted successfully!`, 'success');
+          this.cancelEdit();
+          this.switchTab('browse');
+          this.loadEntities();
+        } catch (err) {
+          this.showAlert(`Error deleting entity: ${err.message}`, 'error');
+        }
+      },
+
+      resetCreateForm() {
+        document.getElementById('create-form').reset();
+      },
+
+      cancelEdit() {
+        document.getElementById('edit-placeholder').classList.remove('hidden');
+        document.getElementById('edit-form').classList.add('hidden');
+        this.selectedEntity = null;
+      }
+    };
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => app.switchTab(tab.dataset.tab));
+    });
+
+    // Search on enter
+    document.getElementById('search-prefix').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') app.loadEntities();
+    });
+
+    // Initial load
+    app.loadEntities();
+  </script>
+</body>
+</html>
