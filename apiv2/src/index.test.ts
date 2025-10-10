@@ -106,7 +106,7 @@ describe('Lambda Handler - Integration Tests', () => {
         .mockResolvedValueOnce({ ETag: '"abc123"' }); // PUT
       (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
-      const event = createEvent('POST', '/apiv2/files', { name: 'test', data: { x: 1 } });
+      const event = createEvent('POST', '/apiv2/files', { id: 'test', data: { x: 1 } });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(201);
@@ -122,9 +122,9 @@ describe('Lambda Handler - Integration Tests', () => {
       expect(response.headers?.['content-type']).toBe('application/problem+json');
     });
 
-    it('should return validation error for invalid entity name', async () => {
+    it('should return validation error for invalid entity id', async () => {
       const event = createEvent('POST', '/apiv2/files', {
-        name: 'invalid name with spaces',
+        id: 'invalid name with spaces',
         data: {}
       });
       const response = await handler(event);
@@ -209,7 +209,7 @@ describe('Lambda Handler - Integration Tests', () => {
       (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('POST', '/apiv2/files', {
-        name: 'new-entity',
+        id: 'new-entity',
         data: { value: 42 }
       });
       
