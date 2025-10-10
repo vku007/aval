@@ -1,25 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { handler } from './index.js';
 
 // Mock S3Client
-vi.mock('@aws-sdk/client-s3', () => {
-  const mockSend = vi.fn();
-  return {
-    S3Client: vi.fn(() => ({ send: mockSend })),
-    GetObjectCommand: vi.fn(),
-    PutObjectCommand: vi.fn(),
-    DeleteObjectCommand: vi.fn(),
-    HeadObjectCommand: vi.fn(),
-    ListObjectsV2Command: vi.fn(),
-    NotFound: class NotFound extends Error {
-      constructor() {
-        super('Not Found');
-        this.name = 'NotFound';
-      }
-    }
-  };
-});
+vi.mock('@aws-sdk/client-s3');
+
+import { handler } from './index.js';
+import { S3Client } from '@aws-sdk/client-s3';
+
+// Get the mocked S3Client
+const MockedS3Client = vi.mocked(S3Client);
+const mockSend = vi.fn();
+MockedS3Client.mockImplementation(() => ({ send: mockSend }) as any);
 
 function createEvent(
   method: string,
@@ -66,6 +57,7 @@ function createEvent(
 describe('Lambda Handler - Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSend.mockClear();
     process.env.BUCKET_NAME = 'test-bucket';
     process.env.JSON_PREFIX = 'json/';
     process.env.CORS_ORIGIN = 'https://vkp-consulting.fr';
@@ -87,7 +79,7 @@ describe('Lambda Handler - Integration Tests', () => {
       const event = createEvent(
         'POST',
         '/apiv2/files',
-        { name: 'test', data: {} },
+        { id: 'test', data: {} },
         { 'content-type': 'text/plain' }
       );
       const response = await handler(event);
@@ -97,14 +89,13 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should accept POST with application/json', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
-      const mockSend = vi.fn()
+      // Mock HEAD check (not found) then PUT success
+      mockSend
         .mockRejectedValueOnce({ // HEAD check (not found)
           name: 'NotFound',
           $metadata: { httpStatusCode: 404 }
         })
         .mockResolvedValueOnce({ ETag: '"abc123"' }); // PUT
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('POST', '/apiv2/files', { id: 'test', data: { x: 1 } });
       const response = await handler(event);
@@ -155,12 +146,11 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Path routing', () => {
     it('should route GET /apiv2/files to list', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
-      const mockSend = vi.fn().mockResolvedValue({ 
+      // Mock ListObjectsV2 response
+      mockSend.mockResolvedValueOnce({ 
         Contents: [],
         IsTruncated: false
       });
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('GET', '/apiv2/files');
       const response = await handler(event);
@@ -170,20 +160,19 @@ describe('Lambda Handler - Integration Tests', () => {
       expect(body).toHaveProperty('names');
     });
 
-    it('should route GET /apiv2/files/:name to get entity', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
+    it('should route GET /apiv2/files/:id to get entity', async () => {
       const mockBody = {
         async *[Symbol.asyncIterator]() {
           yield Buffer.from(JSON.stringify({ test: 'data' }));
         }
       };
-      const mockSend = vi.fn().mockResolvedValue({
+      // Mock GetObject response
+      mockSend.mockResolvedValueOnce({
         Body: mockBody,
         ETag: '"etag123"',
         ContentLength: 16,
         LastModified: new Date()
       });
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('GET', '/apiv2/files/test-entity');
       event.pathParameters = { proxy: 'files/test-entity' };
@@ -199,14 +188,13 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Entity CRUD operations', () => {
     it('should create entity with POST', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
-      const mockSend = vi.fn()
+      // Mock HEAD check (not found) then PUT success
+      mockSend
         .mockRejectedValueOnce({ // HEAD check
           name: 'NotFound',
           $metadata: { httpStatusCode: 404 }
         })
         .mockResolvedValueOnce({ ETag: '"new-etag"' }); // PUT
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('POST', '/apiv2/files', {
         id: 'new-entity',
@@ -221,13 +209,13 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should update entity with PUT', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
       const mockBody = {
         async *[Symbol.asyncIterator]() {
           yield Buffer.from(JSON.stringify({ old: 'value' }));
         }
       };
-      const mockSend = vi.fn()
+      // Mock GET existing then PUT update
+      mockSend
         .mockResolvedValueOnce({ // GET existing
           Body: mockBody,
           ETag: '"old-etag"',
@@ -235,7 +223,6 @@ describe('Lambda Handler - Integration Tests', () => {
           LastModified: new Date()
         })
         .mockResolvedValueOnce({ ETag: '"updated-etag"' }); // PUT
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('PUT', '/apiv2/files/existing', { updated: true });
       event.pathParameters = { proxy: 'files/existing' };
@@ -247,15 +234,14 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should delete entity with DELETE', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
-      const mockSend = vi.fn()
+      // Mock HEAD check for exists then DELETE
+      mockSend
         .mockResolvedValueOnce({ // HEAD check for exists
           ETag: '"etag"',
           ContentLength: 10,
           LastModified: new Date()
         })
         .mockResolvedValueOnce({}); // DELETE
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('DELETE', '/apiv2/files/to-delete');
       event.pathParameters = { proxy: 'files/to-delete' };
@@ -269,11 +255,10 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('ETag handling', () => {
     it('should return 304 Not Modified when If-None-Match matches', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
-      const mockSend = vi.fn().mockRejectedValue({
+      // Mock GET with 304 response
+      mockSend.mockRejectedValueOnce({
         $metadata: { httpStatusCode: 304 }
       });
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('GET', '/apiv2/files/test', undefined, {
         'if-none-match': '"matching-etag"'
@@ -286,19 +271,18 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should include ETag in response headers', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
       const mockBody = {
         async *[Symbol.asyncIterator]() {
           yield Buffer.from('{}');
         }
       };
-      const mockSend = vi.fn().mockResolvedValue({
+      // Mock GetObject response with ETag
+      mockSend.mockResolvedValueOnce({
         Body: mockBody,
         ETag: '"response-etag"',
         ContentLength: 2,
         LastModified: new Date()
       });
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('GET', '/apiv2/files/test');
       event.pathParameters = { proxy: 'files/test' };
@@ -311,8 +295,8 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Query parameters', () => {
     it('should handle list pagination with cursor', async () => {
-      const { S3Client } = await import('@aws-sdk/client-s3');
-      const mockSend = vi.fn().mockResolvedValue({
+      // Mock ListObjectsV2 with pagination
+      mockSend.mockResolvedValueOnce({
         Contents: [{ 
           Key: 'json/test.json', 
           ETag: '"etag"',
@@ -322,7 +306,6 @@ describe('Lambda Handler - Integration Tests', () => {
         IsTruncated: true,
         NextContinuationToken: 'next-token'
       });
-      (S3Client as any).mockImplementation(() => ({ send: mockSend }));
 
       const event = createEvent('GET', '/apiv2/files', undefined, undefined, {
         limit: '10',

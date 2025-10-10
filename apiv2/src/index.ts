@@ -36,30 +36,46 @@ const logger = new Logger();
 const entityFactory = (id: string, data: JsonValue, etag?: string, metadata?: EntityMetadata) =>
   new JsonEntity(id, data, etag, metadata);
 
-// Infrastructure layer
-const s3Client = new S3Client({ region: config.aws.region });
-const entityRepository = new S3EntityRepository<JsonEntity>(s3Client, config, entityFactory);
+// Infrastructure layer - S3Client created inside handler for testability
+let s3Client: S3Client;
+let entityRepository: S3EntityRepository<JsonEntity>;
+let entityService: EntityService<JsonEntity>;
 
-// Application layer
-const entityService = new EntityService(entityRepository, logger);
+function initializeServices() {
+  if (!s3Client) {
+    s3Client = new S3Client({ region: config.aws.region });
+    entityRepository = new S3EntityRepository<JsonEntity>(s3Client, config, entityFactory);
+    entityService = new EntityService(entityRepository, logger);
+  }
+}
 
-// Presentation layer
-const entityController = new EntityController(entityService, logger);
+// Presentation layer - Controller created inside handler for testability
+let entityController: EntityController;
 
 // Build error handler
 const handleError = errorHandler(logger, config.cors.allowedOrigin);
 
-// Router with middleware
-const router = new Router()
-  .use(corsMiddleware(config))
-  .use(contentTypeMiddleware())
-  .get('/apiv2/files', (req) => entityController.list(req))
-  .get('/apiv2/files/:id/meta', (req) => entityController.getMeta(req))
-  .get('/apiv2/files/:id', (req) => entityController.get(req))
-  .post('/apiv2/files', (req) => entityController.create(req))
-  .put('/apiv2/files/:id', (req) => entityController.update(req))
-  .patch('/apiv2/files/:id', (req) => entityController.patch(req))
-  .delete('/apiv2/files/:id', (req) => entityController.delete(req));
+// Router with middleware - created inside handler for testability
+let router: Router;
+
+function createRouter() {
+  if (!router) {
+    initializeServices();
+    entityController = new EntityController(entityService, logger);
+    
+    router = new Router()
+      .use(corsMiddleware(config))
+      .use(contentTypeMiddleware())
+      .get('/apiv2/files', (req) => entityController.list(req))
+      .get('/apiv2/files/:id/meta', (req) => entityController.getMeta(req))
+      .get('/apiv2/files/:id', (req) => entityController.get(req))
+      .post('/apiv2/files', (req) => entityController.create(req))
+      .put('/apiv2/files/:id', (req) => entityController.update(req))
+      .patch('/apiv2/files/:id', (req) => entityController.patch(req))
+      .delete('/apiv2/files/:id', (req) => entityController.delete(req));
+  }
+  return router;
+}
 
 // ============================================================================
 // LAMBDA HANDLER
@@ -84,6 +100,7 @@ export const handler = async (
     });
 
     // Route request through middleware and controllers
+    const router = createRouter();
     const response = await router.handle(request);
 
     // Convert back to API Gateway response
