@@ -523,35 +523,10 @@ describe('EntityService', () => {
 
 ## Migration Strategy
 
-### Option A: Big Bang (Risky)
 Replace entire `app.ts` in one deployment.
 
-### Option B: Strangler Fig Pattern (Recommended)
-1. Keep old `app.ts` as fallback
-2. Implement new architecture in parallel
-3. Route new endpoints to new code
-4. Gradually migrate existing endpoints
-5. Remove old code when 100% migrated
 
-### Option C: Feature Flags
-```typescript
-const USE_NEW_ARCHITECTURE = process.env.NEW_ARCH === 'true';
 
-export const handler = USE_NEW_ARCHITECTURE
-  ? newArchitectureHandler
-  : oldHandler;
-```
-
----
-
-## File Size Estimate
-
-| Current | New Architecture |
-|---------|------------------|
-| app.ts: ~200 lines | 15-20 files, ~50-100 lines each |
-| **Total:** ~500 lines | **Total:** ~1000-1200 lines |
-
-**Trade-off:** 2x code but 10x maintainability
 
 ---
 
@@ -564,30 +539,17 @@ export const handler = USE_NEW_ARCHITECTURE
 5. **Test** - Comprehensive testing at each layer
 6. **Deploy** - Gradual rollout with monitoring
 
----
-
-## Alternative: Lightweight Refactoring
-
-If full domain architecture is too heavy, consider **simplified layering**:
-
-```
-src/
-├── handlers/          # Request handlers (thin controllers)
-├── services/          # Business logic
-├── repositories/      # Data access
-└── shared/           # Common utilities
-```
-
-This gives 80% of benefits with 40% of complexity.
 
 ---
 
 ## Questions to Answer
 
 1. **Scope:** Will you have multiple entity types in future (not just JSON files)?
-2. **Team Size:** Solo developer or team?
-3. **Timeline:** How urgent is this refactor?
-4. **Testing:** What's your current test coverage?
-5. **Performance:** Any current bottlenecks?
 
-Let me know your preferences, and I can generate the actual implementation!
+in nest steps new entities will be introduced, but they will extend base entity
+
+
+
+
+
+
