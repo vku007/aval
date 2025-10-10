@@ -35,16 +35,16 @@ export class EntityService<T extends BaseEntity> {
    * Get entity by name
    * Returns entity data or throws NotModifiedError if ETag matches
    */
-  async getEntity(name: string, ifNoneMatch?: string): Promise<EntityResponseDto> {
-    this.logger.info('Getting entity', { name, ifNoneMatch });
+  async getEntity(id: string, ifNoneMatch?: string): Promise<EntityResponseDto> {
+    this.logger.info('Getting entity', { id, ifNoneMatch });
 
-    const entity = await this.repository.findByName(name, { ifNoneMatch });
+    const entity = await this.repository.findByName(id, { ifNoneMatch });
 
     if (!entity) {
-      throw new NotFoundError(`Entity '${name}' not found`);
+      throw new NotFoundError(`Entity '${id}' not found`);
     }
 
-    this.logger.info('Got entity', { name, etag: entity.etag });
+    this.logger.info('Got entity', { id, etag: entity.etag });
 
     return EntityResponseDto.fromEntity(entity);
   }
@@ -52,12 +52,12 @@ export class EntityService<T extends BaseEntity> {
   /**
    * Get entity metadata only
    */
-  async getEntityMetadata(name: string): Promise<{ etag?: string; size?: number; lastModified?: string }> {
-    this.logger.info('Getting entity metadata', { name });
+  async getEntityMetadata(id: string): Promise<{ etag?: string; size?: number; lastModified?: string }> {
+    this.logger.info('Getting entity metadata', { id });
 
-    const metadata = await this.repository.getMetadata(name);
+    const metadata = await this.repository.getMetadata(id);
 
-    this.logger.info('Got entity metadata', { name, etag: metadata.etag });
+    this.logger.info('Got entity metadata', { id, etag: metadata.etag });
 
     return metadata;
   }
@@ -67,15 +67,15 @@ export class EntityService<T extends BaseEntity> {
    * Throws ConflictError if entity already exists
    */
   async createEntity(dto: CreateEntityDto): Promise<EntityResponseDto> {
-    this.logger.info('Creating entity', { name: dto.name });
+    this.logger.info('Creating entity', { id: dto.id });
 
     // Create domain entity (will validate)
-    const entity = this.repository['entityFactory'](dto.name, dto.data) as T;
+    const entity = this.repository['entityFactory'](dto.id, dto.data) as T;
 
     // Save with If-None-Match: * (create only)
     const saved = await this.repository.save(entity, { ifNoneMatch: '*' });
 
-    this.logger.info('Created entity', { name: saved.name, etag: saved.etag });
+    this.logger.info('Created entity', { id: saved.id, etag: saved.etag });
 
     return EntityResponseDto.fromEntity(saved);
   }
@@ -85,38 +85,38 @@ export class EntityService<T extends BaseEntity> {
    * PUT: Replace entire data
    * PATCH: Merge partial data
    */
-  async updateEntity(name: string, dto: UpdateEntityDto, ifMatch?: string): Promise<EntityResponseDto> {
-    this.logger.info('Updating entity', { name, merge: dto.merge, ifMatch });
+  async updateEntity(id: string, dto: UpdateEntityDto, ifMatch?: string): Promise<EntityResponseDto> {
+    this.logger.info('Updating entity', { id, merge: dto.merge, ifMatch });
 
     // Load existing entity
-    const existing = await this.repository.findByName(name);
+    const existing = await this.repository.findByName(id);
 
     if (!existing) {
       // For PUT, we can create if it doesn't exist (unless If-Match is specified)
       if (ifMatch) {
-        throw new NotFoundError(`Entity '${name}' not found`);
+        throw new NotFoundError(`Entity '${id}' not found`);
       }
 
       if (!dto.merge) {
         // PUT without If-Match: create new entity
-        this.logger.info('Entity not found, creating new', { name });
-        const entity = this.repository['entityFactory'](name, dto.data) as T;
+        this.logger.info('Entity not found, creating new', { id });
+        const entity = this.repository['entityFactory'](id, dto.data) as T;
         const saved = await this.repository.save(entity);
         return EntityResponseDto.fromEntity(saved);
       } else {
         // PATCH requires existing entity
-        throw new NotFoundError(`Entity '${name}' not found`);
+        throw new NotFoundError(`Entity '${id}' not found`);
       }
     }
 
     // Update existing entity
     const updated = dto.merge
       ? existing.merge(dto.data)
-      : this.repository['entityFactory'](name, dto.data, existing.etag, existing.metadata) as T;
+      : this.repository['entityFactory'](id, dto.data, existing.etag, existing.metadata) as T;
 
     const saved = await this.repository.save(updated, { ifMatch });
 
-    this.logger.info('Updated entity', { name, etag: saved.etag });
+    this.logger.info('Updated entity', { id, etag: saved.etag });
 
     return EntityResponseDto.fromEntity(saved);
   }
@@ -124,12 +124,12 @@ export class EntityService<T extends BaseEntity> {
   /**
    * Delete entity
    */
-  async deleteEntity(name: string, ifMatch?: string): Promise<void> {
-    this.logger.info('Deleting entity', { name, ifMatch });
+  async deleteEntity(id: string, ifMatch?: string): Promise<void> {
+    this.logger.info('Deleting entity', { id, ifMatch });
 
-    await this.repository.delete(name, { ifMatch });
+    await this.repository.delete(id, { ifMatch });
 
-    this.logger.info('Deleted entity', { name });
+    this.logger.info('Deleted entity', { id });
   }
 }
 

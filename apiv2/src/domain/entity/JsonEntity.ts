@@ -7,12 +7,12 @@ import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
  */
 export class JsonEntity extends BaseEntity {
   constructor(
-    name: string,
+    id: string,
     data: JsonValue,
     etag?: string,
     metadata?: EntityMetadata
   ) {
-    super(name, data, etag, metadata);
+    super(id, data, etag, metadata);
   }
 }
 

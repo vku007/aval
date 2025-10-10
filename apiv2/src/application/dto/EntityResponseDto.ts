@@ -6,7 +6,7 @@ import type { BaseEntity } from '../../domain/entity/BaseEntity.js';
  */
 export class EntityResponseDto {
   constructor(
-    public readonly name: string,
+    public readonly id: string,
     public readonly data: JsonValue,
     public readonly etag?: string,
     public readonly size?: number,
@@ -15,7 +15,7 @@ export class EntityResponseDto {
 
   static fromEntity(entity: BaseEntity): EntityResponseDto {
     return new EntityResponseDto(
-      entity.name,
+      entity.id,
       entity.data,
       entity.etag,
       entity.metadata?.size,

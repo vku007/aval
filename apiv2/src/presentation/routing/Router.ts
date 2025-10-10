@@ -117,8 +117,8 @@ export class Router {
    * Convert path pattern to regex
    * Examples:
    *   /files -> ^/files$
-   *   /files/:name -> ^/files/([^/]+)$
-   *   /files/:name/meta -> ^/files/([^/]+)/meta$
+   *   /files/:id -> ^/files/([^/]+)$
+   *   /files/:id/meta -> ^/files/([^/]+)/meta$
    */
   private pathToRegex(path: string): { pattern: RegExp; paramNames: string[] } {
     const paramNames: string[] = [];

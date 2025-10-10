@@ -36,11 +36,11 @@ export class EntityController<T extends BaseEntity> {
    * GET /apiv2/files/{name}
    */
   async get(request: HttpRequest): Promise<HttpResponse> {
-    const name = this.extractName(request);
+    const id = this.extractId(request);
     const ifNoneMatch = request.headers['if-none-match'];
 
     try {
-      const entity = await this.entityService.getEntity(name, ifNoneMatch);
+      const entity = await this.entityService.getEntity(id, ifNoneMatch);
 
       return HttpResponse.ok(entity.toDataResponse())
         .withETag(entity.etag)
@@ -56,12 +56,12 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Get entity metadata
-   * GET /apiv2/files/{name}/meta
+   * GET /apiv2/files/{id}/meta
    */
   async getMeta(request: HttpRequest): Promise<HttpResponse> {
-    const name = this.extractName(request);
+    const id = this.extractId(request);
 
-    const metadata = await this.entityService.getEntityMetadata(name);
+    const metadata = await this.entityService.getEntityMetadata(id);
 
     return HttpResponse.ok(metadata)
       .withETag(metadata.etag);
@@ -78,19 +78,19 @@ export class EntityController<T extends BaseEntity> {
 
     return HttpResponse.created(entity.toDataResponse())
       .withETag(entity.etag)
-      .withLocation(`/apiv2/files/${entity.name}`);
+      .withLocation(`/apiv2/files/${entity.id}`);
   }
 
   /**
    * Update entity (replace)
-   * PUT /apiv2/files/{name}
+   * PUT /apiv2/files/{id}
    */
   async update(request: HttpRequest): Promise<HttpResponse> {
-    const name = this.extractName(request);
+    const id = this.extractId(request);
     const ifMatch = request.headers['if-match'];
     const dto = UpdateEntityDto.fromRequest(request.body, false);
 
-    const entity = await this.entityService.updateEntity(name, dto, ifMatch);
+    const entity = await this.entityService.updateEntity(id, dto, ifMatch);
 
     return HttpResponse.ok(entity.toDataResponse())
       .withETag(entity.etag);
@@ -98,14 +98,14 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Update entity (merge)
-   * PATCH /apiv2/files/{name}
+   * PATCH /apiv2/files/{id}
    */
   async patch(request: HttpRequest): Promise<HttpResponse> {
-    const name = this.extractName(request);
+    const id = this.extractId(request);
     const ifMatch = request.headers['if-match'];
     const dto = UpdateEntityDto.fromRequest(request.body, true);
 
-    const entity = await this.entityService.updateEntity(name, dto, ifMatch);
+    const entity = await this.entityService.updateEntity(id, dto, ifMatch);
 
     return HttpResponse.ok(entity.toDataResponse())
       .withETag(entity.etag);
@@ -113,22 +113,27 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Delete entity
-   * DELETE /apiv2/files/{name}
+   * DELETE /apiv2/files/{id}
    */
   async delete(request: HttpRequest): Promise<HttpResponse> {
-    const name = this.extractName(request);
+    const id = this.extractId(request);
     const ifMatch = request.headers['if-match'];
 
-    await this.entityService.deleteEntity(name, ifMatch);
+    await this.entityService.deleteEntity(id, ifMatch);
 
     return HttpResponse.noContent();
   }
 
   /**
-   * Extract entity name from request path/params
+   * Extract entity id from request path/params
    */
-  private extractName(request: HttpRequest): string {
+  private extractId(request: HttpRequest): string {
     // Try path parameter first (from router)
+    if (request.params.id) {
+      return request.params.id;
+    }
+
+    // Legacy support: try 'name' parameter
     if (request.params.name) {
       return request.params.name;
     }
@@ -143,7 +148,7 @@ export class EntityController<T extends BaseEntity> {
       return afterFiles;
     }
 
-    throw new Error('Unable to extract entity name from request');
+    throw new Error('Unable to extract entity id from request');
   }
 }
 

@@ -33,8 +33,8 @@ const config = loadConfig();
 const logger = new Logger();
 
 // Entity factory for JsonEntity
-const entityFactory = (name: string, data: JsonValue, etag?: string, metadata?: EntityMetadata) =>
-  new JsonEntity(name, data, etag, metadata);
+const entityFactory = (id: string, data: JsonValue, etag?: string, metadata?: EntityMetadata) =>
+  new JsonEntity(id, data, etag, metadata);
 
 // Infrastructure layer
 const s3Client = new S3Client({ region: config.aws.region });
@@ -54,12 +54,12 @@ const router = new Router()
   .use(corsMiddleware(config))
   .use(contentTypeMiddleware())
   .get('/apiv2/files', (req) => entityController.list(req))
-  .get('/apiv2/files/:name/meta', (req) => entityController.getMeta(req))
-  .get('/apiv2/files/:name', (req) => entityController.get(req))
+  .get('/apiv2/files/:id/meta', (req) => entityController.getMeta(req))
+  .get('/apiv2/files/:id', (req) => entityController.get(req))
   .post('/apiv2/files', (req) => entityController.create(req))
-  .put('/apiv2/files/:name', (req) => entityController.update(req))
-  .patch('/apiv2/files/:name', (req) => entityController.patch(req))
-  .delete('/apiv2/files/:name', (req) => entityController.delete(req));
+  .put('/apiv2/files/:id', (req) => entityController.update(req))
+  .patch('/apiv2/files/:id', (req) => entityController.patch(req))
+  .delete('/apiv2/files/:id', (req) => entityController.delete(req));
 
 // ============================================================================
 // LAMBDA HANDLER

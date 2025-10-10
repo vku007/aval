@@ -7,7 +7,7 @@ import { ValidationError } from '../../shared/errors/index.js';
  */
 export abstract class BaseEntity {
   constructor(
-    public readonly name: string,
+    public readonly id: string,
     public readonly data: JsonValue,
     public readonly etag?: string,
     public readonly metadata?: EntityMetadata
@@ -19,11 +19,11 @@ export abstract class BaseEntity {
    * Create a new entity with validation
    */
   static create<T extends BaseEntity>(
-    this: new (name: string, data: JsonValue, etag?: string, metadata?: EntityMetadata) => T,
-    name: string,
+    this: new (id: string, data: JsonValue, etag?: string, metadata?: EntityMetadata) => T,
+    id: string,
     data: JsonValue
   ): T {
-    return new this(name, data);
+    return new this(id, data);
   }
 
   /**
@@ -31,7 +31,7 @@ export abstract class BaseEntity {
    */
   merge(partial: JsonValue): this {
     const merged = this.deepMerge(this.data, partial);
-    return new (this.constructor as any)(this.name, merged, this.etag, this.metadata);
+    return new (this.constructor as any)(this.id, merged, this.etag, this.metadata);
   }
 
   /**
@@ -39,19 +39,19 @@ export abstract class BaseEntity {
    * Override in subclasses for entity-specific validation
    */
   protected validate(): void {
-    if (!this.isValidName(this.name)) {
+    if (!this.isValidId(this.id)) {
       throw new ValidationError(
-        `Invalid entity name: ${this.name}. Must match pattern ^[a-zA-Z0-9._-]{1,128}$`,
-        'name'
+        `Invalid entity id: ${this.id}. Must match pattern ^[a-zA-Z0-9._-]{1,128}$`,
+        'id'
       );
     }
   }
 
   /**
-   * Check if name follows naming rules
+   * Check if id follows naming rules
    */
-  protected isValidName(name: string): boolean {
-    return /^[a-zA-Z0-9._-]{1,128}$/.test(name);
+  protected isValidId(id: string): boolean {
+    return /^[a-zA-Z0-9._-]{1,128}$/.test(id);
   }
 
   /**
@@ -92,14 +92,14 @@ export abstract class BaseEntity {
    * Clone entity with new ETag
    */
   withETag(etag: string): this {
-    return new (this.constructor as any)(this.name, this.data, etag, this.metadata);
+    return new (this.constructor as any)(this.id, this.data, etag, this.metadata);
   }
 
   /**
    * Clone entity with new metadata
    */
   withMetadata(metadata: EntityMetadata): this {
-    return new (this.constructor as any)(this.name, this.data, this.etag, metadata);
+    return new (this.constructor as any)(this.id, this.data, this.etag, metadata);
   }
 }
 

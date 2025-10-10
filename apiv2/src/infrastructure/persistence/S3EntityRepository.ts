@@ -47,8 +47,8 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       for (const obj of response.Contents) {
         if (!obj.Key) continue;
         
-        const name = this.extractNameFromKey(obj.Key);
-        if (!name) continue;
+        const id = this.extractIdFromKey(obj.Key);
+        if (!id) continue;
 
         const metadata: EntityMetadata = {
           etag: obj.ETag?.replace(/"/g, ''),
@@ -57,7 +57,7 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
         };
 
         // For list, we don't load full data - just create entity with empty data
-        const entity = this.entityFactory(name, {}, metadata.etag, metadata);
+        const entity = this.entityFactory(id, {}, metadata.etag, metadata);
         items.push(entity);
       }
     }
@@ -69,8 +69,8 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
     return { items, nextCursor };
   }
 
-  async findByName(name: string, opts?: FindOptions): Promise<T | null> {
-    const key = this.keyFor(name);
+  async findByName(id: string, opts?: FindOptions): Promise<T | null> {
+    const key = this.keyFor(id);
 
     try {
       const response = await this.s3Client.send(
@@ -82,7 +82,7 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       );
 
       if (!response.Body) {
-        return this.entityFactory(name, {}, response.ETag?.replace(/"/g, ''));
+        return this.entityFactory(id, {}, response.ETag?.replace(/"/g, ''));
       }
 
       const data = await this.streamToJson(response.Body);
@@ -92,7 +92,7 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
         lastModified: response.LastModified?.toISOString()
       };
 
-      return this.entityFactory(name, data, metadata.etag, metadata);
+      return this.entityFactory(id, data, metadata.etag, metadata);
     } catch (err: any) {
       // S3 returns 304 via exception in SDK v3
       if (err.$metadata?.httpStatusCode === 304) {
@@ -108,7 +108,7 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   }
 
   async save(entity: T, opts?: SaveOptions): Promise<T> {
-    const key = this.keyFor(entity.name);
+    const key = this.keyFor(entity.id);
 
     // Validate payload size
     const body = JSON.stringify(entity.data);
@@ -118,7 +118,7 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
 
     // Check preconditions (best-effort since S3 doesn't support atomic If-Match)
     if (opts?.ifMatch || opts?.ifNoneMatch) {
-      await this.checkPreconditions(entity.name, opts);
+      await this.checkPreconditions(entity.id, opts);
     }
 
     // Save to S3
@@ -137,23 +137,23 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
     return entity.withETag(newEtag || '');
   }
 
-  async delete(name: string, opts?: SaveOptions): Promise<void> {
+  async delete(id: string, opts?: SaveOptions): Promise<void> {
     // Check if exists and validate preconditions
     if (opts?.ifMatch) {
-      const current = await this.getMetadata(name); // Throws NotFoundError if not exists
+      const current = await this.getMetadata(id); // Throws NotFoundError if not exists
       
       if (opts.ifMatch.replace(/"/g, '') !== current.etag?.replace(/"/g, '')) {
         throw new PreconditionFailedError(`ETag mismatch: expected ${opts.ifMatch}, got ${current.etag}`);
       }
     } else {
       // Verify exists (S3 delete succeeds even if file doesn't exist)
-      const exists = await this.exists(name);
+      const exists = await this.exists(id);
       if (!exists) {
-        throw new NotFoundError(`Entity '${name}' not found`);
+        throw new NotFoundError(`Entity '${id}' not found`);
       }
     }
 
-    const key = this.keyFor(name);
+    const key = this.keyFor(id);
     await this.s3Client.send(
       new DeleteObjectCommand({
         Bucket: this.config.s3.bucket,
@@ -162,8 +162,8 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
     );
   }
 
-  async getMetadata(name: string): Promise<EntityMetadata> {
-    const key = this.keyFor(name);
+  async getMetadata(id: string): Promise<EntityMetadata> {
+    const key = this.keyFor(id);
 
     try {
       const response = await this.s3Client.send(
@@ -180,15 +180,15 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       };
     } catch (err: any) {
       if (err instanceof NotFound || err.$metadata?.httpStatusCode === 404) {
-        throw new NotFoundError(`Entity '${name}' not found`);
+        throw new NotFoundError(`Entity '${id}' not found`);
       }
       throw err;
     }
   }
 
-  async exists(name: string): Promise<boolean> {
+  async exists(id: string): Promise<boolean> {
     try {
-      await this.getMetadata(name);
+      await this.getMetadata(id);
       return true;
     } catch (err) {
       if (err instanceof NotFoundError) {
@@ -201,11 +201,11 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   /**
    * Check preconditions before save operation
    */
-  private async checkPreconditions(name: string, opts: SaveOptions): Promise<void> {
+  private async checkPreconditions(id: string, opts: SaveOptions): Promise<void> {
     let currentEtag: string | undefined;
 
     try {
-      const metadata = await this.getMetadata(name);
+      const metadata = await this.getMetadata(id);
       currentEtag = metadata.etag;
     } catch (err) {
       if (!(err instanceof NotFoundError)) {
@@ -216,13 +216,13 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
 
     // If-None-Match: * (create only)
     if (opts.ifNoneMatch === '*' && currentEtag) {
-      throw new ConflictError(`Entity '${name}' already exists`);
+      throw new ConflictError(`Entity '${id}' already exists`);
     }
 
     // If-Match: etag (update only if matches)
     if (opts.ifMatch) {
       if (!currentEtag) {
-        throw new NotFoundError(`Entity '${name}' not found`);
+        throw new NotFoundError(`Entity '${id}' not found`);
       }
       if (opts.ifMatch.replace(/"/g, '') !== currentEtag.replace(/"/g, '')) {
         throw new PreconditionFailedError(`ETag mismatch: expected ${opts.ifMatch}, got ${currentEtag}`);
@@ -243,26 +243,26 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   }
 
   /**
-   * Generate S3 key from entity name
+   * Generate S3 key from entity id
    */
-  private keyFor(name: string): string {
-    return `${this.config.s3.prefix}${encodeURIComponent(name)}.json`;
+  private keyFor(id: string): string {
+    return `${this.config.s3.prefix}${encodeURIComponent(id)}.json`;
   }
 
   /**
-   * Extract entity name from S3 key
+   * Extract entity id from S3 key
    */
-  private extractNameFromKey(key: string): string | null {
+  private extractIdFromKey(key: string): string | null {
     if (!key.startsWith(this.config.s3.prefix)) {
       return null;
     }
 
-    const nameWithExt = key.slice(this.config.s3.prefix.length);
-    if (!nameWithExt.endsWith('.json')) {
+    const idWithExt = key.slice(this.config.s3.prefix.length);
+    if (!idWithExt.endsWith('.json')) {
       return null;
     }
 
-    const encoded = nameWithExt.slice(0, -5); // Remove .json
+    const encoded = idWithExt.slice(0, -5); // Remove .json
     try {
       return decodeURIComponent(encoded);
     } catch {

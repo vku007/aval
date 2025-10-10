@@ -6,7 +6,7 @@ import { ValidationError } from '../../shared/errors/index.js';
  */
 export class CreateEntityDto {
   constructor(
-    public readonly name: string,
+    public readonly id: string,
     public readonly data: JsonValue
   ) {
     this.validate();
@@ -19,28 +19,28 @@ export class CreateEntityDto {
 
     const obj = body as Record<string, unknown>;
 
-    if (typeof obj.name !== 'string') {
-      throw new ValidationError('Field "name" is required and must be a string', 'name');
+    if (typeof obj.id !== 'string') {
+      throw new ValidationError('Field "id" is required and must be a string', 'id');
     }
 
     if (obj.data === undefined) {
       throw new ValidationError('Field "data" is required', 'data');
     }
 
-    return new CreateEntityDto(obj.name, obj.data as JsonValue);
+    return new CreateEntityDto(obj.id, obj.data as JsonValue);
   }
 
   private validate(): void {
-    if (!this.name || typeof this.name !== 'string') {
-      throw new ValidationError('Name is required and must be a string', 'name');
+    if (!this.id || typeof this.id !== 'string') {
+      throw new ValidationError('ID is required and must be a string', 'id');
     }
 
-    if (this.name.length === 0 || this.name.length > 128) {
-      throw new ValidationError('Name must be between 1 and 128 characters', 'name');
+    if (this.id.length === 0 || this.id.length > 128) {
+      throw new ValidationError('ID must be between 1 and 128 characters', 'id');
     }
 
-    if (!/^[a-zA-Z0-9._-]+$/.test(this.name)) {
-      throw new ValidationError('Name must contain only alphanumeric characters, dots, hyphens, and underscores', 'name');
+    if (!/^[a-zA-Z0-9._-]+$/.test(this.id)) {
+      throw new ValidationError('ID must contain only alphanumeric characters, dots, hyphens, and underscores', 'id');
     }
   }
 }
