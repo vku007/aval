@@ -310,8 +310,8 @@
           <div class="section-title">Create New Entity</div>
           <form id="create-form" onsubmit="app.createEntity(event)">
             <div class="form-group">
-              <label for="create-name">Name <code>^[a-zA-Z0-9._-]{1,128}$</code></label>
-              <input type="text" id="create-name" required pattern="[a-zA-Z0-9._-]+" 
+              <label for="create-id">ID <code>^[a-zA-Z0-9._-]{1,128}$</code></label>
+              <input type="text" id="create-id" required pattern="[a-zA-Z0-9._-]+" 
                      placeholder="e.g., user.config, data-2025">
             </div>
             <div class="form-group">
@@ -333,8 +333,8 @@
           </div>
           <form id="edit-form" class="hidden" onsubmit="app.updateEntity(event)">
             <div class="form-group">
-              <label>Name</label>
-              <input type="text" id="edit-name" readonly style="background: #f0f0f0;">
+              <label>ID</label>
+              <input type="text" id="edit-id" readonly style="background: #f0f0f0;">
             </div>
             <div class="form-group">
               <label>ETag (current version)</label>
@@ -418,26 +418,26 @@
           
           const result = await this.request('GET', `/files?${params}`);
           // Backend now returns {names: [...], nextCursor: ...}
-          const entityNames = result.data.names || [];
+          const entityIds = result.data.names || [];
 
-          if (entityNames.length === 0) {
+          if (entityIds.length === 0) {
             list.innerHTML = '<div class="alert alert-info">No entities found</div>';
             return;
           }
 
           // Fetch metadata for each entity to display size/modified date
           const entityDetails = await Promise.all(
-            entityNames.map(async (name) => {
+            entityIds.map(async (id) => {
               try {
-                const meta = await this.request('GET', `/files/${name}/meta`);
+                const meta = await this.request('GET', `/files/${id}/meta`);
                 return {
-                  name,
+                  id,
                   etag: meta.data.etag,
                   size: meta.data.size,
                   lastModified: meta.data.lastModified
                 };
               } catch {
-                return { name, etag: null, size: null, lastModified: null };
+                return { id, etag: null, size: null, lastModified: null };
               }
             })
           );
@@ -445,15 +445,15 @@
           this.entities = entityDetails;
 
           list.innerHTML = this.entities.map(e => `
-            <div class="entity-card" onclick="app.selectEntity('${e.name}')">
-              <div class="entity-name">${e.name}</div>
+            <div class="entity-card" onclick="app.selectEntity('${e.id}')">
+              <div class="entity-name">${e.id}</div>
               <div class="entity-meta">
                 ${e.size ? `Size: ${Math.round(e.size / 1024 * 10) / 10} KB<br>` : ''}
                 ${e.lastModified ? `Modified: ${new Date(e.lastModified).toLocaleString()}` : ''}
               </div>
               <div class="entity-actions">
-                <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.name}')">👁️ View</button>
-                <button class="btn btn-small" onclick="event.stopPropagation(); app.editEntity('${e.name}')">✏️ Edit</button>
+                <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.id}')">👁️ View</button>
+                <button class="btn btn-small" onclick="event.stopPropagation(); app.editEntity('${e.id}')">✏️ Edit</button>
               </div>
             </div>
           `).join('');
@@ -462,49 +462,49 @@
         }
       },
 
-      selectEntity(name) {
+      selectEntity(id) {
         document.querySelectorAll('.entity-card').forEach(c => c.classList.remove('selected'));
         event.currentTarget.classList.add('selected');
-        this.selectedEntity = name;
+        this.selectedEntity = id;
       },
 
-      async viewEntity(name) {
+      async viewEntity(id) {
         try {
-          const result = await this.request('GET', `/files/${name}`);
+          const result = await this.request('GET', `/files/${id}`);
           alert(JSON.stringify(result.data, null, 2));
         } catch (err) {
-          this.showAlert(`Error viewing ${name}: ${err.message}`, 'error');
+          this.showAlert(`Error viewing ${id}: ${err.message}`, 'error');
         }
       },
 
-      async editEntity(name) {
+      async editEntity(id) {
         try {
-          const result = await this.request('GET', `/files/${name}`);
+          const result = await this.request('GET', `/files/${id}`);
           
-          document.getElementById('edit-name').value = name;
+          document.getElementById('edit-id').value = id;
           document.getElementById('edit-etag').value = result.etag || 'N/A';
           document.getElementById('edit-data').value = JSON.stringify(result.data, null, 2);
           document.getElementById('edit-placeholder').classList.add('hidden');
           document.getElementById('edit-form').classList.remove('hidden');
           
-          this.selectedEntity = { name, etag: result.etag };
+          this.selectedEntity = { id, etag: result.etag };
           this.switchTab('edit');
         } catch (err) {
-          this.showAlert(`Error loading ${name}: ${err.message}`, 'error');
+          this.showAlert(`Error loading ${id}: ${err.message}`, 'error');
         }
       },
 
       async createEntity(event) {
         event.preventDefault();
         
-        const name = document.getElementById('create-name').value;
+        const id = document.getElementById('create-id').value;
         const dataText = document.getElementById('create-data').value;
         
         try {
           const data = JSON.parse(dataText);
-          await this.request('POST', '/files', { name, data });
+          await this.request('POST', '/files', { id, data });
           
-          this.showAlert(`Entity "${name}" created successfully!`, 'success');
+          this.showAlert(`Entity "${id}" created successfully!`, 'success');
           this.resetCreateForm();
           this.switchTab('browse');
           this.loadEntities();
@@ -516,7 +516,7 @@
       async updateEntity(event) {
         event.preventDefault();
         
-        const name = this.selectedEntity.name;
+        const id = this.selectedEntity.id;
         const etag = this.selectedEntity.etag;
         const dataText = document.getElementById('edit-data').value;
         const mode = document.getElementById('update-mode').value;
@@ -526,9 +526,9 @@
           const method = mode === 'replace' ? 'PUT' : 'PATCH';
           const headers = etag ? { 'If-Match': etag } : {};
           
-          await this.request(method, `/files/${name}`, data, headers);
+          await this.request(method, `/files/${id}`, data, headers);
           
-          this.showAlert(`Entity "${name}" updated successfully!`, 'success');
+          this.showAlert(`Entity "${id}" updated successfully!`, 'success');
           this.cancelEdit();
           this.switchTab('browse');
           this.loadEntities();
@@ -538,16 +538,16 @@
       },
 
       async deleteEntity() {
-        if (!confirm(`Delete "${this.selectedEntity.name}"?`)) return;
+        if (!confirm(`Delete "${this.selectedEntity.id}"?`)) return;
         
-        const name = this.selectedEntity.name;
+        const id = this.selectedEntity.id;
         const etag = this.selectedEntity.etag;
         
         try {
           const headers = etag ? { 'If-Match': etag } : {};
-          await this.request('DELETE', `/files/${name}`, null, headers);
+          await this.request('DELETE', `/files/${id}`, null, headers);
           
-          this.showAlert(`Entity "${name}" deleted successfully!`, 'success');
+          this.showAlert(`Entity "${id}" deleted successfully!`, 'success');
           this.cancelEdit();
           this.switchTab('browse');
           this.loadEntities();
