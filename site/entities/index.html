@@ -417,7 +417,7 @@
           if (prefix) params.set('prefix', prefix);
           
           const result = await this.request('GET', `/files?${params}`);
-          // Backend now returns {names: [...], nextCursor: ...}
+          // Backend returns {names: [id1, id2, ...], nextCursor: ...}
           const entityIds = result.data.names || [];
 
           if (entityIds.length === 0) {
