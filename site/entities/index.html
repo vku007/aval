@@ -13,23 +13,23 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
       min-height: 100vh;
       padding: 2rem;
-      color: #333;
+      color: #1f2937;
     }
 
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      background: white;
+      background: #f3f4f6;
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
       overflow: hidden;
     }
 
     header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
       color: white;
       padding: 2rem;
       text-align: center;
@@ -58,7 +58,7 @@
       font-size: 1.25rem;
       font-weight: 600;
       margin-bottom: 1rem;
-      color: #667eea;
+      color: #1e3a8a;
     }
 
     .form-group {
@@ -69,7 +69,7 @@
       display: block;
       font-weight: 500;
       margin-bottom: 0.5rem;
-      color: #555;
+      color: #374151;
     }
 
     input[type="text"],
@@ -77,17 +77,18 @@
     select {
       width: 100%;
       padding: 0.75rem;
-      border: 2px solid #e0e0e0;
+      border: 2px solid #d1d5db;
       border-radius: 8px;
       font-size: 1rem;
       transition: border-color 0.3s;
+      background: white;
     }
 
     input[type="text"]:focus,
     textarea:focus,
     select:focus {
       outline: none;
-      border-color: #667eea;
+      border-color: #1e3a8a;
     }
 
     textarea {
@@ -97,7 +98,7 @@
     }
 
     .btn {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
       color: white;
       border: none;
       padding: 0.75rem 2rem;
@@ -112,7 +113,7 @@
 
     .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
     }
 
     .btn:active {
@@ -140,35 +141,35 @@
     }
 
     .entity-card {
-      border: 2px solid #e0e0e0;
+      border: 2px solid #d1d5db;
       border-radius: 8px;
       padding: 1rem;
-      background: #fafafa;
+      background: white;
       transition: border-color 0.3s, box-shadow 0.3s;
       cursor: pointer;
     }
 
     .entity-card:hover {
-      border-color: #667eea;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+      border-color: #1e3a8a;
+      box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
     }
 
     .entity-card.selected {
-      border-color: #667eea;
-      background: #f0f4ff;
+      border-color: #1e3a8a;
+      background: #eff6ff;
     }
 
     .entity-name {
       font-weight: 600;
       font-size: 1.1rem;
       margin-bottom: 0.5rem;
-      color: #333;
+      color: #1e3a8a;
       word-break: break-all;
     }
 
     .entity-meta {
       font-size: 0.875rem;
-      color: #666;
+      color: #6b7280;
       margin-bottom: 0.5rem;
     }
 
@@ -210,15 +211,15 @@
     .loading {
       text-align: center;
       padding: 2rem;
-      color: #666;
+      color: #6b7280;
     }
 
     .spinner {
       display: inline-block;
       width: 40px;
       height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
+      border: 4px solid #d1d5db;
+      border-top: 4px solid #1e3a8a;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -230,7 +231,7 @@
 
     .tabs {
       display: flex;
-      border-bottom: 2px solid #e0e0e0;
+      border-bottom: 2px solid #d1d5db;
       margin-bottom: 1.5rem;
     }
 
@@ -240,16 +241,16 @@
       border-bottom: 3px solid transparent;
       transition: all 0.3s;
       font-weight: 500;
-      color: #666;
+      color: #6b7280;
     }
 
     .tab:hover {
-      color: #667eea;
+      color: #1e3a8a;
     }
 
     .tab.active {
-      color: #667eea;
-      border-bottom-color: #667eea;
+      color: #1e3a8a;
+      border-bottom-color: #1e3a8a;
     }
 
     .tab-content {
@@ -261,11 +262,12 @@
     }
 
     code {
-      background: #f4f4f4;
+      background: #e5e7eb;
       padding: 0.2rem 0.4rem;
       border-radius: 4px;
       font-family: 'Monaco', 'Courier New', monospace;
       font-size: 0.9rem;
+      color: #1e3a8a;
     }
   </style>
 </head>
@@ -415,19 +417,39 @@
           if (prefix) params.set('prefix', prefix);
           
           const result = await this.request('GET', `/files?${params}`);
-          this.entities = result.data.items;
+          // Backend now returns {names: [...], nextCursor: ...}
+          const entityNames = result.data.names || [];
 
-          if (this.entities.length === 0) {
+          if (entityNames.length === 0) {
             list.innerHTML = '<div class="alert alert-info">No entities found</div>';
             return;
           }
+
+          // Fetch metadata for each entity to display size/modified date
+          const entityDetails = await Promise.all(
+            entityNames.map(async (name) => {
+              try {
+                const meta = await this.request('GET', `/files/${name}/meta`);
+                return {
+                  name,
+                  etag: meta.data.etag,
+                  size: meta.data.size,
+                  lastModified: meta.data.lastModified
+                };
+              } catch {
+                return { name, etag: null, size: null, lastModified: null };
+              }
+            })
+          );
+
+          this.entities = entityDetails;
 
           list.innerHTML = this.entities.map(e => `
             <div class="entity-card" onclick="app.selectEntity('${e.name}')">
               <div class="entity-name">${e.name}</div>
               <div class="entity-meta">
-                Size: ${e.size ? Math.round(e.size / 1024 * 10) / 10 : 0} KB<br>
-                Modified: ${e.lastModified ? new Date(e.lastModified).toLocaleString() : 'N/A'}
+                ${e.size ? `Size: ${Math.round(e.size / 1024 * 10) / 10} KB<br>` : ''}
+                ${e.lastModified ? `Modified: ${new Date(e.lastModified).toLocaleString()}` : ''}
               </div>
               <div class="entity-actions">
                 <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.name}')">👁️ View</button>
