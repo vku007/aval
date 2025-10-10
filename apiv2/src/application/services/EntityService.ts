@@ -24,7 +24,7 @@ export class EntityService<T extends BaseEntity> {
     this.logger.info('Listing entities', { prefix, limit, cursor });
 
     const result = await this.repository.findAll(prefix, limit, cursor);
-    const names = result.items.map(e => e.name);
+    const names = result.items.map(e => e.id);
 
     this.logger.info('Listed entities', { count: names.length, hasMore: !!result.nextCursor });
 

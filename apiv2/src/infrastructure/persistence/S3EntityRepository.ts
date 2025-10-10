@@ -263,10 +263,13 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
     }
 
     const encoded = idWithExt.slice(0, -5); // Remove .json
+    
+    // Try to decode, but fall back to original if decoding fails
     try {
-      return decodeURIComponent(encoded);
+      const decoded = decodeURIComponent(encoded);
+      return decoded;
     } catch {
-      return null;
+      return encoded;
     }
   }
 }
