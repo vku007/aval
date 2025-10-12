@@ -1,0 +1,942 @@
+openapi: 3.0.3
+info:
+  title: VKP REST API
+  description: |
+    Comprehensive file and user management system built with AWS Lambda.
+    
+    ## Features
+    - CRUD operations for JSON documents and user entities
+    - ETag-based concurrency control
+    - RFC 7807 problem+json error responses
+    - Unified file management (regular JSON files + user files)
+    - Pagination support
+    - CORS enabled
+    
+    ## Base URL
+    Replace `{baseUrl}` with your actual API Gateway URL.
+  version: 2.0.0
+  contact:
+    name: VKP Development Team
+  license:
+    name: MIT
+
+servers:
+  - url: https://your-api-gateway-url.amazonaws.com
+    description: Production server
+  - url: https://{baseUrl}
+    description: Custom server URL
+
+tags:
+  - name: Files
+    description: File management operations
+  - name: Users
+    description: User management operations
+
+paths:
+  /apiv2/files:
+    get:
+      tags:
+        - Files
+      summary: List all files
+      description: Retrieve a paginated list of all files (including both regular JSON files and user files)
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of files to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: cursor
+          in: query
+          description: Base64-encoded cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          description: Filter files by prefix
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of files retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  names:
+                    type: array
+                    items:
+                      type: string
+                    description: Array of file IDs
+                  nextCursor:
+                    type: string
+                    description: Base64-encoded cursor for next page
+                    nullable: true
+              example:
+                names: ["file1", "file2", "user-123"]
+                nextCursor: "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Files
+      summary: Create a new file
+      description: Create a new file with the specified ID and data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - data
+              properties:
+                id:
+                  type: string
+                  pattern: '^[a-zA-Z0-9._-]{1,128}$'
+                  description: File identifier
+                  example: "config"
+                data:
+                  description: File content (any valid JSON)
+                  example: {"setting": "value", "nested": {"property": "data"}}
+            examples:
+              config:
+                summary: Configuration file
+                value:
+                  id: "app-config"
+                  data:
+                    database:
+                      host: "localhost"
+                      port: 5432
+                    features: ["auth", "logging"]
+      parameters:
+        - name: If-None-Match
+          in: header
+          description: Set to '*' to ensure file doesn't exist
+          required: false
+          schema:
+            type: string
+            enum: ["*"]
+      responses:
+        '201':
+          description: File created successfully
+          headers:
+            Location:
+              description: URL of the created file
+              schema:
+                type: string
+                example: "/apiv2/files/config"
+            ETag:
+              description: Entity tag for the created file
+              schema:
+                type: string
+                example: '"abc123def456"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+
+  /apiv2/files/{id}:
+    get:
+      tags:
+        - Files
+      summary: Get file by ID
+      description: Retrieve a specific file by its ID. Works for both regular JSON files and user files.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "config"
+        - name: If-None-Match
+          in: header
+          description: ETag to check if file has been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      responses:
+        '200':
+          description: File retrieved successfully
+          headers:
+            ETag:
+              description: Entity tag for concurrency control
+              schema:
+                type: string
+                example: '"abc123def456"'
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+                example: "private, must-revalidate"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+              example:
+                id: "config"
+                data:
+                  database:
+                    host: "localhost"
+                    port: 5432
+                  features: ["auth", "logging"]
+        '304':
+          description: File not modified
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - Files
+      summary: Replace file content
+      description: Replace the entire content of a file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "config"
+        - name: If-Match
+          in: header
+          description: ETag to ensure file hasn't been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: New file content (any valid JSON)
+              example: {"setting": "new-value", "updated": true}
+      responses:
+        '200':
+          description: File updated successfully
+          headers:
+            ETag:
+              description: Entity tag for the updated file
+              schema:
+                type: string
+                example: '"def456ghi789"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+    patch:
+      tags:
+        - Files
+      summary: Merge file content
+      description: Partially update a file by merging new data with existing content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "config"
+        - name: If-Match
+          in: header
+          description: ETag to ensure file hasn't been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - merge
+                - data
+              properties:
+                merge:
+                  type: boolean
+                  description: Must be true for merge operation
+                  example: true
+                data:
+                  description: Data to merge with existing content
+                  example: {"newField": "value", "existingField": "updated"}
+      responses:
+        '200':
+          description: File updated successfully
+          headers:
+            ETag:
+              description: Entity tag for the updated file
+              schema:
+                type: string
+                example: '"def456ghi789"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+    delete:
+      tags:
+        - Files
+      summary: Delete file
+      description: Delete a file permanently
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "config"
+        - name: If-Match
+          in: header
+          description: ETag to ensure file hasn't been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      responses:
+        '204':
+          description: File deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /apiv2/files/{id}/meta:
+    get:
+      tags:
+        - Files
+      summary: Get file metadata
+      description: Retrieve metadata for a specific file without downloading the content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "config"
+      responses:
+        '200':
+          description: File metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+              example:
+                etag: '"abc123def456"'
+                size: 1024
+                lastModified: "2023-10-12T18:30:00.000Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /apiv2/users:
+    get:
+      tags:
+        - Users
+      summary: List all users
+      description: Retrieve a paginated list of all users
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of users to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: cursor
+          in: query
+          description: Base64-encoded cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          description: Filter users by ID prefix
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  names:
+                    type: array
+                    items:
+                      type: string
+                    description: Array of user IDs
+                  nextCursor:
+                    type: string
+                    description: Base64-encoded cursor for next page
+                    nullable: true
+              example:
+                names: ["user-001", "user-002", "admin-123"]
+                nextCursor: "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Create a new user with the specified ID, name, and external ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              basic:
+                summary: Basic user
+                value:
+                  id: "user-123"
+                  name: "John Doe"
+                  externalId: 1001
+              admin:
+                summary: Admin user
+                value:
+                  id: "admin-001"
+                  name: "Admin User"
+                  externalId: 1
+      parameters:
+        - name: If-None-Match
+          in: header
+          description: Set to '*' to ensure user doesn't exist
+          required: false
+          schema:
+            type: string
+            enum: ["*"]
+      responses:
+        '201':
+          description: User created successfully
+          headers:
+            Location:
+              description: URL of the created user
+              schema:
+                type: string
+                example: "/apiv2/users/user-123"
+            ETag:
+              description: Entity tag for the created user
+              schema:
+                type: string
+                example: '"abc123def456"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+
+  /apiv2/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Retrieve a specific user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "user-123"
+        - name: If-None-Match
+          in: header
+          description: ETag to check if user has been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      responses:
+        '200':
+          description: User retrieved successfully
+          headers:
+            ETag:
+              description: Entity tag for concurrency control
+              schema:
+                type: string
+                example: '"abc123def456"'
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+                example: "private, max-age=300"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: "user-123"
+                name: "John Doe"
+                externalId: 1001
+        '304':
+          description: User not modified
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - Users
+      summary: Replace user data
+      description: Replace the entire user data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "user-123"
+        - name: If-Match
+          in: header
+          description: ETag to ensure user hasn't been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - externalId
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: User's full name
+                  example: "John Smith"
+                externalId:
+                  type: integer
+                  minimum: 1
+                  description: External system user ID
+                  example: 1002
+      responses:
+        '200':
+          description: User updated successfully
+          headers:
+            ETag:
+              description: Entity tag for the updated user
+              schema:
+                type: string
+                example: '"def456ghi789"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+    patch:
+      tags:
+        - Users
+      summary: Merge user data
+      description: Partially update a user by merging new data with existing content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "user-123"
+        - name: If-Match
+          in: header
+          description: ETag to ensure user hasn't been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - merge
+                - data
+              properties:
+                merge:
+                  type: boolean
+                  description: Must be true for merge operation
+                  example: true
+                data:
+                  type: object
+                  description: User data to merge
+                  properties:
+                    name:
+                      type: string
+                      minLength: 2
+                      maxLength: 100
+                      description: User's full name
+                      example: "John Smith"
+                    externalId:
+                      type: integer
+                      minimum: 1
+                      description: External system user ID
+                      example: 1002
+                  example:
+                    name: "John Smith"
+      responses:
+        '200':
+          description: User updated successfully
+          headers:
+            ETag:
+              description: Entity tag for the updated user
+              schema:
+                type: string
+                example: '"def456ghi789"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete a user permanently
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "user-123"
+        - name: If-Match
+          in: header
+          description: ETag to ensure user hasn't been modified
+          required: false
+          schema:
+            type: string
+            example: '"abc123"'
+      responses:
+        '204':
+          description: User deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /apiv2/users/{id}/meta:
+    get:
+      tags:
+        - Users
+      summary: Get user metadata
+      description: Retrieve metadata for a specific user without downloading the content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+            example: "user-123"
+      responses:
+        '200':
+          description: User metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+              example:
+                etag: '"abc123def456"'
+                size: 45
+                lastModified: "2023-10-12T18:30:00.000Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    FileResponse:
+      type: object
+      required:
+        - id
+        - data
+      properties:
+        id:
+          type: string
+          description: File identifier
+          example: "config"
+        data:
+          description: File content (any valid JSON)
+          example: {"setting": "value", "nested": {"property": "data"}}
+    
+    UserResponse:
+      type: object
+      required:
+        - id
+        - name
+        - externalId
+      properties:
+        id:
+          type: string
+          description: User identifier
+          example: "user-123"
+        name:
+          type: string
+          description: User's full name
+          example: "John Doe"
+        externalId:
+          type: integer
+          description: External system user ID
+          example: 1001
+    
+    CreateUserRequest:
+      type: object
+      required:
+        - id
+        - name
+        - externalId
+      properties:
+        id:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: User identifier
+          example: "user-123"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: User's full name
+          example: "John Doe"
+        externalId:
+          type: integer
+          minimum: 1
+          description: External system user ID
+          example: 1001
+    
+    MetadataResponse:
+      type: object
+      properties:
+        etag:
+          type: string
+          description: Entity tag for concurrency control
+          example: '"abc123def456"'
+        size:
+          type: integer
+          description: File size in bytes
+          example: 1024
+        lastModified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+          example: "2023-10-12T18:30:00.000Z"
+    
+    ErrorResponse:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          description: URI identifying the problem type
+          example: "about:blank"
+        title:
+          type: string
+          description: Short description of the problem
+          example: "Validation Error"
+        status:
+          type: integer
+          description: HTTP status code
+          example: 400
+        detail:
+          type: string
+          description: Detailed description of the problem
+          example: "ID must contain only alphanumeric characters, dots, hyphens, and underscores"
+        instance:
+          type: string
+          description: URI identifying the specific occurrence
+          example: "/apiv2/files/invalid-id!"
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "Validation Error"
+            status: 400
+            detail: "ID must contain only alphanumeric characters, dots, hyphens, and underscores"
+            instance: "/apiv2/files/invalid-id!"
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "File Not Found"
+            status: 404
+            detail: "Entity 'nonexistent-file' not found"
+            instance: "/apiv2/files/nonexistent-file"
+    
+    Conflict:
+      description: Resource conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "Conflict"
+            status: 409
+            detail: "Entity 'existing-file' already exists"
+            instance: "/apiv2/files/existing-file"
+    
+    PreconditionFailed:
+      description: Precondition failed
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "Precondition Failed"
+            status: 412
+            detail: "Entity 'file-123' ETag mismatch"
+            instance: "/apiv2/files/file-123"
+    
+    PayloadTooLarge:
+      description: Request payload too large
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "Payload Too Large"
+            status: 413
+            detail: "Payload size exceeds 1048576 bytes"
+            instance: "/apiv2/files/large-file"
+    
+    UnsupportedMediaType:
+      description: Unsupported media type
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "Unsupported Media Type"
+            status: 415
+            detail: "Content-Type must be application/json"
+            instance: "/apiv2/files"
+    
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            type: "about:blank"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred"
+            instance: "/apiv2/files"
+
+  securitySchemes:
+    # Currently no authentication is required
+    # This section can be expanded when authentication is added
+
+security: []
+# No authentication required currently
+
+externalDocs:
+  description: Find more information about VKP API
+  url: https://github.com/your-org/vkp-api

@@ -42,7 +42,7 @@ export class EntityController<T extends BaseEntity> {
     try {
       const entity = await this.entityService.getEntity(id, ifNoneMatch);
 
-      return HttpResponse.ok(entity.toDataResponse())
+      return HttpResponse.ok(entity.toJSON())
         .withETag(entity.etag)
         .withHeader('cache-control', 'private, must-revalidate');
     } catch (err) {

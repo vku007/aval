@@ -33,18 +33,39 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   async findAll(prefix: string = '', limit: number = 100, cursor?: string): Promise<ListResult<T>> {
     const token = cursor ? Buffer.from(cursor, 'base64url').toString('utf8') : undefined;
 
-    const response = await this.s3Client.send(
-      new ListObjectsV2Command({
-        Bucket: this.config.s3.bucket,
-        Prefix: `${this.config.s3.prefix}${prefix}`,
-        MaxKeys: limit,
-        ContinuationToken: token
-      })
-    );
+    // Search in both json/ and json/users/ folders
+    const basePrefix = `${this.config.s3.prefix}${prefix}`; // json/ + prefix
+    const userPrefix = `${this.config.s3.prefix}users/${prefix}`; // json/users/ + prefix
+
+    const [baseResponse, userResponse] = await Promise.all([
+      this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: this.config.s3.bucket,
+          Prefix: basePrefix,
+          MaxKeys: limit,
+          ContinuationToken: token
+        })
+      ),
+      this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: this.config.s3.bucket,
+          Prefix: userPrefix,
+          MaxKeys: limit,
+          ContinuationToken: token
+        })
+      )
+    ]);
+
+    // Ensure responses are defined
+    if (!baseResponse || !userResponse) {
+      throw new Error('Failed to get S3 responses');
+    }
 
     const items: T[] = [];
-    if (response.Contents) {
-      for (const obj of response.Contents) {
+    
+    // Process base json/ files
+    if (baseResponse.Contents) {
+      for (const obj of baseResponse.Contents) {
         if (!obj.Key) continue;
         
         const id = this.extractIdFromKey(obj.Key);
@@ -62,21 +83,47 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       }
     }
 
-    const nextCursor = response.IsTruncated && response.NextContinuationToken
-      ? Buffer.from(response.NextContinuationToken, 'utf8').toString('base64url')
+    // Process json/users/ files
+    if (userResponse.Contents) {
+      for (const obj of userResponse.Contents) {
+        if (!obj.Key) continue;
+        
+        const id = this.extractIdFromKey(obj.Key);
+        if (!id) continue;
+
+        const metadata: EntityMetadata = {
+          etag: obj.ETag?.replace(/"/g, ''),
+          size: obj.Size,
+          lastModified: obj.LastModified?.toISOString()
+        };
+
+        // For list, we don't load full data - just create entity with empty data
+        const entity = this.entityFactory(id, {}, metadata.etag, metadata);
+        items.push(entity);
+      }
+    }
+
+    // Sort items by ID for consistent ordering
+    items.sort((a, b) => a.id.localeCompare(b.id));
+
+    // Handle pagination - if either response is truncated, we have more data
+    const hasMore = baseResponse.IsTruncated || userResponse.IsTruncated;
+    const nextCursor = hasMore && (baseResponse.NextContinuationToken || userResponse.NextContinuationToken)
+      ? Buffer.from(baseResponse.NextContinuationToken || userResponse.NextContinuationToken || '', 'utf8').toString('base64url')
       : undefined;
 
     return { items, nextCursor };
   }
 
   async findByName(id: string, opts?: FindOptions): Promise<T | null> {
-    const key = this.keyFor(id);
-
+    // Try base json/ location first
+    const baseKey = this.keyFor(id);
+    
     try {
       const response = await this.s3Client.send(
         new GetObjectCommand({
           Bucket: this.config.s3.bucket,
-          Key: key,
+          Key: baseKey,
           IfNoneMatch: opts?.ifNoneMatch
         })
       );
@@ -99,8 +146,44 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
         throw new NotModifiedError(opts?.ifNoneMatch);
       }
       
+      // If not found in base location, try json/users/ location
       if (err instanceof NotFound || err.$metadata?.httpStatusCode === 404) {
-        return null;
+        const userKey = `${this.config.s3.prefix}users/${encodeURIComponent(id)}.json`;
+        
+        try {
+          const userResponse = await this.s3Client.send(
+            new GetObjectCommand({
+              Bucket: this.config.s3.bucket,
+              Key: userKey,
+              IfNoneMatch: opts?.ifNoneMatch
+            })
+          );
+
+          if (!userResponse.Body) {
+            return this.entityFactory(id, {}, userResponse.ETag?.replace(/"/g, ''));
+          }
+
+          const userData = await this.streamToJson(userResponse.Body);
+          const userMetadata: EntityMetadata = {
+            etag: userResponse.ETag?.replace(/"/g, ''),
+            size: userResponse.ContentLength,
+            lastModified: userResponse.LastModified?.toISOString()
+          };
+
+          return this.entityFactory(id, userData, userMetadata.etag, userMetadata);
+        } catch (userErr: any) {
+          // S3 returns 304 via exception in SDK v3
+          if (userErr.$metadata?.httpStatusCode === 304) {
+            throw new NotModifiedError(opts?.ifNoneMatch);
+          }
+          
+          // Not found in either location
+          if (userErr instanceof NotFound || userErr.$metadata?.httpStatusCode === 404) {
+            return null;
+          }
+          
+          throw userErr;
+        }
       }
       
       throw err;
@@ -163,13 +246,14 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   }
 
   async getMetadata(id: string): Promise<EntityMetadata> {
-    const key = this.keyFor(id);
+    // Try base json/ location first
+    const baseKey = this.keyFor(id);
 
     try {
       const response = await this.s3Client.send(
         new HeadObjectCommand({
           Bucket: this.config.s3.bucket,
-          Key: key
+          Key: baseKey
         })
       );
 
@@ -179,8 +263,30 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
         lastModified: response.LastModified?.toISOString()
       };
     } catch (err: any) {
+      // If not found in base location, try json/users/ location
       if (err instanceof NotFound || err.$metadata?.httpStatusCode === 404) {
-        throw new NotFoundError(`Entity '${id}' not found`);
+        const userKey = `${this.config.s3.prefix}users/${encodeURIComponent(id)}.json`;
+        
+        try {
+          const userResponse = await this.s3Client.send(
+            new HeadObjectCommand({
+              Bucket: this.config.s3.bucket,
+              Key: userKey
+            })
+          );
+
+          return {
+            etag: userResponse.ETag?.replace(/"/g, ''),
+            size: userResponse.ContentLength,
+            lastModified: userResponse.LastModified?.toISOString()
+          };
+        } catch (userErr: any) {
+          // Not found in either location
+          if (userErr instanceof NotFound || userErr.$metadata?.httpStatusCode === 404) {
+            throw new NotFoundError(`Entity '${id}' not found`);
+          }
+          throw userErr;
+        }
       }
       throw err;
     }
@@ -250,14 +356,23 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   }
 
   /**
-   * Extract entity id from S3 key
+   * Extract entity id from S3 key (supports both json/ and json/users/ paths)
    */
   private extractIdFromKey(key: string): string | null {
-    if (!key.startsWith(this.config.s3.prefix)) {
+    // Support both json/ and json/users/ prefixes
+    const basePrefix = this.config.s3.prefix; // json/
+    const userPrefix = `${basePrefix}users/`; // json/users/
+    
+    let idWithExt: string;
+    
+    if (key.startsWith(userPrefix)) {
+      idWithExt = key.slice(userPrefix.length);
+    } else if (key.startsWith(basePrefix)) {
+      idWithExt = key.slice(basePrefix.length);
+    } else {
       return null;
     }
-
-    const idWithExt = key.slice(this.config.s3.prefix.length);
+    
     if (!idWithExt.endsWith('.json')) {
       return null;
     }

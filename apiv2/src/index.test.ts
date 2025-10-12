@@ -89,9 +89,13 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should accept POST with application/json', async () => {
-      // Mock HEAD check (not found) then PUT success
+      // Mock HEAD checks (not found in both locations) then PUT success
       mockSend
-        .mockRejectedValueOnce({ // HEAD check (not found)
+        .mockRejectedValueOnce({ // HEAD check base location (not found)
+          name: 'NotFound',
+          $metadata: { httpStatusCode: 404 }
+        })
+        .mockRejectedValueOnce({ // HEAD check user location (not found)
           name: 'NotFound',
           $metadata: { httpStatusCode: 404 }
         })
@@ -146,7 +150,11 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Path routing', () => {
     it('should route GET /apiv2/files to list', async () => {
-      // Mock ListObjectsV2 response
+      // Mock ListObjectsV2 responses for both base and user prefixes
+      mockSend.mockResolvedValueOnce({ 
+        Contents: [],
+        IsTruncated: false
+      });
       mockSend.mockResolvedValueOnce({ 
         Contents: [],
         IsTruncated: false
@@ -182,15 +190,22 @@ describe('Lambda Handler - Integration Tests', () => {
       expect(response.statusCode).toBe(200);
       expect(response.headers?.etag).toBeTruthy();
       const body = JSON.parse(response.body || '{}');
-      expect(body).toEqual({ test: 'data' });
+      expect(body).toEqual({ 
+        id: 'test-entity', 
+        data: { test: 'data' } 
+      });
     });
   });
 
   describe('Entity CRUD operations', () => {
     it('should create entity with POST', async () => {
-      // Mock HEAD check (not found) then PUT success
+      // Mock HEAD checks (not found in both locations) then PUT success
       mockSend
-        .mockRejectedValueOnce({ // HEAD check
+        .mockRejectedValueOnce({ // HEAD check base location
+          name: 'NotFound',
+          $metadata: { httpStatusCode: 404 }
+        })
+        .mockRejectedValueOnce({ // HEAD check user location
           name: 'NotFound',
           $metadata: { httpStatusCode: 404 }
         })
@@ -293,9 +308,73 @@ describe('Lambda Handler - Integration Tests', () => {
     });
   });
 
+  describe('User file compatibility', () => {
+    it('should read user files from json/users/ folder', async () => {
+      const mockBody = {
+        async *[Symbol.asyncIterator]() {
+          yield Buffer.from(JSON.stringify({ name: 'John Doe', externalId: 1001 }));
+        }
+      };
+      
+      // Mock HEAD check for base location (not found), then GetObject from user location
+      mockSend
+        .mockRejectedValueOnce({ // HEAD check base location (not found)
+          name: 'NotFound',
+          $metadata: { httpStatusCode: 404 }
+        })
+        .mockResolvedValueOnce({ // GetObject from user location
+          Body: mockBody,
+          ETag: '"user-etag"',
+          ContentLength: 50,
+          LastModified: new Date('2023-01-01T00:00:00Z')
+        });
+
+      const event = createEvent('GET', '/apiv2/files/user-123');
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body || '{}');
+      expect(body.id).toBe('user-123');
+      expect(body.data.name).toBe('John Doe');
+      expect(body.data.externalId).toBe(1001);
+      expect(response.headers?.etag).toBe('"user-etag"');
+    });
+
+    it('should list both regular files and user files', async () => {
+      // Mock ListObjectsV2 responses for both base and user prefixes
+      mockSend.mockResolvedValueOnce({
+        Contents: [{ 
+          Key: 'json/regular-file.json', 
+          ETag: '"regular-etag"',
+          Size: 100,
+          LastModified: new Date()
+        }],
+        IsTruncated: false
+      });
+      mockSend.mockResolvedValueOnce({
+        Contents: [{ 
+          Key: 'json/users/user-file.json', 
+          ETag: '"user-etag"',
+          Size: 80,
+          LastModified: new Date()
+        }],
+        IsTruncated: false
+      });
+
+      const event = createEvent('GET', '/apiv2/files');
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body || '{}');
+      expect(body.names).toContain('regular-file');
+      expect(body.names).toContain('user-file');
+      expect(body.names.length).toBe(2);
+    });
+  });
+
   describe('Query parameters', () => {
     it('should handle list pagination with cursor', async () => {
-      // Mock ListObjectsV2 with pagination
+      // Mock ListObjectsV2 with pagination for both base and user prefixes
       mockSend.mockResolvedValueOnce({
         Contents: [{ 
           Key: 'json/test.json', 
@@ -305,6 +384,10 @@ describe('Lambda Handler - Integration Tests', () => {
         }],
         IsTruncated: true,
         NextContinuationToken: 'next-token'
+      });
+      mockSend.mockResolvedValueOnce({
+        Contents: [],
+        IsTruncated: false
       });
 
       const event = createEvent('GET', '/apiv2/files', undefined, undefined, {

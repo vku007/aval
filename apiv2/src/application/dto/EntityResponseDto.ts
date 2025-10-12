@@ -40,5 +40,15 @@ export class EntityResponseDto {
       lastModified: this.lastModified
     };
   }
+
+  /**
+   * Return full entity structure (for GET response body)
+   */
+  toJSON(): { id: string; data: JsonValue } {
+    return {
+      id: this.id,
+      data: this.data
+    };
+  }
 }
 
