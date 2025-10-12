@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Pages - VKP Consulting</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            text-align: center;
+            padding: 50px 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 { font-size: 2.5rem; margin: 0 0 30px 0; }
+        .error-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .error-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            transition: transform 0.3s ease, background 0.3s ease;
+        }
+        .error-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .error-code {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .error-description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        a { color: #fff; text-decoration: none; border-bottom: 2px solid #fff; }
+        a:hover { border-bottom-color: #ffd700; }
+        .back-link {
+            margin-top: 30px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Error Pages</h1>
+        <p>This directory contains custom error pages for the VKP Consulting website. Each page is designed with a unique color scheme and helpful messaging.</p>
+        
+        <div class="error-grid">
+            <a href="400.html" class="error-card">
+                <div class="error-code">400</div>
+                <div class="error-description">Bad Request</div>
+            </a>
+            <a href="403.html" class="error-card">
+                <div class="error-code">403</div>
+                <div class="error-description">Forbidden</div>
+            </a>
+            <a href="404.html" class="error-card">
+                <div class="error-code">404</div>
+                <div class="error-description">Not Found</div>
+            </a>
+            <a href="429.html" class="error-card">
+                <div class="error-code">429</div>
+                <div class="error-description">Too Many Requests</div>
+            </a>
+            <a href="500.html" class="error-card">
+                <div class="error-code">500</div>
+                <div class="error-description">Internal Server Error</div>
+            </a>
+            <a href="502.html" class="error-card">
+                <div class="error-code">502</div>
+                <div class="error-description">Bad Gateway</div>
+            </a>
+            <a href="503.html" class="error-card">
+                <div class="error-code">503</div>
+                <div class="error-description">Service Unavailable</div>
+            </a>
+            <a href="504.html" class="error-card">
+                <div class="error-code">504</div>
+                <div class="error-description">Gateway Timeout</div>
+            </a>
+        </div>
+        
+        <p class="back-link">
+            <a href="/">← Return to Home</a>
+        </p>
+    </div>
+</body>
+</html>

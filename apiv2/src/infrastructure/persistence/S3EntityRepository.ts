@@ -103,8 +103,18 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       }
     }
 
-    // Sort items by ID for consistent ordering
-    items.sort((a, b) => a.id.localeCompare(b.id));
+    // Deduplicate items by ID (in case same file exists in both locations)
+    const uniqueItems = new Map<string, T>();
+    for (const item of items) {
+      // Always keep the first occurrence (base json/ takes precedence)
+      if (!uniqueItems.has(item.id)) {
+        uniqueItems.set(item.id, item);
+      }
+    }
+
+    // Convert back to array and sort by ID for consistent ordering
+    const deduplicatedItems = Array.from(uniqueItems.values());
+    deduplicatedItems.sort((a, b) => a.id.localeCompare(b.id));
 
     // Handle pagination - if either response is truncated, we have more data
     const hasMore = baseResponse.IsTruncated || userResponse.IsTruncated;
@@ -112,7 +122,7 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       ? Buffer.from(baseResponse.NextContinuationToken || userResponse.NextContinuationToken || '', 'utf8').toString('base64url')
       : undefined;
 
-    return { items, nextCursor };
+    return { items: deduplicatedItems, nextCursor };
   }
 
   async findByName(id: string, opts?: FindOptions): Promise<T | null> {
