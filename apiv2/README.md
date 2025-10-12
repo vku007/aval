@@ -309,7 +309,38 @@ aws lambda update-function-code --function-name vkp-api2-service --zip-file file
 
 ---
 
+## User Entity API
+
+The API also includes a structured User entity with domain-driven design:
+
+### User Endpoints
+- `GET /apiv2/users` - List users with pagination
+- `GET /apiv2/users/{id}` - Get user by ID  
+- `GET /apiv2/users/{id}/meta` - Get user metadata
+- `POST /apiv2/users` - Create new user
+- `PUT /apiv2/users/{id}` - Replace user (full update)
+- `PATCH /apiv2/users/{id}` - Merge user (partial update)
+- `DELETE /apiv2/users/{id}` - Delete user
+
+### User Entity Structure
+```json
+{
+  "id": "user-123",
+  "name": "John Doe",
+  "externalId": 1001
+}
+```
+
+### User API Documentation
+- **[Complete User API Reference](./USER_API.md)** - Full API documentation
+- **[User API Quick Reference](./USER_API_QUICK_REFERENCE.md)** - Developer quick reference
+- **[User Entity Implementation Guide](./USER_ENTITY_README.md)** - Architecture and implementation details
+
+---
+
 ## See Also
 - [IMPROVEMENTS.md](./IMPROVEMENTS.md) - Recent REST best practices applied
+- [USER_API.md](./USER_API.md) - Complete User API documentation
+- [USER_ENTITY_README.md](./USER_ENTITY_README.md) - User entity implementation guide
 - [RFC 7807](https://tools.ietf.org/html/rfc7807) - Problem Details for HTTP APIs
 - [RFC 7232](https://tools.ietf.org/html/rfc7232) - HTTP Conditional Requests

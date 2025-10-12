@@ -34,6 +34,10 @@ export class HttpResponse {
     return this.withHeader('location', location);
   }
 
+  withCacheControl(cacheControl: string): HttpResponse {
+    return this.withHeader('cache-control', cacheControl);
+  }
+
   static ok(body?: unknown): HttpResponse {
     return new HttpResponse(200, body);
   }

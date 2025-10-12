@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { User } from './User.js';
+import { JsonEntity } from './JsonEntity.js';
 import { ValidationError } from '../../shared/errors/index.js';
+import type { EntityMetadata } from '../../shared/types/common.js';
 
 describe('User Entity', () => {
   describe('Creation', () => {
@@ -10,6 +12,27 @@ describe('User Entity', () => {
       expect(user.id).toBe('user-123');
       expect(user.name).toBe('John Doe');
       expect(user.externalId).toBe(1001);
+      
+      // Test internal backing store (for persistence layer)
+      const backingStore = user.internalGetBackingStore();
+      expect(backingStore).toBeInstanceOf(JsonEntity);
+      expect(backingStore.id).toBe('user-123');
+      expect(backingStore.data).toEqual({ name: 'John Doe', externalId: 1001 });
+    });
+
+    it('should create user with metadata', () => {
+      const metadata: EntityMetadata = {
+        etag: 'etag-123',
+        size: 1024,
+        lastModified: '2023-01-01T00:00:00Z'
+      };
+      
+      const user = User.create('user-456', 'Jane Smith', 2002, 'etag-123', metadata);
+      
+      expect(user.id).toBe('user-456');
+      expect(user.name).toBe('Jane Smith');
+      expect(user.externalId).toBe(2002);
+      expect(user.metadata).toEqual(metadata);
     });
 
     it('should create user with constructor', () => {
@@ -18,6 +41,12 @@ describe('User Entity', () => {
       expect(user.id).toBe('user-456');
       expect(user.name).toBe('Jane Smith');
       expect(user.externalId).toBe(2002);
+      
+      // Test internal backing store
+      const backingStore = user.internalGetBackingStore();
+      expect(backingStore).toBeInstanceOf(JsonEntity);
+      expect(backingStore.id).toBe('user-456');
+      expect(backingStore.data).toEqual({ name: 'Jane Smith', externalId: 2002 });
     });
   });
 
@@ -73,6 +102,22 @@ describe('User Entity', () => {
       expect(updated.name).toBe('John Smith');
       expect(updated.externalId).toBe(1001); // Unchanged
       expect(updated.id).toBe('user-123'); // Unchanged
+      expect(updated.internalGetBackingStore().data).toEqual({ name: 'John Smith', externalId: 1001 });
+    });
+
+    it('should preserve metadata during updates', () => {
+      const metadata: EntityMetadata = {
+        etag: 'etag-123',
+        size: 1024,
+        lastModified: '2023-01-01T00:00:00Z'
+      };
+      
+      const user = User.create('user-123', 'John Doe', 1001, 'etag-123', metadata);
+      const updated = user.updateName('John Smith');
+      
+      expect(updated.name).toBe('John Smith');
+      expect(updated.metadata).toEqual(metadata); // Metadata preserved
+      expect(updated.internalGetBackingStore().etag).toBe('etag-123'); // ETag preserved
     });
 
     it('should update externalId', () => {
@@ -81,6 +126,18 @@ describe('User Entity', () => {
       
       expect(updated.externalId).toBe(2002);
       expect(updated.name).toBe('John Doe'); // Unchanged
+      expect(updated.id).toBe('user-123'); // Unchanged
+      expect(updated.internalGetBackingStore().data).toEqual({ name: 'John Doe', externalId: 2002 });
+    });
+
+    it('should create user from backing store', () => {
+      const user = User.create('user-123', 'John Doe', 1001);
+      const newBacked = new JsonEntity('user-123', { name: 'Updated Backed', externalId: 9999 });
+      const updated = user.internalCreateFromBackingStore(newBacked);
+      
+      expect(updated.internalGetBackingStore().data).toEqual({ name: 'Updated Backed', externalId: 9999 });
+      expect(updated.name).toBe('Updated Backed');
+      expect(updated.externalId).toBe(9999);
       expect(updated.id).toBe('user-123'); // Unchanged
     });
 
@@ -125,6 +182,32 @@ describe('User Entity', () => {
         name: 'John Doe',
         externalId: 1001
       });
+    });
+
+    it('should merge fields', () => {
+      const user = User.create('user-123', 'John Doe', 1001);
+      const merged = user.merge({ name: 'Merged Name' });
+      
+      expect(merged.name).toBe('Merged Name');
+      expect(merged.externalId).toBe(1001); // Unchanged
+      expect(merged.id).toBe('user-123'); // Unchanged
+      expect(merged.internalGetBackingStore().data).toEqual({ name: 'Merged Name', externalId: 1001 });
+    });
+
+    it('should preserve metadata during merge', () => {
+      const metadata: EntityMetadata = {
+        etag: 'etag-456',
+        size: 2048,
+        lastModified: '2023-02-01T00:00:00Z'
+      };
+      
+      const user = User.create('user-123', 'John Doe', 1001, 'etag-456', metadata);
+      const merged = user.merge({ externalId: 9999 });
+      
+      expect(merged.name).toBe('John Doe'); // Unchanged
+      expect(merged.externalId).toBe(9999); // Updated
+      expect(merged.metadata).toEqual(metadata); // Metadata preserved
+      expect(merged.internalGetBackingStore().etag).toBe('etag-456'); // ETag preserved
     });
   });
 });

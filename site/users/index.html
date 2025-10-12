@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Manager - VKP API</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #f3f4f6;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+
+    .content {
+      padding: 2rem;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #1e3a8a;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #1e3a8a;
+      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: #6b7280;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    .users-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+
+    .user-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .user-card:hover {
+      border-color: #1e3a8a;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .user-card.selected {
+      border-color: #1e3a8a;
+      background: #eff6ff;
+    }
+
+    .user-name {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-bottom: 0.5rem;
+    }
+
+    .user-id {
+      font-size: 0.875rem;
+      color: #6b7280;
+      font-family: 'Monaco', 'Courier New', monospace;
+      margin-bottom: 0.5rem;
+    }
+
+    .user-meta {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+
+    .user-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+
+    .alert-error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    .alert-success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6b7280;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #d1d5db;
+      border-top: 4px solid #1e3a8a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #d1d5db;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+      font-weight: 500;
+      color: #6b7280;
+    }
+
+    .tab:hover {
+      color: #1e3a8a;
+    }
+
+    .tab.active {
+      color: #1e3a8a;
+      border-bottom-color: #1e3a8a;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #1e3a8a;
+      text-decoration: none;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      transition: color 0.3s;
+    }
+
+    .back-link:hover {
+      color: #1e40af;
+    }
+
+    code {
+      background: #e5e7eb;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: #1e3a8a;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .external-id-display {
+      font-size: 0.875rem;
+      color: #6b7280;
+      background: #f3f4f6;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      display: inline-block;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>👥 User Manager</h1>
+      <p>Manage User entities via VKP API</p>
+    </header>
+
+    <div class="content">
+      <a href="../entities/index.html" class="back-link">
+        ← Back to Entity Manager
+      </a>
+
+      <div id="alert-container"></div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="browse">Browse</div>
+        <div class="tab" data-tab="create">Create</div>
+        <div class="tab" data-tab="edit">Edit</div>
+      </div>
+
+      <!-- Browse Tab -->
+      <div class="tab-content active" data-content="browse">
+        <div class="section">
+          <div class="section-title">Users</div>
+          <div class="form-group">
+            <input type="text" id="search-prefix" placeholder="Filter by prefix...">
+          </div>
+          <button class="btn" onclick="app.loadUsers()">🔄 Refresh</button>
+          <div id="users-list" class="users-list">
+            <div class="loading">
+              <div class="spinner"></div>
+              <p>Loading users...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Tab -->
+      <div class="tab-content" data-content="create">
+        <div class="section">
+          <div class="section-title">Create New User</div>
+          <form id="create-form" onsubmit="app.createUser(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="create-id">User ID</label>
+                <input type="text" id="create-id" required 
+                       placeholder="e.g., user-123" 
+                       pattern="^[a-zA-Z0-9._-]{1,128}$"
+                       title="User ID must contain only alphanumeric characters, dots, hyphens, and underscores (1-128 characters)">
+              </div>
+              <div class="form-group">
+                <label for="create-external-id">External ID</label>
+                <input type="number" id="create-external-id" required 
+                       min="1" 
+                       placeholder="e.g., 1001">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="create-name">Name</label>
+              <input type="text" id="create-name" required 
+                     placeholder="e.g., John Doe"
+                     minlength="2" maxlength="100">
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn">👤 Create User</button>
+              <button type="button" class="btn btn-secondary" onclick="app.switchTab('browse')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Edit Tab -->
+      <div class="tab-content" data-content="edit">
+        <div class="section">
+          <div class="section-title">Edit User</div>
+          <div id="edit-placeholder" class="alert alert-info">
+            Select a user from the Browse tab to edit it.
+          </div>
+          <form id="edit-form" class="hidden" onsubmit="app.updateUser(event)">
+            <div class="form-group">
+              <label for="edit-id">User ID</label>
+              <input type="text" id="edit-id" readonly>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-name">Name</label>
+                <input type="text" id="edit-name" required 
+                       minlength="2" maxlength="100">
+              </div>
+              <div class="form-group">
+                <label for="edit-external-id">External ID</label>
+                <input type="number" id="edit-external-id" required 
+                       min="1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="update-mode">Update Mode</label>
+              <select id="update-mode">
+                <option value="replace">Replace (Full Update)</option>
+                <option value="merge">Merge (Partial Update)</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn">💾 Update User</button>
+              <button type="button" class="btn btn-danger" onclick="app.deleteUser()">🗑️ Delete User</button>
+              <button type="button" class="btn btn-secondary" onclick="app.switchTab('browse')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const app = {
+      apiBase: 'https://vkp-consulting.fr/apiv2',
+      users: [],
+      selectedUser: null,
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      },
+
+      async request(method, path, body = null, headers = {}) {
+        const url = `${this.apiBase}${path}`;
+        const options = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...headers
+          }
+        };
+
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, options);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+            throw new Error(errorData.detail || errorData.title || `HTTP ${response.status}`);
+          } catch {
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+        }
+
+        const data = response.status === 204 ? null : await response.json();
+        return {
+          data,
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries())
+        };
+      },
+
+      showAlert(message, type = 'info') {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+      },
+
+      switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
+      },
+
+      async loadUsers() {
+        const list = document.getElementById('users-list');
+        list.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading users...</p></div>';
+
+        try {
+          const prefix = document.getElementById('search-prefix').value;
+          const params = new URLSearchParams();
+          if (prefix) params.set('prefix', prefix);
+          
+          const result = await this.request('GET', `/users?${params}`);
+          // Backend returns {names: [id1, id2, ...], nextCursor: ...}
+          const userIds = result.data.names || [];
+
+          if (userIds.length === 0) {
+            list.innerHTML = '<div class="alert alert-info">No users found. Create your first user using the Create tab!</div>';
+            return;
+          }
+
+          // Fetch full user data for each user
+          const userDetails = await Promise.all(
+            userIds.map(async (id) => {
+              try {
+                const user = await this.request('GET', `/users/${id}`);
+                const meta = await this.request('GET', `/users/${id}/meta`);
+                return {
+                  id,
+                  name: user.data.name,
+                  externalId: user.data.externalId,
+                  etag: meta.data.etag,
+                  size: meta.data.size,
+                  lastModified: meta.data.lastModified
+                };
+              } catch {
+                return { id, name: 'Unknown', externalId: 0, etag: null, size: null, lastModified: null };
+              }
+            })
+          );
+
+          this.users = userDetails;
+
+          list.innerHTML = this.users.map(u => `
+            <div class="user-card" onclick="app.selectUser('${u.id}')">
+              <div class="user-name">${this.escapeHtml(u.name)}</div>
+              <div class="user-id">ID: ${this.escapeHtml(u.id)}</div>
+              <div class="external-id-display">External ID: ${u.externalId}</div>
+              <div class="user-meta">
+                ${u.lastModified ? `Modified: ${new Date(u.lastModified).toLocaleString()}` : ''}
+              </div>
+              <div class="user-actions">
+                <button class="btn btn-small" onclick="event.stopPropagation(); app.viewUser('${u.id}')">👁️ View</button>
+                <button class="btn btn-small" onclick="event.stopPropagation(); app.editUser('${u.id}')">✏️ Edit</button>
+              </div>
+            </div>
+          `).join('');
+        } catch (err) {
+          list.innerHTML = `<div class="alert alert-error">Error: ${this.escapeHtml(err.message)}</div>`;
+        }
+      },
+
+      selectUser(id) {
+        document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+        this.selectedUser = id;
+      },
+
+      async viewUser(id) {
+        try {
+          const result = await this.request('GET', `/users/${id}`);
+          const user = result.data;
+          const meta = await this.request('GET', `/users/${id}/meta`);
+          
+          const details = `
+User Details:
+
+👤 Name: ${user.name}
+🆔 ID: ${user.id}
+🔢 External ID: ${user.externalId}
+📅 Last Modified: ${meta.data.lastModified ? new Date(meta.data.lastModified).toLocaleString() : 'Unknown'}
+📏 Size: ${meta.data.size ? Math.round(meta.data.size / 1024 * 10) / 10 + ' KB' : 'Unknown'}
+🏷️ ETag: ${meta.data.etag || 'N/A'}
+          `.trim();
+          
+          alert(details);
+        } catch (err) {
+          this.showAlert(`Error viewing user ${id}: ${err.message}`, 'error');
+        }
+      },
+
+      async editUser(id) {
+        try {
+          const result = await this.request('GET', `/users/${id}`);
+          const user = result.data;
+          
+          document.getElementById('edit-id').value = user.id;
+          document.getElementById('edit-name').value = user.name;
+          document.getElementById('edit-external-id').value = user.externalId;
+          document.getElementById('edit-placeholder').classList.add('hidden');
+          document.getElementById('edit-form').classList.remove('hidden');
+          
+          // Store only the ID since we don't need ETag anymore
+          this.selectedUser = { id: user.id };
+          this.switchTab('edit');
+        } catch (err) {
+          this.showAlert(`Error loading user ${id}: ${err.message}`, 'error');
+        }
+      },
+
+      async createUser(event) {
+        event.preventDefault();
+        
+        const id = document.getElementById('create-id').value;
+        const name = document.getElementById('create-name').value;
+        const externalId = parseInt(document.getElementById('create-external-id').value);
+
+        try {
+          await this.request('POST', '/users', {
+            id,
+            name,
+            externalId
+          });
+          
+          this.showAlert(`User "${id}" created successfully!`, 'success');
+          
+          // Clear form
+          document.getElementById('create-form').reset();
+          this.switchTab('browse');
+          this.loadUsers();
+        } catch (err) {
+          this.showAlert(`Error creating user: ${err.message}`, 'error');
+        }
+      },
+
+      async updateUser(event) {
+        event.preventDefault();
+        
+        const id = this.selectedUser.id;
+        const name = document.getElementById('edit-name').value;
+        const externalId = parseInt(document.getElementById('edit-external-id').value);
+        const mode = document.getElementById('update-mode').value;
+        
+        const updateData = {
+          name,
+          externalId
+        };
+
+        try {
+          // No ETag headers - force update without concurrency control
+          const method = mode === 'replace' ? 'PUT' : 'PATCH';
+          
+          await this.request(method, `/users/${id}`, updateData);
+          
+          this.showAlert(`User "${id}" updated successfully!`, 'success');
+          this.switchTab('browse');
+          this.loadUsers();
+        } catch (err) {
+          this.showAlert(`Error updating user: ${err.message}`, 'error');
+        }
+      },
+
+      async deleteUser() {
+        if (!this.selectedUser) {
+          this.showAlert('No user selected', 'error');
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to delete user "${this.selectedUser.id}"?`)) {
+          return;
+        }
+
+        try {
+          // No ETag headers - force delete without concurrency control
+          await this.request('DELETE', `/users/${this.selectedUser.id}`, null);
+          
+          this.showAlert(`User "${this.selectedUser.id}" deleted successfully!`, 'success');
+          this.switchTab('browse');
+          this.loadUsers();
+        } catch (err) {
+          this.showAlert(`Error deleting user: ${err.message}`, 'error');
+        }
+      }
+    };
+
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', () => {
+      app.loadUsers();
+      
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabName = tab.dataset.tab;
+          app.switchTab(tabName);
+        });
+      });
+
+      // Search functionality
+      document.getElementById('search-prefix').addEventListener('input', () => {
+        clearTimeout(window.searchTimeout);
+        window.searchTimeout = setTimeout(() => {
+          app.loadUsers();
+        }, 500);
+      });
+    });
+  </script>
+</body>
+</html>
