@@ -362,7 +362,7 @@ describe('UserController', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toEqual(listResult);
-      expect(response.headers?.['cache-control']).toBe('private, max-age=60');
+      expect(response.headers?.['cache-control']).toBe('private, must-revalidate');
       
       expect(mockUserService.listUsers).toHaveBeenCalledWith('user-', 10, undefined);
     });

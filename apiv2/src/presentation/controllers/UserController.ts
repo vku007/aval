@@ -186,7 +186,7 @@ export class UserController {
       const result = await this.userService.listUsers(prefix, limit, cursor);
       
       return HttpResponse.ok(result)
-        .withCacheControl('private, max-age=60');
+        .withCacheControl('private, must-revalidate');
     } catch (error: any) {
       this.logger.error('Failed to list users', { error: error.message });
       throw error;
