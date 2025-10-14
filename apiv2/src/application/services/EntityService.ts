@@ -6,6 +6,7 @@ import { UpdateEntityDto } from '../dto/UpdateEntityDto.js';
 import { EntityResponseDto } from '../dto/EntityResponseDto.js';
 import { ListResponseDto } from '../dto/ListResponseDto.js';
 import { NotFoundError, NotModifiedError } from '../../shared/errors/index.js';
+import { JsonEntity } from '../../domain/entity/JsonEntity.js';
 
 /**
  * Application service for entity operations
@@ -70,7 +71,7 @@ export class EntityService<T extends BaseEntity> {
     this.logger.info('Creating entity', { id: dto.id });
 
     // Create domain entity (will validate)
-    const entity = this.repository['entityFactory'](dto.id, dto.data) as T;
+    const entity = new JsonEntity(dto.id, dto.data) as T;
 
     // Save with If-None-Match: * (create only)
     const saved = await this.repository.save(entity, { ifNoneMatch: '*' });
@@ -100,7 +101,7 @@ export class EntityService<T extends BaseEntity> {
       if (!dto.merge) {
         // PUT without If-Match: create new entity
         this.logger.info('Entity not found, creating new', { id });
-        const entity = this.repository['entityFactory'](id, dto.data) as T;
+        const entity = new JsonEntity(id, dto.data) as T;
         const saved = await this.repository.save(entity);
         return EntityResponseDto.fromEntity(saved);
       } else {
@@ -112,7 +113,7 @@ export class EntityService<T extends BaseEntity> {
     // Update existing entity
     const updated = dto.merge
       ? existing.merge(dto.data)
-      : this.repository['entityFactory'](id, dto.data, existing.etag, existing.metadata) as T;
+      : new JsonEntity(id, dto.data, existing.etag, existing.metadata) as T;
 
     const saved = await this.repository.save(updated, { ifMatch });
 
