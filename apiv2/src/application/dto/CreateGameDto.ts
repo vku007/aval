@@ -1,0 +1,88 @@
+import { z } from 'zod';
+import { ValidationError } from '../../shared/errors/index.js';
+
+// Schema for creating a new game
+const CreateGameSchema = z.object({
+  id: z.string()
+    .min(1, 'Game ID is required')
+    .max(128, 'Game ID must be 128 characters or less')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Game ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
+  
+  type: z.string()
+    .min(1, 'Game type is required')
+    .max(100, 'Game type must be 100 characters or less'),
+  
+  usersIds: z.array(z.string()
+    .min(1, 'User ID cannot be empty')
+    .max(128, 'User ID must be 128 characters or less')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'User ID must contain only alphanumeric characters, dots, hyphens, and underscores')
+  )
+    .min(1, 'Game must have at least one user')
+    .max(10, 'Game cannot have more than 10 users')
+    .refine((ids) => new Set(ids).size === ids.length, 'Game cannot have duplicate user IDs'),
+  
+  rounds: z.array(z.object({
+    id: z.string()
+      .min(1, 'Round ID is required')
+      .max(128, 'Round ID must be 128 characters or less')
+      .regex(/^[a-zA-Z0-9._-]+$/, 'Round ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
+    
+    moves: z.array(z.object({
+      id: z.string()
+        .min(1, 'Move ID is required')
+        .max(128, 'Move ID must be 128 characters or less')
+        .regex(/^[a-zA-Z0-9._-]+$/, 'Move ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
+      
+      userId: z.string()
+        .min(1, 'User ID is required')
+        .max(128, 'User ID must be 128 characters or less')
+        .regex(/^[a-zA-Z0-9._-]+$/, 'User ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
+      
+      value: z.number()
+        .finite('Move value must be a finite number'),
+      
+      valueDecorated: z.string()
+        .min(1, 'Move valueDecorated is required')
+    }))
+      .default([]),
+    
+    isFinished: z.boolean()
+      .default(false)
+  }))
+    .default([]),
+  
+  isFinished: z.boolean()
+    .default(false)
+});
+
+export type CreateGameDto = z.infer<typeof CreateGameSchema>;
+
+export class CreateGameDtoValidator {
+  static validate(data: unknown): CreateGameDto {
+    try {
+      return CreateGameSchema.parse(data);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors
+          .map(err => `${err.path.join('.')}: ${err.message}`)
+          .join(', ');
+        throw new ValidationError(`Validation failed: ${errorMessage}`);
+      }
+      throw error;
+    }
+  }
+
+  static validatePartial(data: unknown): Partial<CreateGameDto> {
+    try {
+      return CreateGameSchema.partial().parse(data);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors
+          .map(err => `${err.path.join('.')}: ${err.message}`)
+          .join(', ');
+        throw new ValidationError(`Validation failed: ${errorMessage}`);
+      }
+      throw error;
+    }
+  }
+}
