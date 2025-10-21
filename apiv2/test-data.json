@@ -1,0 +1,62 @@
+{
+  "sampleGame": {
+    "id": "tournament-2024-01",
+    "type": "tournament",
+    "usersIds": ["player-1", "player-2"],
+    "rounds": [],
+    "isFinished": false
+  },
+  "complexGame": {
+    "id": "championship-2024",
+    "type": "championship",
+    "usersIds": ["alice", "bob", "charlie"],
+    "rounds": [
+      {
+        "id": "round-1",
+        "moves": [
+          {
+            "id": "move-1",
+            "userId": "alice",
+            "value": 15,
+            "valueDecorated": "fifteen"
+          },
+          {
+            "id": "move-2",
+            "userId": "bob",
+            "value": 20,
+            "valueDecorated": "twenty"
+          }
+        ],
+        "isFinished": false
+      }
+    ],
+    "isFinished": false
+  },
+  "roundData": {
+    "id": "round-1",
+    "moves": [],
+    "isFinished": false
+  },
+  "moveData": {
+    "id": "move-1",
+    "userId": "player-1",
+    "value": 25,
+    "valueDecorated": "twenty-five"
+  },
+  "updateData": {
+    "type": "premium-tournament",
+    "usersIds": ["player-1", "player-2", "player-3"],
+    "rounds": [],
+    "isFinished": false
+  },
+  "patchData": {
+    "isFinished": true
+  },
+  "invalidData": {
+    "id": "invalid@game",
+    "type": "",
+    "usersIds": [],
+    "rounds": [],
+    "isFinished": false
+  }
+}

@@ -1,0 +1,67 @@
+# Game API Quick Test Commands
+# Replace BASE_URL with your actual API Gateway URL
+
+BASE_URL="https://your-api-gateway-url.amazonaws.com"
+
+echo "🎮 Game API Quick Test Commands"
+echo "================================"
+
+echo ""
+echo "1. CREATE GAME:"
+echo "curl -X POST '$BASE_URL/apiv2/games' \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -d '{\"id\": \"test-game\", \"type\": \"tournament\", \"usersIds\": [\"player1\", \"player2\"], \"rounds\": [], \"isFinished\": false}'"
+
+echo ""
+echo "2. GET GAME:"
+echo "curl -X GET '$BASE_URL/apiv2/games/test-game'"
+
+echo ""
+echo "3. LIST GAMES:"
+echo "curl -X GET '$BASE_URL/apiv2/games'"
+
+echo ""
+echo "4. ADD ROUND (replace ETAG with actual ETag from step 1):"
+echo "curl -X POST '$BASE_URL/apiv2/games/test-game/rounds' \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -H 'If-Match: \"ETAG\"' \\"
+echo "  -d '{\"id\": \"round-1\", \"moves\": [], \"isFinished\": false}'"
+
+echo ""
+echo "5. ADD MOVE (replace ETAG with actual ETag from step 4):"
+echo "curl -X POST '$BASE_URL/apiv2/games/test-game/rounds/round-1/moves' \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -H 'If-Match: \"ETAG\"' \\"
+echo "  -d '{\"id\": \"move-1\", \"userId\": \"player1\", \"value\": 10, \"valueDecorated\": \"ten\"}'"
+
+echo ""
+echo "6. FINISH ROUND (replace ETAG with actual ETag from step 5):"
+echo "curl -X PATCH '$BASE_URL/apiv2/games/test-game/rounds/round-1/finish' \\"
+echo "  -H 'If-Match: \"ETAG\"'"
+
+echo ""
+echo "7. FINISH GAME (replace ETAG with actual ETag from step 6):"
+echo "curl -X PATCH '$BASE_URL/apiv2/games/test-game/finish' \\"
+echo "  -H 'If-Match: \"ETAG\"'"
+
+echo ""
+echo "8. DELETE GAME (replace ETAG with actual ETag from step 7):"
+echo "curl -X DELETE '$BASE_URL/apiv2/games/test-game' \\"
+echo "  -H 'If-Match: \"ETAG\"'"
+
+echo ""
+echo "9. ERROR TEST - Invalid Data:"
+echo "curl -X POST '$BASE_URL/apiv2/games' \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -d '{\"id\": \"invalid@game\", \"type\": \"\", \"usersIds\": [], \"rounds\": [], \"isFinished\": false}'"
+
+echo ""
+echo "10. ERROR TEST - Game Not Found:"
+echo "curl -X GET '$BASE_URL/apiv2/games/non-existent'"
+
+echo ""
+echo "📝 Notes:"
+echo "• Update BASE_URL with your actual API Gateway URL"
+echo "• Copy ETags from responses and use them in subsequent requests"
+echo "• ETags are required for PUT, PATCH, DELETE operations"
+echo "• Use If-Match header for concurrency control"
