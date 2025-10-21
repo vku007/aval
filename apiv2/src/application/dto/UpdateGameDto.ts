@@ -54,6 +54,48 @@ const UpdateGameSchema = z.object({
 
 export type UpdateGameDto = z.infer<typeof UpdateGameSchema>;
 
+export class UpdateGameDto {
+  constructor(
+    public readonly type?: string,
+    public readonly usersIds?: string[],
+    public readonly rounds?: RoundDto[],
+    public readonly isFinished?: boolean
+  ) {}
+
+  static fromRequest(body: unknown, merge: boolean = false): UpdateGameDto {
+    try {
+      const validated = UpdateGameSchema.parse(body);
+      return new UpdateGameDto(
+        validated.type,
+        validated.usersIds,
+        validated.rounds,
+        validated.isFinished
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors
+          .map(err => `${err.path.join('.')}: ${err.message}`)
+          .join(', ');
+        throw new ValidationError(`Validation failed: ${errorMessage}`);
+      }
+      throw error;
+    }
+  }
+}
+
+export interface RoundDto {
+  id: string;
+  moves: MoveDto[];
+  isFinished: boolean;
+}
+
+export interface MoveDto {
+  id: string;
+  userId: string;
+  value: number;
+  valueDecorated: string;
+}
+
 export class UpdateGameDtoValidator {
   static validate(data: unknown): UpdateGameDto {
     try {

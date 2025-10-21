@@ -57,6 +57,50 @@ const CreateGameSchema = z.object({
 
 export type CreateGameDto = z.infer<typeof CreateGameSchema>;
 
+export class CreateGameDto {
+  constructor(
+    public readonly id: string,
+    public readonly type: string,
+    public readonly usersIds: string[],
+    public readonly rounds: RoundDto[],
+    public readonly isFinished: boolean
+  ) {}
+
+  static fromRequest(body: unknown): CreateGameDto {
+    try {
+      const validated = CreateGameSchema.parse(body);
+      return new CreateGameDto(
+        validated.id,
+        validated.type,
+        validated.usersIds,
+        validated.rounds,
+        validated.isFinished
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors
+          .map(err => `${err.path.join('.')}: ${err.message}`)
+          .join(', ');
+        throw new ValidationError(`Validation failed: ${errorMessage}`);
+      }
+      throw error;
+    }
+  }
+}
+
+export interface RoundDto {
+  id: string;
+  moves: MoveDto[];
+  isFinished: boolean;
+}
+
+export interface MoveDto {
+  id: string;
+  userId: string;
+  value: number;
+  valueDecorated: string;
+}
+
 export class CreateGameDtoValidator {
   static validate(data: unknown): CreateGameDto {
     try {
