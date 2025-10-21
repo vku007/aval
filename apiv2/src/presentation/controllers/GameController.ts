@@ -238,7 +238,7 @@ export class GameController {
   }
 
   async addMove(request: HttpRequest): Promise<HttpResponse> {
-    const gameId = this.extractId(request);
+    const gameId = this.extractGameId(request);
     const roundId = this.extractRoundId(request);
     const ifMatch = request.headers['if-match'];
 
@@ -277,7 +277,7 @@ export class GameController {
   }
 
   async finishRound(request: HttpRequest): Promise<HttpResponse> {
-    const gameId = this.extractId(request);
+    const gameId = this.extractGameId(request);
     const roundId = this.extractRoundId(request);
     const ifMatch = request.headers['if-match'];
 
@@ -334,6 +334,15 @@ export class GameController {
       }
       throw error;
     }
+  }
+
+  private extractGameId(request: HttpRequest): string {
+    if (request.params.gameId) {
+      return request.params.gameId;
+    }
+    
+    // Fallback to extractId for backwards compatibility
+    return this.extractId(request);
   }
 
   private extractId(request: HttpRequest): string {
