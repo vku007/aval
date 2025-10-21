@@ -21,7 +21,14 @@ export class ApiGatewayAdapter {
     const query: Record<string, string | undefined> = event.queryStringParameters || {};
 
     // Extract path parameters
-    const params: Record<string, string> = event.pathParameters || {};
+    const params: Record<string, string> = {};
+    if (event.pathParameters) {
+      for (const [key, value] of Object.entries(event.pathParameters)) {
+        if (value !== undefined) {
+          params[key] = value;
+        }
+      }
+    }
 
     // Parse body if present
     let body: unknown;
