@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Manager - VKP API</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: #f3f4f6;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+
+    .content {
+      padding: 2rem;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #1e3a8a;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #1e3a8a;
+      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: #6b7280;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+    }
+
+    .btn-success {
+      background: #16a34a;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    .games-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1rem;
+    }
+
+    .game-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .game-card:hover {
+      border-color: #1e3a8a;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .game-card.selected {
+      border-color: #1e3a8a;
+      background: #eff6ff;
+    }
+
+    .game-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-bottom: 0.5rem;
+    }
+
+    .game-id {
+      font-size: 0.875rem;
+      color: #6b7280;
+      font-family: 'Monaco', 'Courier New', monospace;
+      margin-bottom: 0.5rem;
+    }
+
+    .game-type {
+      font-size: 0.875rem;
+      color: #16a34a;
+      background: #f0fdf4;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+
+    .game-status {
+      font-size: 0.875rem;
+      color: #dc2626;
+      background: #fef2f2;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+
+    .game-status.finished {
+      color: #16a34a;
+      background: #f0fdf4;
+    }
+
+    .game-meta {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+
+    .game-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .stat-item {
+      background: #f3f4f6;
+      padding: 0.5rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .stat-label {
+      color: #6b7280;
+      font-size: 0.75rem;
+    }
+
+    .stat-value {
+      color: #1e3a8a;
+      font-weight: 600;
+    }
+
+    .game-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+
+    .alert-error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    .alert-success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6b7280;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #d1d5db;
+      border-top: 4px solid #1e3a8a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #d1d5db;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+      font-weight: 500;
+      color: #6b7280;
+    }
+
+    .tab:hover {
+      color: #1e3a8a;
+    }
+
+    .tab.active {
+      color: #1e3a8a;
+      border-bottom-color: #1e3a8a;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #1e3a8a;
+      text-decoration: none;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      transition: color 0.3s;
+    }
+
+    .back-link:hover {
+      color: #1e40af;
+    }
+
+    code {
+      background: #e5e7eb;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: #1e3a8a;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .users-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .user-tag {
+      background: #eff6ff;
+      color: #1e3a8a;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      border: 1px solid #dbeafe;
+    }
+
+    .rounds-section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .round-item {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .round-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .round-id {
+      font-weight: 600;
+      color: #1e3a8a;
+    }
+
+    .round-status {
+      font-size: 0.875rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .round-status.finished {
+      background: #f0fdf4;
+      color: #16a34a;
+    }
+
+    .round-status.active {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .moves-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .move-item {
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .move-user {
+      color: #1e3a8a;
+      font-weight: 500;
+    }
+
+    .move-value {
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    .move-decorated {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .add-user-input {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .add-user-input input {
+      flex: 1;
+    }
+
+    .remove-user-btn {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    .round-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .round-controls input {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎮 Game Manager</h1>
+      <p>Manage Game entities via VKP API</p>
+    </header>
+
+    <div class="content">
+      <a href="../entities/index.html" class="back-link">
+        ← Back to Entity Manager
+      </a>
+
+      <div id="alert-container"></div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="browse">Browse</div>
+        <div class="tab" data-tab="create">Create</div>
+        <div class="tab" data-tab="edit">Edit</div>
+        <div class="tab" data-tab="manage">Manage</div>
+      </div>
+
+      <!-- Browse Tab -->
+      <div class="tab-content active" data-content="browse">
+        <div class="section">
+          <div class="section-title">Games</div>
+          <div class="form-group">
+            <input type="text" id="search-prefix" placeholder="Filter by prefix...">
+          </div>
+          <button class="btn" onclick="app.loadGames()">🔄 Refresh</button>
+          <div id="games-list" class="games-list">
+            <div class="loading">
+              <div class="spinner"></div>
+              <p>Loading games...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Tab -->
+      <div class="tab-content" data-content="create">
+        <div class="section">
+          <div class="section-title">Create New Game</div>
+          <form id="create-form" onsubmit="app.createGame(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="create-id">Game ID</label>
+                <input type="text" id="create-id" required 
+                       placeholder="e.g., tournament-2024" 
+                       pattern="^[a-zA-Z0-9._-]{1,128}$"
+                       title="Game ID must contain only alphanumeric characters, dots, hyphens, and underscores (1-128 characters)">
+              </div>
+              <div class="form-group">
+                <label for="create-type">Game Type</label>
+                <input type="text" id="create-type" required 
+                       placeholder="e.g., tournament, championship"
+                       maxlength="100">
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Players</label>
+              <div id="users-list" class="users-list"></div>
+              <div class="add-user-input">
+                <input type="text" id="new-user-id" placeholder="Enter player ID...">
+                <button type="button" class="btn btn-small" onclick="app.addUser()">Add Player</button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn">🎮 Create Game</button>
+              <button type="button" class="btn btn-secondary" onclick="app.switchTab('browse')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Edit Tab -->
+      <div class="tab-content" data-content="edit">
+        <div class="section">
+          <div class="section-title">Edit Game</div>
+          <div id="edit-placeholder" class="alert alert-info">
+            Select a game from the Browse tab to edit it.
+          </div>
+          <form id="edit-form" class="hidden" onsubmit="app.updateGame(event)">
+            <div class="form-group">
+              <label for="edit-id">Game ID</label>
+              <input type="text" id="edit-id" readonly>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-type">Game Type</label>
+                <input type="text" id="edit-type" required maxlength="100">
+              </div>
+              <div class="form-group">
+                <label for="edit-finished">Status</label>
+                <select id="edit-finished">
+                  <option value="false">Active</option>
+                  <option value="true">Finished</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="update-mode">Update Mode</label>
+              <select id="update-mode">
+                <option value="replace">Replace (Full Update)</option>
+                <option value="merge">Merge (Partial Update)</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn">💾 Update Game</button>
+              <button type="button" class="btn btn-danger" onclick="app.deleteGame()">🗑️ Delete Game</button>
+              <button type="button" class="btn btn-secondary" onclick="app.switchTab('browse')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Manage Tab -->
+      <div class="tab-content" data-content="manage">
+        <div class="section">
+          <div class="section-title">Manage Game</div>
+          <div id="manage-placeholder" class="alert alert-info">
+            Select a game from the Browse tab to manage its rounds and moves.
+          </div>
+          <div id="manage-content" class="hidden">
+            <div class="form-group">
+              <label for="manage-game-id">Game ID</label>
+              <input type="text" id="manage-game-id" readonly>
+            </div>
+            
+            <div class="rounds-section">
+              <div class="section-title">Rounds</div>
+              <div id="rounds-list"></div>
+              
+              <div class="round-controls">
+                <input type="text" id="new-round-id" placeholder="Enter round ID...">
+                <button type="button" class="btn btn-small" onclick="app.addRound()">Add Round</button>
+              </div>
+            </div>
+
+            <div class="rounds-section">
+              <div class="section-title">Add Move to Round</div>
+              <div class="form-row-3">
+                <div class="form-group">
+                  <label for="move-round-id">Round ID</label>
+                  <select id="move-round-id">
+                    <option value="">Select round...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="move-user-id">Player ID</label>
+                  <input type="text" id="move-user-id" placeholder="Player ID">
+                </div>
+                <div class="form-group">
+                  <label for="move-value">Value</label>
+                  <input type="number" id="move-value" placeholder="Value">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="move-value-decorated">Value Description</label>
+                <input type="text" id="move-value-decorated" placeholder="e.g., twenty-five">
+              </div>
+              <button type="button" class="btn btn-small" onclick="app.addMove()">Add Move</button>
+            </div>
+
+            <div class="rounds-section">
+              <div class="section-title">Round Actions</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="finish-round-id">Finish Round</label>
+                  <select id="finish-round-id">
+                    <option value="">Select round...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="finish-game">Game Actions</label>
+                  <div>
+                    <button type="button" class="btn btn-success btn-small" onclick="app.finishGame()">Finish Game</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const app = {
+      apiBase: 'https://vkp-consulting.fr/apiv2',
+      games: [],
+      selectedGame: null,
+      gameUsers: [],
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      },
+
+      async request(method, path, body = null, headers = {}) {
+        const url = `${this.apiBase}${path}`;
+        const options = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...headers
+          }
+        };
+
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, options);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+            throw new Error(errorData.detail || errorData.title || `HTTP ${response.status}`);
+          } catch {
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+        }
+
+        const data = response.status === 204 ? null : await response.json();
+        return {
+          data,
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries())
+        };
+      },
+
+      showAlert(message, type = 'info') {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+      },
+
+      switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
+      },
+
+      addUser() {
+        const input = document.getElementById('new-user-id');
+        const userId = input.value.trim();
+        
+        if (!userId) {
+          this.showAlert('Please enter a player ID', 'error');
+          return;
+        }
+
+        if (this.gameUsers.includes(userId)) {
+          this.showAlert('Player already added', 'error');
+          return;
+        }
+
+        this.gameUsers.push(userId);
+        this.renderUsersList();
+        input.value = '';
+      },
+
+      removeUser(userId) {
+        this.gameUsers = this.gameUsers.filter(id => id !== userId);
+        this.renderUsersList();
+      },
+
+      renderUsersList() {
+        const container = document.getElementById('users-list');
+        container.innerHTML = this.gameUsers.map(userId => `
+          <div class="user-tag">
+            ${this.escapeHtml(userId)}
+            <button type="button" class="remove-user-btn" onclick="app.removeUser('${userId}')">×</button>
+          </div>
+        `).join('');
+      },
+
+      async loadGames() {
+        const list = document.getElementById('games-list');
+        list.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading games...</p></div>';
+
+        try {
+          const prefix = document.getElementById('search-prefix').value;
+          const params = new URLSearchParams();
+          if (prefix) params.set('prefix', prefix);
+          
+          const result = await this.request('GET', `/games?${params}`);
+          const gameIds = result.data.names || [];
+
+          if (gameIds.length === 0) {
+            list.innerHTML = '<div class="alert alert-info">No games found. Create your first game using the Create tab!</div>';
+            return;
+          }
+
+          // Fetch full game data for each game
+          const gameDetails = await Promise.all(
+            gameIds.map(async (id) => {
+              try {
+                const game = await this.request('GET', `/games/${id}`);
+                const meta = await this.request('GET', `/games/${id}/meta`);
+                return {
+                  id,
+                  type: game.data.type,
+                  usersIds: game.data.usersIds || [],
+                  rounds: game.data.rounds || [],
+                  isFinished: game.data.isFinished || false,
+                  etag: meta.data.etag,
+                  size: meta.data.size,
+                  lastModified: meta.data.lastModified
+                };
+              } catch {
+                return { id, type: 'Unknown', usersIds: [], rounds: [], isFinished: false, etag: null, size: null, lastModified: null };
+              }
+            })
+          );
+
+          this.games = gameDetails;
+
+          list.innerHTML = this.games.map(g => {
+            const totalMoves = g.rounds.reduce((sum, round) => sum + (round.moves?.length || 0), 0);
+            const finishedRounds = g.rounds.filter(round => round.isFinished).length;
+            
+            return `
+              <div class="game-card" onclick="app.selectGame('${g.id}')">
+                <div class="game-title">${this.escapeHtml(g.type)}</div>
+                <div class="game-id">ID: ${this.escapeHtml(g.id)}</div>
+                <div class="game-type">Type: ${this.escapeHtml(g.type)}</div>
+                <div class="game-status ${g.isFinished ? 'finished' : ''}">
+                  ${g.isFinished ? 'Finished' : 'Active'}
+                </div>
+                <div class="game-stats">
+                  <div class="stat-item">
+                    <div class="stat-label">Players</div>
+                    <div class="stat-value">${g.usersIds.length}</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-label">Rounds</div>
+                    <div class="stat-value">${g.rounds.length}</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-label">Moves</div>
+                    <div class="stat-value">${totalMoves}</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-label">Finished</div>
+                    <div class="stat-value">${finishedRounds}</div>
+                  </div>
+                </div>
+                <div class="game-meta">
+                  ${g.lastModified ? `Modified: ${new Date(g.lastModified).toLocaleString()}` : ''}
+                </div>
+                <div class="game-actions">
+                  <button class="btn btn-small" onclick="event.stopPropagation(); app.viewGame('${g.id}')">👁️ View</button>
+                  <button class="btn btn-small" onclick="event.stopPropagation(); app.editGame('${g.id}')">✏️ Edit</button>
+                  <button class="btn btn-small" onclick="event.stopPropagation(); app.manageGame('${g.id}')">🎮 Manage</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        } catch (err) {
+          list.innerHTML = `<div class="alert alert-error">Error: ${this.escapeHtml(err.message)}</div>`;
+        }
+      },
+
+      selectGame(id) {
+        document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+        this.selectedGame = id;
+      },
+
+      async viewGame(id) {
+        try {
+          const result = await this.request('GET', `/games/${id}`);
+          const game = result.data;
+          const meta = await this.request('GET', `/games/${id}/meta`);
+          
+          const roundsInfo = game.rounds.map(round => 
+            `  Round ${round.id}: ${round.moves?.length || 0} moves, ${round.isFinished ? 'Finished' : 'Active'}`
+          ).join('\n');
+          
+          const details = `
+Game Details:
+
+🎮 Type: ${game.type}
+🆔 ID: ${game.id}
+👥 Players: ${game.usersIds.join(', ')}
+🏁 Status: ${game.isFinished ? 'Finished' : 'Active'}
+📊 Rounds: ${game.rounds.length}
+🎯 Total Moves: ${game.rounds.reduce((sum, round) => sum + (round.moves?.length || 0), 0)}
+
+Rounds:
+${roundsInfo}
+
+📅 Last Modified: ${meta.data.lastModified ? new Date(meta.data.lastModified).toLocaleString() : 'Unknown'}
+📏 Size: ${meta.data.size ? Math.round(meta.data.size / 1024 * 10) / 10 + ' KB' : 'Unknown'}
+🏷️ ETag: ${meta.data.etag || 'N/A'}
+          `.trim();
+          
+          alert(details);
+        } catch (err) {
+          this.showAlert(`Error viewing game ${id}: ${err.message}`, 'error');
+        }
+      },
+
+      async editGame(id) {
+        try {
+          const result = await this.request('GET', `/games/${id}`);
+          const game = result.data;
+          
+          document.getElementById('edit-id').value = game.id;
+          document.getElementById('edit-type').value = game.type;
+          document.getElementById('edit-finished').value = game.isFinished.toString();
+          document.getElementById('edit-placeholder').classList.add('hidden');
+          document.getElementById('edit-form').classList.remove('hidden');
+          
+          this.selectedGame = { id: game.id };
+          this.switchTab('edit');
+        } catch (err) {
+          this.showAlert(`Error loading game ${id}: ${err.message}`, 'error');
+        }
+      },
+
+      async manageGame(id) {
+        try {
+          const result = await this.request('GET', `/games/${id}`);
+          const game = result.data;
+          
+          document.getElementById('manage-game-id').value = game.id;
+          document.getElementById('manage-placeholder').classList.add('hidden');
+          document.getElementById('manage-content').classList.remove('hidden');
+          
+          this.selectedGame = { id: game.id };
+          this.loadRounds(game.rounds);
+          this.switchTab('manage');
+        } catch (err) {
+          this.showAlert(`Error loading game ${id}: ${err.message}`, 'error');
+        }
+      },
+
+      loadRounds(rounds) {
+        const roundsList = document.getElementById('rounds-list');
+        const moveRoundSelect = document.getElementById('move-round-id');
+        const finishRoundSelect = document.getElementById('finish-round-id');
+        
+        roundsList.innerHTML = '';
+        moveRoundSelect.innerHTML = '<option value="">Select round...</option>';
+        finishRoundSelect.innerHTML = '<option value="">Select round...</option>';
+        
+        rounds.forEach(round => {
+          const movesHtml = (round.moves || []).map(move => `
+            <div class="move-item">
+              <span class="move-user">${this.escapeHtml(move.userId)}</span>: 
+              <span class="move-value">${move.value}</span> 
+              <span class="move-decorated">(${this.escapeHtml(move.valueDecorated)})</span>
+            </div>
+          `).join('');
+          
+          roundsList.innerHTML += `
+            <div class="round-item">
+              <div class="round-header">
+                <div class="round-id">Round ${this.escapeHtml(round.id)}</div>
+                <div class="round-status ${round.isFinished ? 'finished' : 'active'}">
+                  ${round.isFinished ? 'Finished' : 'Active'}
+                </div>
+              </div>
+              <div class="moves-list">${movesHtml || '<div class="move-item">No moves yet</div>'}</div>
+            </div>
+          `;
+          
+          moveRoundSelect.innerHTML += `<option value="${round.id}">${round.id}</option>`;
+          if (!round.isFinished) {
+            finishRoundSelect.innerHTML += `<option value="${round.id}">${round.id}</option>`;
+          }
+        });
+      },
+
+      async createGame(event) {
+        event.preventDefault();
+        
+        const id = document.getElementById('create-id').value;
+        const type = document.getElementById('create-type').value;
+
+        if (this.gameUsers.length === 0) {
+          this.showAlert('Please add at least one player', 'error');
+          return;
+        }
+
+        try {
+          await this.request('POST', '/games', {
+            id,
+            type,
+            usersIds: this.gameUsers,
+            rounds: [],
+            isFinished: false
+          });
+          
+          this.showAlert(`Game "${id}" created successfully!`, 'success');
+          
+          // Clear form
+          document.getElementById('create-form').reset();
+          this.gameUsers = [];
+          this.renderUsersList();
+          this.switchTab('browse');
+          this.loadGames();
+        } catch (err) {
+          this.showAlert(`Error creating game: ${err.message}`, 'error');
+        }
+      },
+
+      async updateGame(event) {
+        event.preventDefault();
+        
+        const id = this.selectedGame.id;
+        const type = document.getElementById('edit-type').value;
+        const isFinished = document.getElementById('edit-finished').value === 'true';
+        const mode = document.getElementById('update-mode').value;
+        
+        const updateData = {
+          type,
+          isFinished
+        };
+
+        try {
+          const method = mode === 'replace' ? 'PUT' : 'PATCH';
+          await this.request(method, `/games/${id}`, updateData);
+          
+          this.showAlert(`Game "${id}" updated successfully!`, 'success');
+          this.switchTab('browse');
+          this.loadGames();
+        } catch (err) {
+          this.showAlert(`Error updating game: ${err.message}`, 'error');
+        }
+      },
+
+      async deleteGame() {
+        if (!this.selectedGame) {
+          this.showAlert('No game selected', 'error');
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to delete game "${this.selectedGame.id}"?`)) {
+          return;
+        }
+
+        try {
+          await this.request('DELETE', `/games/${this.selectedGame.id}`, null);
+          
+          this.showAlert(`Game "${this.selectedGame.id}" deleted successfully!`, 'success');
+          this.switchTab('browse');
+          this.loadGames();
+        } catch (err) {
+          this.showAlert(`Error deleting game: ${err.message}`, 'error');
+        }
+      },
+
+      async addRound() {
+        const roundId = document.getElementById('new-round-id').value.trim();
+        
+        if (!roundId) {
+          this.showAlert('Please enter a round ID', 'error');
+          return;
+        }
+
+        if (!this.selectedGame) {
+          this.showAlert('No game selected', 'error');
+          return;
+        }
+
+        try {
+          await this.request('POST', `/games/${this.selectedGame.id}/rounds`, {
+            id: roundId,
+            moves: [],
+            isFinished: false
+          });
+          
+          this.showAlert(`Round "${roundId}" added successfully!`, 'success');
+          document.getElementById('new-round-id').value = '';
+          this.loadGames();
+          this.manageGame(this.selectedGame.id);
+        } catch (err) {
+          this.showAlert(`Error adding round: ${err.message}`, 'error');
+        }
+      },
+
+      async addMove() {
+        const roundId = document.getElementById('move-round-id').value;
+        const userId = document.getElementById('move-user-id').value.trim();
+        const value = parseInt(document.getElementById('move-value').value);
+        const valueDecorated = document.getElementById('move-value-decorated').value.trim();
+        
+        if (!roundId || !userId || !value || !valueDecorated) {
+          this.showAlert('Please fill in all move fields', 'error');
+          return;
+        }
+
+        if (!this.selectedGame) {
+          this.showAlert('No game selected', 'error');
+          return;
+        }
+
+        try {
+          await this.request('POST', `/games/${this.selectedGame.id}/rounds/${roundId}/moves`, {
+            id: `move-${Date.now()}`,
+            userId,
+            value,
+            valueDecorated
+          });
+          
+          this.showAlert(`Move added successfully!`, 'success');
+          document.getElementById('move-user-id').value = '';
+          document.getElementById('move-value').value = '';
+          document.getElementById('move-value-decorated').value = '';
+          this.loadGames();
+          this.manageGame(this.selectedGame.id);
+        } catch (err) {
+          this.showAlert(`Error adding move: ${err.message}`, 'error');
+        }
+      },
+
+      async finishRound() {
+        const roundId = document.getElementById('finish-round-id').value;
+        
+        if (!roundId) {
+          this.showAlert('Please select a round to finish', 'error');
+          return;
+        }
+
+        if (!this.selectedGame) {
+          this.showAlert('No game selected', 'error');
+          return;
+        }
+
+        try {
+          await this.request('PATCH', `/games/${this.selectedGame.id}/rounds/${roundId}/finish`, {});
+          
+          this.showAlert(`Round "${roundId}" finished successfully!`, 'success');
+          this.loadGames();
+          this.manageGame(this.selectedGame.id);
+        } catch (err) {
+          this.showAlert(`Error finishing round: ${err.message}`, 'error');
+        }
+      },
+
+      async finishGame() {
+        if (!this.selectedGame) {
+          this.showAlert('No game selected', 'error');
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to finish game "${this.selectedGame.id}"?`)) {
+          return;
+        }
+
+        try {
+          await this.request('PATCH', `/games/${this.selectedGame.id}/finish`, {});
+          
+          this.showAlert(`Game "${this.selectedGame.id}" finished successfully!`, 'success');
+          this.loadGames();
+          this.manageGame(this.selectedGame.id);
+        } catch (err) {
+          this.showAlert(`Error finishing game: ${err.message}`, 'error');
+        }
+      }
+    };
+
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', () => {
+      app.loadGames();
+      
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabName = tab.dataset.tab;
+          app.switchTab(tabName);
+        });
+      });
+
+      // Search functionality
+      document.getElementById('search-prefix').addEventListener('input', () => {
+        clearTimeout(window.searchTimeout);
+        window.searchTimeout = setTimeout(() => {
+          app.loadGames();
+        }, 500);
+      });
+    });
+  </script>
+</body>
+</html>
