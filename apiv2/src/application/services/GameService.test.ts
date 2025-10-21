@@ -13,8 +13,9 @@ import { ValidationError } from '../../shared/errors/ValidationError.js';
 const mockRepository = {
   findById: vi.fn(),
   save: vi.fn(),
-  deleteById: vi.fn(),
-  findAll: vi.fn()
+  delete: vi.fn(),
+  findAll: vi.fn(),
+  getMetadata: vi.fn()
 };
 
 describe('GameService', () => {
@@ -34,7 +35,7 @@ describe('GameService', () => {
 
       expect(result.id).toBe('game-1');
       expect(result.type).toBe('tournament');
-      expect(mockRepository.findById).toHaveBeenCalledWith('game-1', { ifNoneMatch: undefined });
+      expect(mockRepository.findById).toHaveBeenCalledWith('game-1', undefined);
     });
 
     it('should pass ifNoneMatch header', async () => {
@@ -43,7 +44,7 @@ describe('GameService', () => {
 
       await gameService.getGame('game-1', 'etag-123');
 
-      expect(mockRepository.findById).toHaveBeenCalledWith('game-1', { ifNoneMatch: 'etag-123' });
+      expect(mockRepository.findById).toHaveBeenCalledWith('game-1', 'etag-123');
     });
 
     it('should throw NotFoundError when game not found', async () => {
@@ -195,31 +196,31 @@ describe('GameService', () => {
 
   describe('deleteGame', () => {
     it('should delete game successfully', async () => {
-      mockRepository.deleteById.mockResolvedValueOnce(undefined);
+      mockRepository.delete.mockResolvedValueOnce(undefined);
 
       await gameService.deleteGame('game-1');
 
-      expect(mockRepository.deleteById).toHaveBeenCalledWith('game-1', { ifMatch: undefined });
+      expect(mockRepository.delete).toHaveBeenCalledWith('game-1', { ifMatch: undefined });
     });
 
     it('should pass ifMatch header for deletion', async () => {
-      mockRepository.deleteById.mockResolvedValueOnce(undefined);
+      mockRepository.delete.mockResolvedValueOnce(undefined);
 
       await gameService.deleteGame('game-1', 'etag-123');
 
-      expect(mockRepository.deleteById).toHaveBeenCalledWith('game-1', { ifMatch: 'etag-123' });
+      expect(mockRepository.delete).toHaveBeenCalledWith('game-1', { ifMatch: 'etag-123' });
     });
   });
 
   describe('getGameMetadata', () => {
     it('should return game metadata', async () => {
-      const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false, 'etag-123');
-      mockRepository.findById.mockResolvedValueOnce(gameEntity);
+      const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
+      mockRepository.getMetadata.mockResolvedValueOnce(metadata);
 
       const result = await gameService.getGameMetadata('game-1');
 
       expect(result.etag).toBe('etag-123');
-      expect(mockRepository.findById).toHaveBeenCalledWith('game-1');
+      expect(mockRepository.getMetadata).toHaveBeenCalledWith('game-1');
     });
   });
 
@@ -235,9 +236,9 @@ describe('GameService', () => {
 
       const result = await gameService.listGames();
 
-      expect(result.items).toHaveLength(2);
-      expect(result.items[0].id).toBe('game-1');
-      expect(result.items[1].id).toBe('game-2');
+      expect(result.names).toHaveLength(2);
+      expect(result.names[0]).toBe('game-1');
+      expect(result.names[1]).toBe('game-2');
     });
 
     it('should pass pagination parameters', async () => {
@@ -273,9 +274,10 @@ describe('GameService', () => {
       const round = new Round('round-1', [], false);
       const existingGame = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       const move = new Move('move-1', 'user-1', 10, 'ten');
+      const updatedGame = existingGame.addMoveToRound('round-1', move);
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);
-      mockRepository.save.mockResolvedValueOnce(existingGame);
+      mockRepository.save.mockResolvedValueOnce(updatedGame);
 
       const result = await gameService.addMoveToGameRound('game-1', 'round-1', move);
 

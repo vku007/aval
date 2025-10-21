@@ -5,24 +5,36 @@ import { CreateGameDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { GameResponseDto } from '../dto/GameResponseDto.js';
 import { ListResponseDto } from '../dto/ListResponseDto.js';
-import { IEntityRepository } from '../../domain/repository/IEntityRepository.js';
 import { Logger } from '../../shared/logging/Logger.js';
 import { NotFoundError } from '../../shared/errors/NotFoundError.js';
 import { ConflictError } from '../../shared/errors/ConflictError.js';
 import { ValidationError } from '../../shared/errors/ValidationError.js';
+import type { EntityMetadata } from '../../shared/types/common.js';
+
+// Game-specific repository interface
+export interface IGameRepository {
+  findById(id: string, ifNoneMatch?: string): Promise<GameEntity | null>;
+  save(game: GameEntity, opts?: { ifMatch?: string; ifNoneMatch?: string }): Promise<GameEntity>;
+  delete(id: string, opts?: { ifMatch?: string }): Promise<void>;
+  findAll(prefix?: string, limit?: number, cursor?: string): Promise<{ items: GameEntity[]; nextCursor?: string }>;
+  getMetadata(id: string): Promise<EntityMetadata>;
+}
 
 export class GameService {
   private readonly logger: Logger;
 
-  constructor(private readonly repository: IEntityRepository<GameEntity>) {
-    this.logger = new Logger('GameService');
+  constructor(private readonly repository: IGameRepository) {
+    this.logger = new Logger();
   }
 
   async getGame(id: string, ifNoneMatch?: string): Promise<GameResponseDto> {
     this.logger.info('Getting game', { id, ifNoneMatch });
 
     try {
-      const gameEntity = await this.repository.findById(id, { ifNoneMatch });
+      const gameEntity = await this.repository.findById(id, ifNoneMatch);
+      if (!gameEntity) {
+        throw new NotFoundError(`Game with id ${id} not found`);
+      }
       this.logger.info('Got game', { id, etag: gameEntity.internalGetBackingStore().etag });
       return GameResponseDto.fromGameEntity(gameEntity);
     } catch (error: any) {
@@ -76,6 +88,9 @@ export class GameService {
     try {
       // Get existing game
       const existingGame = await this.repository.findById(id);
+      if (!existingGame) {
+        throw new NotFoundError(`Game with id ${id} not found`);
+      }
       
       if (merge) {
         // Merge strategy: update only provided fields
@@ -100,7 +115,7 @@ export class GameService {
     this.logger.info('Deleting game', { id, ifMatch });
 
     try {
-      await this.repository.deleteById(id, { ifMatch });
+      await this.repository.delete(id, { ifMatch });
       this.logger.info('Deleted game', { id });
     } catch (error: any) {
       this.logger.error('Failed to delete game', { id, error: error.message });
@@ -108,36 +123,30 @@ export class GameService {
     }
   }
 
-  async getGameMetadata(id: string): Promise<{ etag: string; metadata?: any }> {
+  async getGameMetadata(id: string): Promise<EntityMetadata> {
     this.logger.info('Getting game metadata', { id });
 
     try {
-      const gameEntity = await this.repository.findById(id);
-      const etag = gameEntity.internalGetBackingStore().etag;
-      const metadata = gameEntity.metadata;
-      
-      this.logger.info('Got game metadata', { id, etag });
-      return { etag, metadata };
+      const metadata = await this.repository.getMetadata(id);
+      this.logger.info('Got game metadata', { id, etag: metadata.etag });
+      return metadata;
     } catch (error: any) {
       this.logger.error('Failed to get game metadata', { id, error: error.message });
       throw error;
     }
   }
 
-  async listGames(prefix?: string, limit?: number, cursor?: string): Promise<ListResponseDto<GameResponseDto>> {
+  async listGames(prefix?: string, limit?: number, cursor?: string): Promise<ListResponseDto> {
     this.logger.info('Listing games', { prefix, limit, cursor });
 
     try {
       const result = await this.repository.findAll(prefix, limit, cursor);
       
-      const games = result.items.map(gameEntity => GameResponseDto.fromGameEntity(gameEntity));
+      const gameNames = result.items.map(gameEntity => gameEntity.id);
       
-      this.logger.info('Listed games', { count: games.length, hasMore: !!result.nextCursor });
+      this.logger.info('Listed games', { count: gameNames.length, hasMore: !!result.nextCursor });
 
-      return {
-        items: games,
-        nextCursor: result.nextCursor
-      };
+      return new ListResponseDto(gameNames, result.nextCursor);
     } catch (error: any) {
       this.logger.error('Failed to list games', { error: error.message });
       throw error;
@@ -150,6 +159,9 @@ export class GameService {
 
     try {
       const gameEntity = await this.repository.findById(gameId);
+      if (!gameEntity) {
+        throw new NotFoundError(`Game with id ${gameId} not found`);
+      }
       const updatedGame = gameEntity.addRound(round);
       const saved = await this.repository.save(updatedGame, { ifMatch });
       
@@ -171,6 +183,9 @@ export class GameService {
 
     try {
       const gameEntity = await this.repository.findById(gameId);
+      if (!gameEntity) {
+        throw new NotFoundError(`Game with id ${gameId} not found`);
+      }
       const updatedGame = gameEntity.addMoveToRound(roundId, move);
       const saved = await this.repository.save(updatedGame, { ifMatch });
       
@@ -197,6 +212,9 @@ export class GameService {
 
     try {
       const gameEntity = await this.repository.findById(gameId);
+      if (!gameEntity) {
+        throw new NotFoundError(`Game with id ${gameId} not found`);
+      }
       const updatedGame = gameEntity.finishRound(roundId);
       const saved = await this.repository.save(updatedGame, { ifMatch });
       
@@ -213,6 +231,9 @@ export class GameService {
 
     try {
       const gameEntity = await this.repository.findById(gameId);
+      if (!gameEntity) {
+        throw new NotFoundError(`Game with id ${gameId} not found`);
+      }
       const updatedGame = gameEntity.finish();
       const saved = await this.repository.save(updatedGame, { ifMatch });
       

@@ -1,0 +1,1487 @@
+openapi: 3.0.3
+info:
+  title: VKP REST API
+  description: |
+    Comprehensive file, user, and game management system built with AWS Lambda.
+    Provides CRUD operations for JSON documents, user entities, and game entities.
+    Follows RESTful principles with ETag-based concurrency control and RFC 7807 error responses.
+  version: 2.1.0
+  contact:
+    name: VKP Consulting
+    email: hello@vkp-consulting.fr
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://your-api-gateway-url.amazonaws.com
+    description: Production server
+  - url: https://vkp-consulting.fr
+    description: Production domain
+
+tags:
+  - name: Files
+    description: JSON file management operations
+  - name: Users
+    description: User entity management operations
+  - name: Games
+    description: Game entity management operations
+
+paths:
+  # Files API
+  /apiv2/files:
+    get:
+      tags: [Files]
+      summary: List all files
+      description: Retrieve a paginated list of all files (including both regular JSON files and user files)
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of files to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: cursor
+          in: query
+          description: Base64-encoded cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          description: Filter files by prefix
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of files retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  names:
+                    type: array
+                    items:
+                      type: string
+                    example: ["file1", "file2", "user-123"]
+                  nextCursor:
+                    type: string
+                    example: "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [Files]
+      summary: Create a new file
+      description: Create a new file with the specified ID and data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFileRequest'
+      parameters:
+        - name: If-None-Match
+          in: header
+          description: Set to * to ensure file doesn't exist
+          required: false
+          schema:
+            type: string
+            enum: ["*"]
+      responses:
+        '201':
+          description: File created successfully
+          headers:
+            Location:
+              description: URL of the created file
+              schema:
+                type: string
+            ETag:
+              description: Entity tag for the created file
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/files/{id}:
+    get:
+      tags: [Files]
+      summary: Get a specific file
+      description: Retrieve a specific file by its ID. Works for both regular JSON files and user files
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-None-Match
+          in: header
+          description: ETag to check if file has been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File retrieved successfully
+          headers:
+            ETag:
+              description: Entity tag for concurrency control
+              schema:
+                type: string
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+                example: "private, must-revalidate"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '304':
+          description: File not modified (when If-None-Match matches current ETag)
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [Files]
+      summary: Update file (replace)
+      description: Replace the entire content of a file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure file hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: New file content
+              example:
+                key: "new value"
+                completely: "new structure"
+      responses:
+        '200':
+          description: File updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags: [Files]
+      summary: Update file (merge)
+      description: Partially update a file by merging new data with existing content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure file hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                merge:
+                  type: boolean
+                  example: true
+                data:
+                  type: object
+                  description: Data to merge
+                  example:
+                    newField: "value"
+                    existingField: "updated value"
+      responses:
+        '200':
+          description: File updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Files]
+      summary: Delete a file
+      description: Delete a file permanently
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure file hasn't been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '204':
+          description: File deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/files/{id}/meta:
+    get:
+      tags: [Files]
+      summary: Get file metadata
+      description: Retrieve metadata for a specific file without downloading the content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: File identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+      responses:
+        '200':
+          description: File metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Users API
+  /apiv2/users:
+    get:
+      tags: [Users]
+      summary: List all users
+      description: Retrieve a paginated list of all users
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of users to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: cursor
+          in: query
+          description: Base64-encoded cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          description: Filter users by ID prefix
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  names:
+                    type: array
+                    items:
+                      type: string
+                    example: ["user-001", "user-002", "admin-123"]
+                  nextCursor:
+                    type: string
+                    example: "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [Users]
+      summary: Create a new user
+      description: Create a new user with the specified ID, name, and external ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      parameters:
+        - name: If-None-Match
+          in: header
+          description: Set to * to ensure user doesn't exist
+          required: false
+          schema:
+            type: string
+            enum: ["*"]
+      responses:
+        '201':
+          description: User created successfully
+          headers:
+            Location:
+              description: URL of the created user
+              schema:
+                type: string
+            ETag:
+              description: Entity tag for the created user
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get a specific user
+      description: Retrieve a specific user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-None-Match
+          in: header
+          description: ETag to check if user has been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User retrieved successfully
+          headers:
+            ETag:
+              description: Entity tag for concurrency control
+              schema:
+                type: string
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+                example: "private, must-revalidate"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '304':
+          description: User not modified (when If-None-Match matches current ETag)
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [Users]
+      summary: Update user (replace)
+      description: Replace the entire user data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure user hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags: [Users]
+      summary: Update user (merge)
+      description: Partially update a user by merging new data with existing content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure user hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                merge:
+                  type: boolean
+                  example: true
+                data:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      minLength: 2
+                      maxLength: 100
+                    externalId:
+                      type: integer
+                      minimum: 1
+                  example:
+                    name: "John Smith"
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      description: Delete a user permanently
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure user hasn't been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/users/{id}/meta:
+    get:
+      tags: [Users]
+      summary: Get user metadata
+      description: Retrieve metadata for a specific user without downloading the content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+      responses:
+        '200':
+          description: User metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMetadata'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Games API
+  /apiv2/games:
+    get:
+      tags: [Games]
+      summary: List all games
+      description: Retrieve a paginated list of all games
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of games to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: cursor
+          in: query
+          description: Base64-encoded cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          description: Filter games by ID prefix
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of games retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  names:
+                    type: array
+                    items:
+                      type: string
+                    example: ["game-001", "game-002", "tournament-123"]
+                  nextCursor:
+                    type: string
+                    example: "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [Games]
+      summary: Create a new game
+      description: Create a new game with the specified ID, type, users, rounds, and status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+      parameters:
+        - name: If-None-Match
+          in: header
+          description: Set to * to ensure game doesn't exist
+          required: false
+          schema:
+            type: string
+            enum: ["*"]
+      responses:
+        '201':
+          description: Game created successfully
+          headers:
+            Location:
+              description: URL of the created game
+              schema:
+                type: string
+            ETag:
+              description: Entity tag for the created game
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/games/{id}:
+    get:
+      tags: [Games]
+      summary: Get a specific game
+      description: Retrieve a specific game by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-None-Match
+          in: header
+          description: ETag to check if game has been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game retrieved successfully
+          headers:
+            ETag:
+              description: Entity tag for concurrency control
+              schema:
+                type: string
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+                example: "private, must-revalidate"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '304':
+          description: Game not modified (when If-None-Match matches current ETag)
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [Games]
+      summary: Update game (replace)
+      description: Replace the entire game data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGameRequest'
+      responses:
+        '200':
+          description: Game updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags: [Games]
+      summary: Update game (merge)
+      description: Partially update a game by merging new data with existing content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                usersIds:
+                  type: array
+                  items:
+                    type: string
+                    pattern: '^[a-zA-Z0-9._-]{1,128}$'
+                  minItems: 1
+                  maxItems: 10
+                rounds:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RoundDto'
+                isFinished:
+                  type: boolean
+              example:
+                type: "championship"
+                isFinished: true
+      responses:
+        '200':
+          description: Game updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Games]
+      summary: Delete a game
+      description: Delete a game permanently
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Game deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/games/{id}/meta:
+    get:
+      tags: [Games]
+      summary: Get game metadata
+      description: Retrieve metadata for a specific game without downloading the content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+      responses:
+        '200':
+          description: Game metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameMetadata'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Game-specific operations
+  /apiv2/games/{id}/rounds:
+    post:
+      tags: [Games]
+      summary: Add round to game
+      description: Add a new round to an existing game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoundDto'
+      responses:
+        '200':
+          description: Round added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/games/{id}/rounds/{roundId}/moves:
+    post:
+      tags: [Games]
+      summary: Add move to game round
+      description: Add a move to a specific round in a game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: roundId
+          in: path
+          required: true
+          description: Round identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveDto'
+      responses:
+        '200':
+          description: Move added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/games/{id}/rounds/{roundId}/finish:
+    patch:
+      tags: [Games]
+      summary: Finish game round
+      description: Mark a specific round as finished
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: roundId
+          in: path
+          required: true
+          description: Round identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Round finished successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /apiv2/games/{id}/finish:
+    patch:
+      tags: [Games]
+      summary: Finish game
+      description: Mark the entire game as finished
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Game identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+        - name: If-Match
+          in: header
+          description: ETag to ensure game hasn't been modified
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game finished successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    # File schemas
+    CreateFileRequest:
+      type: object
+      required: [id, data]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: File identifier
+          example: "new-file"
+        data:
+          type: object
+          description: File content (any valid JSON structure)
+          example:
+            content: "any valid JSON structure"
+            metadata:
+              version: "1.0"
+
+    FileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "file-123"
+        data:
+          type: object
+          description: File content
+          example:
+            key: "value"
+            nested:
+              property: "data"
+
+    FileMetadata:
+      type: object
+      properties:
+        etag:
+          type: string
+          example: "\"abc123def456\""
+        size:
+          type: integer
+          example: 1024
+        lastModified:
+          type: string
+          format: date-time
+          example: "2023-10-12T18:30:00.000Z"
+
+    # User schemas
+    CreateUserRequest:
+      type: object
+      required: [id, name, externalId]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: User identifier
+          example: "user-123"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: User name
+          example: "John Doe"
+        externalId:
+          type: integer
+          minimum: 1
+          description: External user ID
+          example: 1001
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: User name
+          example: "John Smith"
+        externalId:
+          type: integer
+          minimum: 1
+          description: External user ID
+          example: 1002
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user-123"
+        name:
+          type: string
+          example: "John Doe"
+        externalId:
+          type: integer
+          example: 1001
+
+    UserMetadata:
+      type: object
+      properties:
+        etag:
+          type: string
+          example: "\"abc123def456\""
+        size:
+          type: integer
+          example: 45
+        lastModified:
+          type: string
+          format: date-time
+          example: "2023-10-12T18:30:00.000Z"
+
+    # Game schemas
+    CreateGameRequest:
+      type: object
+      required: [id, type, usersIds]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: Game identifier
+          example: "game-123"
+        type:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Game type
+          example: "tournament"
+        usersIds:
+          type: array
+          items:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          minItems: 1
+          maxItems: 10
+          description: List of user IDs participating in the game
+          example: ["user-1", "user-2"]
+        rounds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoundDto'
+          default: []
+          description: List of rounds in the game
+        isFinished:
+          type: boolean
+          default: false
+          description: Whether the game is finished
+
+    UpdateGameRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Game type
+          example: "championship"
+        usersIds:
+          type: array
+          items:
+            type: string
+            pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          minItems: 1
+          maxItems: 10
+          description: List of user IDs participating in the game
+          example: ["user-1", "user-2", "user-3"]
+        rounds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoundDto'
+          description: List of rounds in the game
+        isFinished:
+          type: boolean
+          description: Whether the game is finished
+
+    GameResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "game-123"
+        type:
+          type: string
+          example: "tournament"
+        usersIds:
+          type: array
+          items:
+            type: string
+          example: ["user-1", "user-2"]
+        rounds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoundResponseDto'
+        isFinished:
+          type: boolean
+          example: false
+
+    GameMetadata:
+      type: object
+      properties:
+        etag:
+          type: string
+          example: "\"abc123def456\""
+        size:
+          type: integer
+          example: 1024
+        lastModified:
+          type: string
+          format: date-time
+          example: "2023-10-12T18:30:00.000Z"
+
+    # Round and Move schemas
+    RoundDto:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: Round identifier
+          example: "round-1"
+        moves:
+          type: array
+          items:
+            $ref: '#/components/schemas/MoveDto'
+          default: []
+          description: List of moves in the round
+        isFinished:
+          type: boolean
+          default: false
+          description: Whether the round is finished
+
+    RoundResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "round-1"
+        moves:
+          type: array
+          items:
+            $ref: '#/components/schemas/MoveResponseDto'
+        isFinished:
+          type: boolean
+          example: false
+
+    MoveDto:
+      type: object
+      required: [id, userId, value, valueDecorated]
+      properties:
+        id:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: Move identifier
+          example: "move-1"
+        userId:
+          type: string
+          pattern: '^[a-zA-Z0-9._-]{1,128}$'
+          description: User who made the move
+          example: "user-1"
+        value:
+          type: number
+          description: Numeric value of the move
+          example: 10
+        valueDecorated:
+          type: string
+          description: Human-readable representation of the value
+          example: "ten"
+
+    MoveResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "move-1"
+        userId:
+          type: string
+          example: "user-1"
+        value:
+          type: number
+          example: 10
+        valueDecorated:
+          type: string
+          example: "ten"
+
+    # Error schemas
+    ProblemDetail:
+      type: object
+      required: [type, title, status, detail, instance]
+      properties:
+        type:
+          type: string
+          example: "about:blank"
+        title:
+          type: string
+          example: "Error Title"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "Detailed error description"
+        instance:
+          type: string
+          example: "/apiv2/files/invalid-id"
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Validation Error"
+            status: 400
+            detail: "ID must contain only alphanumeric characters, dots, hyphens, and underscores"
+            instance: "/apiv2/files/invalid-id!"
+
+    NotFound:
+      description: Not Found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "File Not Found"
+            status: 404
+            detail: "Entity 'nonexistent-file' not found"
+            instance: "/apiv2/files/nonexistent-file"
+
+    Conflict:
+      description: Conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Conflict"
+            status: 409
+            detail: "Entity 'existing-file' already exists"
+            instance: "/apiv2/files/existing-file"
+
+    PreconditionFailed:
+      description: Precondition Failed
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Precondition Failed"
+            status: 412
+            detail: "Entity 'file-123' ETag mismatch"
+            instance: "/apiv2/files/file-123"
+
+    PayloadTooLarge:
+      description: Payload Too Large
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Payload Too Large"
+            status: 413
+            detail: "Request body exceeds size limit"
+            instance: "/apiv2/files/large-file"
+
+    UnsupportedMediaType:
+      description: Unsupported Media Type
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Unsupported Media Type"
+            status: 415
+            detail: "Content-Type must be application/json"
+            instance: "/apiv2/files/invalid-content-type"
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: "about:blank"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred"
+            instance: "/apiv2/files/error"
