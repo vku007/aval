@@ -1,16 +1,17 @@
 # VKP REST API
 
-A comprehensive file and user management system built with AWS Lambda, featuring CRUD operations, ETag-based concurrency control, and RFC 7807 error responses.
+A comprehensive file, user, and game management system built with AWS Lambda, featuring CRUD operations, ETag-based concurrency control, and RFC 7807 error responses.
 
 ## 🚀 Features
 
-- **Dual Resource Management**: Handle both generic JSON files and structured user entities
+- **Triple Resource Management**: Handle generic JSON files, structured user entities, and complex game entities
 - **Concurrency Control**: ETag-based optimistic locking for safe concurrent updates
 - **Standard Compliance**: RFC 7807 problem+json error responses
 - **Pagination Support**: Cursor-based pagination for large datasets
 - **CORS Enabled**: Cross-origin resource sharing for web applications
 - **Validation**: Comprehensive input validation with Zod schemas
 - **Testing**: 95%+ code coverage with Vitest
+- **Game Management**: Complete game lifecycle with rounds, moves, and state management
 
 ## 📋 Quick Start
 
@@ -48,7 +49,7 @@ AWS_REGION=us-east-1
 S3_BUCKET=your-bucket-name
 
 # Optional
-API_BASE_URL=https://your-api-gateway-url.amazonaws.com
+API_BASE_URL=https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com
 CORS_ORIGIN=https://vkp-consulting.fr
 ```
 
@@ -72,12 +73,23 @@ CORS_ORIGIN=https://vkp-consulting.fr
 | `/apiv2/users/{id}` | PATCH | Merge user data |
 | `/apiv2/users/{id}` | DELETE | Delete user |
 | `/apiv2/users/{id}/meta` | GET | Get user metadata |
+| `/apiv2/games` | GET | List all games |
+| `/apiv2/games` | POST | Create new game |
+| `/apiv2/games/{id}` | GET | Get game by ID |
+| `/apiv2/games/{id}` | PUT | Replace game data |
+| `/apiv2/games/{id}` | PATCH | Merge game data |
+| `/apiv2/games/{id}` | DELETE | Delete game |
+| `/apiv2/games/{id}/meta` | GET | Get game metadata |
+| `/apiv2/games/{id}/rounds` | POST | Add round to game |
+| `/apiv2/games/{gameId}/rounds/{roundId}/moves` | POST | Add move to round |
+| `/apiv2/games/{gameId}/rounds/{roundId}/finish` | PATCH | Finish round |
+| `/apiv2/games/{id}/finish` | PATCH | Finish game |
 
 ### Example Usage
 
 ```bash
 # Create a configuration file
-curl -X POST https://your-api.com/apiv2/files \
+curl -X POST https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files \
   -H "Content-Type: application/json" \
   -d '{
     "id": "app-config",
@@ -88,7 +100,7 @@ curl -X POST https://your-api.com/apiv2/files \
   }'
 
 # Create a user
-curl -X POST https://your-api.com/apiv2/users \
+curl -X POST https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/users \
   -H "Content-Type: application/json" \
   -d '{
     "id": "user-123",
@@ -96,12 +108,33 @@ curl -X POST https://your-api.com/apiv2/users \
     "externalId": 1001
   }'
 
+# Create a game
+curl -X POST https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/games \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "tournament-2024",
+    "type": "tournament",
+    "usersIds": ["player1", "player2"],
+    "rounds": [],
+    "isFinished": false
+  }'
+
+# Add a round to the game
+curl -X POST https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/games/tournament-2024/rounds \
+  -H "Content-Type: application/json" \
+  -H "If-Match: \"your-etag-here\"" \
+  -d '{
+    "id": "round-1",
+    "moves": [],
+    "isFinished": false
+  }'
+
 # Get a file with ETag
 curl -H "If-None-Match: \"abc123\"" \
-  https://your-api.com/apiv2/files/config
+  https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files/config
 
 # Update with concurrency control
-curl -X PUT https://your-api.com/apiv2/files/config \
+curl -X PUT https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files/config \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{"setting": "new-value"}'
@@ -113,6 +146,9 @@ curl -X PUT https://your-api.com/apiv2/files/config \
 - **BaseEntity**: Abstract base class for all entities
 - **JsonEntity**: Generic JSON document entity
 - **User**: User entity with name and externalId
+- **GameEntity**: Game entity with rounds, moves, and state management
+- **Round**: Round entity containing moves and completion status
+- **Move**: Move entity with user, value, and decorated value
 
 ### Application Layer
 - **Services**: Business logic and orchestration
@@ -122,14 +158,18 @@ curl -X PUT https://your-api.com/apiv2/files/config \
 ### Infrastructure Layer
 - **S3EntityRepository**: S3-based entity persistence
 - **S3UserRepository**: User-specific S3 operations
+- **S3GameRepository**: Game-specific S3 operations
 - **AWS SDK v3**: Modern AWS service integration
 
 ### Presentation Layer
-- **Controllers**: HTTP request/response handling
+- **Controllers**: HTTP request/response handling (EntityController, UserController, GameController)
 - **Error Handling**: RFC 7807 compliant error responses
 - **CORS**: Cross-origin resource sharing
+- **Routing**: RESTful route management with middleware
 
 ## 🧪 Testing
+
+### Automated Testing
 
 ```bash
 # Run all tests
@@ -145,11 +185,25 @@ npm run test:coverage
 npm test S3EntityRepository.test.ts
 ```
 
+### Manual Testing
+
+```bash
+# Run comprehensive Game API testing
+./test-game-api.sh
+
+# Quick testing commands
+cat quick-test-commands.txt
+
+# Use pre-formatted test data
+cat test-data.json
+```
+
 ### Test Structure
 
 - **Unit Tests**: Individual component testing
 - **Integration Tests**: End-to-end API testing
 - **Mocking**: AWS SDK v3 service mocking
+- **Manual Testing**: Comprehensive API testing scripts
 
 ## 📁 Project Structure
 
@@ -157,22 +211,34 @@ npm test S3EntityRepository.test.ts
 apiv2/
 ├── src/
 │   ├── domain/                 # Domain entities and business logic
-│   │   ├── entities/
-│   │   └── repositories/
+│   │   ├── entity/             # BaseEntity, JsonEntity, User, GameEntity, Round, Move
+│   │   └── repository/         # Repository interfaces
 │   ├── application/            # Application services and DTOs
-│   │   ├── dto/
-│   │   └── services/
+│   │   ├── dto/               # Data transfer objects
+│   │   └── services/          # Business logic services
 │   ├── infrastructure/         # External service implementations
-│   │   └── persistence/
+│   │   ├── http/              # API Gateway adapter
+│   │   └── persistence/       # S3 repositories
 │   ├── presentation/           # HTTP controllers and routing
-│   │   └── controllers/
+│   │   ├── controllers/       # EntityController, UserController, GameController
+│   │   ├── middleware/         # CORS, content-type, error handling
+│   │   └── routing/           # Router implementation
+│   ├── shared/                # Shared utilities
+│   │   ├── errors/            # Custom error classes
+│   │   ├── logging/           # Logger implementation
+│   │   └── types/             # Common type definitions
 │   └── index.ts               # Lambda entry point
-├── tests/                     # Test files
-├── docs/                      # Documentation
-├── API_DOCUMENTATION.md       # Comprehensive API docs
-├── API_REFERENCE.md           # Quick reference guide
-├── openapi.yaml               # OpenAPI specification
-└── README.md                  # This file
+├── test-game-api.sh           # Game API testing script
+├── quick-test-commands.txt    # Quick testing commands
+├── test-data.json            # Pre-formatted test data
+├── TESTING_GUIDE.md          # Comprehensive testing guide
+├── API_DOCUMENTATION.md      # Comprehensive API docs
+├── API_REFERENCE.md          # Quick reference guide
+├── COMPLETE_API_DOCUMENTATION.md  # Complete API documentation
+├── COMPLETE_OPENAPI.yaml     # Complete OpenAPI specification
+├── API_QUICK_REFERENCE.md   # Quick API reference
+├── openapi.yaml              # OpenAPI specification
+└── README.md                 # This file
 ```
 
 ## 🔧 Configuration
@@ -230,11 +296,11 @@ npm run invalidate:cache
 
 ```bash
 # View logs
-aws logs tail /aws/lambda/vkp-simple-service --follow
+aws logs tail /aws/lambda/vkp-api2-service --follow
 
 # Search logs
 aws logs filter-log-events \
-  --log-group-name /aws/lambda/vkp-simple-service \
+  --log-group-name /aws/lambda/vkp-api2-service \
   --filter-pattern "ERROR"
 ```
 
@@ -291,11 +357,21 @@ MIT License - see LICENSE file for details.
 
 ## 🆘 Support
 
-- **Documentation**: See `API_DOCUMENTATION.md` for detailed API docs
+- **Documentation**: See `COMPLETE_API_DOCUMENTATION.md` for detailed API docs
+- **Testing**: Use `test-game-api.sh` for comprehensive API testing
+- **Quick Reference**: See `API_QUICK_REFERENCE.md` for quick endpoint lookup
 - **Issues**: Report bugs and feature requests on GitHub
 - **Discussions**: Use GitHub Discussions for questions
 
 ## 🔄 Changelog
+
+### v3.0.0
+- Added comprehensive Game API with rounds, moves, and state management
+- Implemented GameEntity with backing store pattern
+- Added game-specific operations: add rounds, add moves, finish rounds/games
+- Created comprehensive testing resources (test-game-api.sh, TESTING_GUIDE.md)
+- Updated API documentation with complete Game API reference
+- Enhanced project structure with new testing and documentation files
 
 ### v2.0.0
 - Added user entity management
