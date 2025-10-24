@@ -52,7 +52,7 @@ const UpdateGameSchema = z.object({
     .optional()
 });
 
-export type UpdateGameDto = z.infer<typeof UpdateGameSchema>;
+export type UpdateGameDtoType = z.infer<typeof UpdateGameSchema>;
 
 export class UpdateGameDto {
   constructor(

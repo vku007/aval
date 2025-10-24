@@ -55,7 +55,7 @@ const CreateGameSchema = z.object({
     .default(false)
 });
 
-export type CreateGameDto = z.infer<typeof CreateGameSchema>;
+export type CreateGameDtoType = z.infer<typeof CreateGameSchema>;
 
 export class CreateGameDto {
   constructor(

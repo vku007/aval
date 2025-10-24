@@ -33,11 +33,12 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   async findAll(prefix: string = '', limit: number = 100, cursor?: string): Promise<ListResult<T>> {
     const token = cursor ? Buffer.from(cursor, 'base64url').toString('utf8') : undefined;
 
-    // Search in both json/ and json/users/ folders
+    // Search in json/, json/users/, and json/games/ folders
     const basePrefix = `${this.config.s3.prefix}${prefix}`; // json/ + prefix
     const userPrefix = `${this.config.s3.prefix}users/${prefix}`; // json/users/ + prefix
+    const gamePrefix = `${this.config.s3.prefix}games/${prefix}`; // json/games/ + prefix
 
-    const [baseResponse, userResponse] = await Promise.all([
+    const [baseResponse, userResponse, gameResponse] = await Promise.all([
       this.s3Client.send(
         new ListObjectsV2Command({
           Bucket: this.config.s3.bucket,
@@ -53,11 +54,19 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
           MaxKeys: limit,
           ContinuationToken: token
         })
+      ),
+      this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: this.config.s3.bucket,
+          Prefix: gamePrefix,
+          MaxKeys: limit,
+          ContinuationToken: token
+        })
       )
     ]);
 
     // Ensure responses are defined
-    if (!baseResponse || !userResponse) {
+    if (!baseResponse || !userResponse || !gameResponse) {
       throw new Error('Failed to get S3 responses');
     }
 
@@ -103,6 +112,26 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
       }
     }
 
+    // Process json/games/ files
+    if (gameResponse.Contents) {
+      for (const obj of gameResponse.Contents) {
+        if (!obj.Key) continue;
+        
+        const id = this.extractIdFromKey(obj.Key);
+        if (!id) continue;
+
+        const metadata: EntityMetadata = {
+          etag: obj.ETag?.replace(/"/g, ''),
+          size: obj.Size,
+          lastModified: obj.LastModified?.toISOString()
+        };
+
+        // For list, we don't load full data - just create entity with empty data
+        const entity = this.entityFactory(id, {}, metadata.etag, metadata);
+        items.push(entity);
+      }
+    }
+
     // Deduplicate items by ID (in case same file exists in both locations)
     const uniqueItems = new Map<string, T>();
     for (const item of items) {
@@ -116,10 +145,10 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
     const deduplicatedItems = Array.from(uniqueItems.values());
     deduplicatedItems.sort((a, b) => a.id.localeCompare(b.id));
 
-    // Handle pagination - if either response is truncated, we have more data
-    const hasMore = baseResponse.IsTruncated || userResponse.IsTruncated;
-    const nextCursor = hasMore && (baseResponse.NextContinuationToken || userResponse.NextContinuationToken)
-      ? Buffer.from(baseResponse.NextContinuationToken || userResponse.NextContinuationToken || '', 'utf8').toString('base64url')
+    // Handle pagination - if any response is truncated, we have more data
+    const hasMore = baseResponse.IsTruncated || userResponse.IsTruncated || gameResponse.IsTruncated;
+    const nextCursor = hasMore && (baseResponse.NextContinuationToken || userResponse.NextContinuationToken || gameResponse.NextContinuationToken)
+      ? Buffer.from(baseResponse.NextContinuationToken || userResponse.NextContinuationToken || gameResponse.NextContinuationToken || '', 'utf8').toString('base64url')
       : undefined;
 
     return { items: deduplicatedItems, nextCursor };
@@ -187,9 +216,44 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
             throw new NotModifiedError(opts?.ifNoneMatch);
           }
           
-          // Not found in either location
+          // If not found in users location, try json/games/ location
           if (userErr instanceof NotFound || userErr.$metadata?.httpStatusCode === 404) {
-            return null;
+            const gameKey = `${this.config.s3.prefix}games/${encodeURIComponent(id)}.json`;
+            
+            try {
+              const gameResponse = await this.s3Client.send(
+                new GetObjectCommand({
+                  Bucket: this.config.s3.bucket,
+                  Key: gameKey,
+                  IfNoneMatch: opts?.ifNoneMatch
+                })
+              );
+
+              if (!gameResponse.Body) {
+                return this.entityFactory(id, {}, gameResponse.ETag?.replace(/"/g, ''));
+              }
+
+              const gameData = await this.streamToJson(gameResponse.Body);
+              const gameMetadata: EntityMetadata = {
+                etag: gameResponse.ETag?.replace(/"/g, ''),
+                size: gameResponse.ContentLength,
+                lastModified: gameResponse.LastModified?.toISOString()
+              };
+
+              return this.entityFactory(id, gameData, gameMetadata.etag, gameMetadata);
+            } catch (gameErr: any) {
+              // S3 returns 304 via exception in SDK v3
+              if (gameErr.$metadata?.httpStatusCode === 304) {
+                throw new NotModifiedError(opts?.ifNoneMatch);
+              }
+              
+              // Not found in any location
+              if (gameErr instanceof NotFound || gameErr.$metadata?.httpStatusCode === 404) {
+                return null;
+              }
+              
+              throw gameErr;
+            }
           }
           
           throw userErr;
@@ -291,9 +355,30 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
             lastModified: userResponse.LastModified?.toISOString()
           };
         } catch (userErr: any) {
-          // Not found in either location
+          // If not found in users location, try json/games/ location
           if (userErr instanceof NotFound || userErr.$metadata?.httpStatusCode === 404) {
-            throw new NotFoundError(`Entity '${id}' not found`);
+            const gameKey = `${this.config.s3.prefix}games/${encodeURIComponent(id)}.json`;
+            
+            try {
+              const gameResponse = await this.s3Client.send(
+                new HeadObjectCommand({
+                  Bucket: this.config.s3.bucket,
+                  Key: gameKey
+                })
+              );
+
+              return {
+                etag: gameResponse.ETag?.replace(/"/g, ''),
+                size: gameResponse.ContentLength,
+                lastModified: gameResponse.LastModified?.toISOString()
+              };
+            } catch (gameErr: any) {
+              // Not found in any location
+              if (gameErr instanceof NotFound || gameErr.$metadata?.httpStatusCode === 404) {
+                throw new NotFoundError(`Entity '${id}' not found`);
+              }
+              throw gameErr;
+            }
           }
           throw userErr;
         }
@@ -366,17 +451,20 @@ export class S3EntityRepository<T extends BaseEntity> implements IEntityReposito
   }
 
   /**
-   * Extract entity id from S3 key (supports both json/ and json/users/ paths)
+   * Extract entity id from S3 key (supports json/, json/users/, and json/games/ paths)
    */
   private extractIdFromKey(key: string): string | null {
-    // Support both json/ and json/users/ prefixes
+    // Support json/, json/users/, and json/games/ prefixes
     const basePrefix = this.config.s3.prefix; // json/
     const userPrefix = `${basePrefix}users/`; // json/users/
+    const gamePrefix = `${basePrefix}games/`; // json/games/
     
     let idWithExt: string;
     
     if (key.startsWith(userPrefix)) {
       idWithExt = key.slice(userPrefix.length);
+    } else if (key.startsWith(gamePrefix)) {
+      idWithExt = key.slice(gamePrefix.length);
     } else if (key.startsWith(basePrefix)) {
       idWithExt = key.slice(basePrefix.length);
     } else {

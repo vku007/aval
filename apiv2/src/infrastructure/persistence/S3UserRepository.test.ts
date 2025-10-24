@@ -22,13 +22,18 @@ describe('S3UserRepository', () => {
     mockConfig = {
       s3: {
         bucket: 'test-bucket',
-        prefix: 'test/'
+        prefix: 'test/',
+        maxBodyBytes: 1048576
       },
       aws: {
         region: 'us-east-1'
       },
       cors: {
         allowedOrigin: 'https://test.com'
+      },
+      tags: {
+        app: 'test-app',
+        environment: 'test'
       }
     };
 

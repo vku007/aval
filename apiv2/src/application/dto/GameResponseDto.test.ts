@@ -33,7 +33,7 @@ describe('GameResponseDto', () => {
     });
 
     it('should include etag and metadata', () => {
-      const metadata = { size: 100, lastModified: new Date() };
+      const metadata = { size: 100, lastModified: new Date().toISOString() };
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false, 'etag-123', metadata);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);

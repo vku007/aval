@@ -21,7 +21,7 @@ describe.skip('User API Integration Tests', () => {
   function createEvent(method: string, path: string, body?: any, headers: Record<string, string> = {}): APIGatewayProxyEventV2 {
     return {
       version: '2.0',
-      routeKey: `${method} ${path}`,
+      routeKey: '$default',
       rawPath: path,
       rawQueryString: '',
       headers: {
@@ -29,22 +29,30 @@ describe.skip('User API Integration Tests', () => {
         ...headers
       },
       requestContext: {
-        requestId: 'test-request-id',
+        accountId: '123456789012',
+        apiId: 'api-id',
+        domainName: 'id.execute-api.eu-north-1.amazonaws.com',
+        domainPrefix: 'id',
         http: {
           method,
           path,
           protocol: 'HTTP/1.1',
           sourceIp: '127.0.0.1',
-          userAgent: 'test'
+          userAgent: 'vitest'
         },
-        time: new Date().toISOString(),
-        timeEpoch: Date.now()
+        requestId: 'test-request-id',
+        routeKey: '$default',
+        stage: '$default',
+        time: '12/Mar/2020:19:03:58 +0000',
+        timeEpoch: 1583348638390
       },
       body: body ? JSON.stringify(body) : undefined,
       isBase64Encoded: false,
       pathParameters: path.includes(':') ? { id: path.split('/').pop() } : {},
-      queryStringParameters: {}
-    } as APIGatewayProxyEventV2;
+      queryStringParameters: {},
+      stageVariables: {},
+      cookies: []
+    };
   }
 
   describe('User CRUD Operations', () => {
@@ -69,14 +77,14 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(201);
-      expect(JSON.parse(result.body!)).toEqual({
+      expect((result as any).statusCode).toBe(201);
+      expect(JSON.parse((result as any).body!)).toEqual({
         id: 'user-123',
         name: 'John Doe',
         externalId: 1001
       });
-      expect(result.headers).toHaveProperty('location', '/apiv2/users/user-123');
-      expect(result.headers).toHaveProperty('etag', '"user-etag-123"');
+      expect((result as any).headers).toHaveProperty('location', '/apiv2/users/user-123');
+      expect((result as any).headers).toHaveProperty('etag', '"user-etag-123"');
     });
 
     it('should get a user successfully', async () => {
@@ -101,14 +109,14 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(200);
-      expect(JSON.parse(result.body!)).toEqual({
+      expect((result as any).statusCode).toBe(200);
+      expect(JSON.parse((result as any).body!)).toEqual({
         id: 'user-123',
         name: 'John Doe',
         externalId: 1001
       });
-      expect(result.headers).toHaveProperty('etag', '"user-etag-123"');
-      expect(result.headers).toHaveProperty('cache-control', 'private, max-age=300');
+      expect((result as any).headers).toHaveProperty('etag', '"user-etag-123"');
+      expect((result as any).headers).toHaveProperty('cache-control', 'private, max-age=300');
     });
 
     it('should update a user with PUT', async () => {
@@ -148,13 +156,13 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(200);
-      expect(JSON.parse(result.body!)).toEqual({
+      expect((result as any).statusCode).toBe(200);
+      expect(JSON.parse((result as any).body!)).toEqual({
         id: 'user-123',
         name: 'Jane Smith',
         externalId: 2002
       });
-      expect(result.headers).toHaveProperty('etag', '"new-etag"');
+      expect((result as any).headers).toHaveProperty('etag', '"new-etag"');
     });
 
     it('should patch a user with PATCH', async () => {
@@ -193,8 +201,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(200);
-      expect(JSON.parse(result.body!)).toEqual({
+      expect((result as any).statusCode).toBe(200);
+      expect(JSON.parse((result as any).body!)).toEqual({
         id: 'user-123',
         name: 'John Smith',
         externalId: 1001 // Should preserve existing value
@@ -226,8 +234,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(204);
-      expect(result.body).toBeUndefined();
+      expect((result as any).statusCode).toBe(204);
+      expect((result as any).body).toBeUndefined();
     });
 
     it('should get user metadata', async () => {
@@ -242,13 +250,13 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(200);
-      expect(JSON.parse(result.body!)).toEqual({
+      expect((result as any).statusCode).toBe(200);
+      expect(JSON.parse((result as any).body!)).toEqual({
         etag: '"user-etag-123"',
         size: 50,
         lastModified: '2023-01-01T00:00:00.000Z'
       });
-      expect(result.headers).toHaveProperty('etag', '"user-etag-123"');
+      expect((result as any).headers).toHaveProperty('etag', '"user-etag-123"');
     });
 
     it('should list users with pagination', async () => {
@@ -277,12 +285,12 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(200);
-      expect(JSON.parse(result.body!)).toEqual({
+      expect((result as any).statusCode).toBe(200);
+      expect(JSON.parse((result as any).body!)).toEqual({
         names: ['user-1', 'user-2'],
         nextCursor: 'next-token'
       });
-      expect(result.headers).toHaveProperty('cache-control', 'private, max-age=60');
+      expect((result as any).headers).toHaveProperty('cache-control', 'private, max-age=60');
     });
   });
 
@@ -297,8 +305,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(404);
-      expect(JSON.parse(result.body!)).toHaveProperty('title', 'User Not Found');
+      expect((result as any).statusCode).toBe(404);
+      expect(JSON.parse((result as any).body!)).toHaveProperty('title', 'User Not Found');
     });
 
     it('should return 400 for invalid user data', async () => {
@@ -310,8 +318,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(400);
-      expect(JSON.parse(result.body!)).toHaveProperty('title', 'Validation Error');
+      expect((result as any).statusCode).toBe(400);
+      expect(JSON.parse((result as any).body!)).toHaveProperty('title', 'Validation Error');
     });
 
     it('should return 409 for creating existing user', async () => {
@@ -338,8 +346,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(409);
-      expect(JSON.parse(result.body!)).toHaveProperty('title', 'Conflict');
+      expect((result as any).statusCode).toBe(409);
+      expect(JSON.parse((result as any).body!)).toHaveProperty('title', 'Conflict');
     });
 
     it('should return 412 for ETag mismatch', async () => {
@@ -367,8 +375,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(412);
-      expect(JSON.parse(result.body!)).toHaveProperty('title', 'Precondition Failed');
+      expect((result as any).statusCode).toBe(412);
+      expect(JSON.parse((result as any).body!)).toHaveProperty('title', 'Precondition Failed');
     });
   });
 
@@ -378,10 +386,10 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(204);
-      expect(result.headers).toHaveProperty('access-control-allow-origin');
-      expect(result.headers).toHaveProperty('access-control-allow-methods');
-      expect(result.headers).toHaveProperty('access-control-allow-headers');
+      expect((result as any).statusCode).toBe(204);
+      expect((result as any).headers).toHaveProperty('access-control-allow-origin');
+      expect((result as any).headers).toHaveProperty('access-control-allow-methods');
+      expect((result as any).headers).toHaveProperty('access-control-allow-headers');
     });
 
     it('should include CORS headers in responses', async () => {
@@ -397,10 +405,10 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(201);
-      expect(result.headers).toHaveProperty('access-control-allow-origin');
-      expect(result.headers).toHaveProperty('access-control-allow-methods');
-      expect(result.headers).toHaveProperty('access-control-allow-headers');
+      expect((result as any).statusCode).toBe(201);
+      expect((result as any).headers).toHaveProperty('access-control-allow-origin');
+      expect((result as any).headers).toHaveProperty('access-control-allow-methods');
+      expect((result as any).headers).toHaveProperty('access-control-allow-headers');
     });
   });
 
@@ -415,8 +423,8 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(415);
-      expect(JSON.parse(result.body!)).toHaveProperty('title', 'Unsupported Media Type');
+      expect((result as any).statusCode).toBe(415);
+      expect(JSON.parse((result as any).body!)).toHaveProperty('title', 'Unsupported Media Type');
     });
 
     it('should accept requests with application/json content-type', async () => {
@@ -434,7 +442,7 @@ describe.skip('User API Integration Tests', () => {
 
       const result = await handler(event);
 
-      expect(result.statusCode).toBe(201);
+      expect((result as any).statusCode).toBe(201);
     });
   });
 });

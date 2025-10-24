@@ -159,13 +159,6 @@
       background: #eff6ff;
     }
 
-    .entity-name {
-      font-weight: 600;
-      font-size: 1.1rem;
-      margin-bottom: 0.5rem;
-      color: #1e3a8a;
-      word-break: break-all;
-    }
 
     .entity-meta {
       font-size: 0.875rem;
@@ -177,6 +170,69 @@
       display: flex;
       gap: 0.5rem;
       margin-top: 0.75rem;
+    }
+
+    .entity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+
+    .entity-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #1e3a8a;
+      word-break: break-all;
+      flex: 1;
+    }
+
+    .entity-type {
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: #e5e7eb;
+      color: #6b7280;
+      white-space: nowrap;
+      margin-left: 0.5rem;
+    }
+
+    /* Entity type specific styling */
+    .entity-user {
+      border-left: 4px solid #10b981;
+    }
+
+    .entity-user .entity-type {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .entity-game {
+      border-left: 4px solid #8b5cf6;
+    }
+
+    .entity-game .entity-type {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .entity-file {
+      border-left: 4px solid #f59e0b;
+    }
+
+    .entity-file .entity-type {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .entity-generic {
+      border-left: 4px solid #6b7280;
+    }
+
+    .entity-generic .entity-type {
+      background: #f3f4f6;
+      color: #374151;
     }
 
     .alert {
@@ -453,19 +509,39 @@
 
           this.entities = entityDetails;
 
-          list.innerHTML = this.entities.map(e => `
-            <div class="entity-card" onclick="app.selectEntity('${e.id}')">
-              <div class="entity-name">${e.id}</div>
-              <div class="entity-meta">
-                ${e.size ? `Size: ${Math.round(e.size / 1024 * 10) / 10} KB<br>` : ''}
-                ${e.lastModified ? `Modified: ${new Date(e.lastModified).toLocaleString()}` : ''}
+          list.innerHTML = this.entities.map(e => {
+            // Determine entity type based on ID patterns
+            let entityType = '📄 Generic';
+            let typeClass = 'entity-generic';
+            
+            if (e.id.startsWith('user')) {
+              entityType = '👥 User';
+              typeClass = 'entity-user';
+            } else if (e.id.startsWith('game') || e.id.includes('game')) {
+              entityType = '🎮 Game';
+              typeClass = 'entity-game';
+            } else if (e.id.startsWith('file')) {
+              entityType = '📄 File';
+              typeClass = 'entity-file';
+            }
+            
+            return `
+              <div class="entity-card ${typeClass}" onclick="app.selectEntity('${e.id}')">
+                <div class="entity-header">
+                  <div class="entity-name">${e.id}</div>
+                  <div class="entity-type">${entityType}</div>
+                </div>
+                <div class="entity-meta">
+                  ${e.size ? `Size: ${Math.round(e.size / 1024 * 10) / 10} KB<br>` : ''}
+                  ${e.lastModified ? `Modified: ${new Date(e.lastModified).toLocaleString()}` : ''}
+                </div>
+                <div class="entity-actions">
+                  <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.id}')">👁️ View</button>
+                  <button class="btn btn-small" onclick="event.stopPropagation(); app.editEntity('${e.id}')">✏️ Edit</button>
+                </div>
               </div>
-              <div class="entity-actions">
-                <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.id}')">👁️ View</button>
-                <button class="btn btn-small" onclick="event.stopPropagation(); app.editEntity('${e.id}')">✏️ Edit</button>
-              </div>
-            </div>
-          `).join('');
+            `;
+          }).join('');
         } catch (err) {
           list.innerHTML = `<div class="alert alert-error">Error: ${err.message}</div>`;
         }

@@ -40,7 +40,7 @@ describe('Game API Routes Integration', () => {
   function createApiGatewayEvent(method: string, path: string, body?: any): APIGatewayProxyEventV2 {
     return {
       version: '2.0',
-      routeKey: `${method} ${path}`,
+      routeKey: '$default',
       rawPath: path,
       rawQueryString: '',
       headers: {
@@ -49,24 +49,28 @@ describe('Game API Routes Integration', () => {
       requestContext: {
         accountId: '123456789012',
         apiId: 'api-id',
-        domainName: 'api.example.com',
+        domainName: 'id.execute-api.eu-north-1.amazonaws.com',
+        domainPrefix: 'id',
         http: {
           method,
           path,
           protocol: 'HTTP/1.1',
           sourceIp: '127.0.0.1',
-          userAgent: 'test-agent'
+          userAgent: 'vitest'
         },
         requestId: 'test-request-id',
-        routeKey: `${method} ${path}`,
-        stage: 'test',
-        time: '12/Oct/2023:18:30:00 +0000',
-        timeEpoch: 1697125800000
+        routeKey: '$default',
+        stage: '$default',
+        time: '12/Mar/2020:19:03:58 +0000',
+        timeEpoch: 1583348638390
       },
       body: body ? JSON.stringify(body) : undefined,
       isBase64Encoded: false,
-      pathParameters: extractPathParameters(path)
-    } as APIGatewayProxyEventV2;
+      pathParameters: extractPathParameters(path),
+      queryStringParameters: {},
+      stageVariables: {},
+      cookies: []
+    };
   }
 
   function extractPathParameters(path: string): Record<string, string> {
@@ -89,8 +93,8 @@ describe('Game API Routes Integration', () => {
       const event = createApiGatewayEvent('GET', '/apiv2/games');
       const response = await handler(event);
       
-      expect(response.statusCode).toBe(200);
-      expect(response.headers?.['content-type']).toContain('application/json');
+      expect((response as any).statusCode).toBe(200);
+      expect((response as any).headers?.['content-type']).toContain('application/json');
     });
 
     it('should handle POST /apiv2/games (create game)', async () => {
@@ -105,7 +109,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 201 (successful creation)
-      expect(response.statusCode).toBe(201);
+      expect((response as any).statusCode).toBe(201);
     });
 
     it('should handle GET /apiv2/games/:id (get game)', async () => {
@@ -113,7 +117,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
-      expect(response.statusCode).toBe(404);
+      expect((response as any).statusCode).toBe(404);
     });
 
     it('should handle GET /apiv2/games/:id/meta (get game metadata)', async () => {
@@ -121,7 +125,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 200 (metadata exists)
-      expect(response.statusCode).toBe(200);
+      expect((response as any).statusCode).toBe(200);
     });
 
     it('should handle PUT /apiv2/games/:id (update game)', async () => {
@@ -135,7 +139,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
-      expect(response.statusCode).toBe(404);
+      expect((response as any).statusCode).toBe(404);
     });
 
     it('should handle PATCH /apiv2/games/:id (patch game)', async () => {
@@ -146,7 +150,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
-      expect(response.statusCode).toBe(404);
+      expect((response as any).statusCode).toBe(404);
     });
 
     it('should handle DELETE /apiv2/games/:id (delete game)', async () => {
@@ -154,7 +158,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 204 (successful deletion)
-      expect(response.statusCode).toBe(204);
+      expect((response as any).statusCode).toBe(204);
     });
 
     it('should handle POST /apiv2/games/:id/rounds (add round)', async () => {
@@ -167,7 +171,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
-      expect(response.statusCode).toBe(404);
+      expect((response as any).statusCode).toBe(404);
     });
 
     it('should handle POST /apiv2/games/:gameId/rounds/:roundId/moves (add move)', async () => {
@@ -180,16 +184,16 @@ describe('Game API Routes Integration', () => {
       
       const response = await handler(event);
       
-      // Should return 400 due to parameter extraction issue
-      expect(response.statusCode).toBe(400);
+      // Should return 404 since game doesn't exist (parameter extraction works correctly)
+      expect((response as any).statusCode).toBe(404);
     });
 
     it('should handle PATCH /apiv2/games/:gameId/rounds/:roundId/finish (finish round)', async () => {
       const event = createApiGatewayEvent('PATCH', '/apiv2/games/test-game/rounds/round-1/finish');
       const response = await handler(event);
       
-      // Should return 400 due to parameter extraction issue
-      expect(response.statusCode).toBe(400);
+      // Should return 404 since game doesn't exist (parameter extraction works correctly)
+      expect((response as any).statusCode).toBe(404);
     });
 
     it('should handle PATCH /apiv2/games/:id/finish (finish game)', async () => {
@@ -197,7 +201,7 @@ describe('Game API Routes Integration', () => {
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
-      expect(response.statusCode).toBe(404);
+      expect((response as any).statusCode).toBe(404);
     });
   });
 
@@ -206,9 +210,9 @@ describe('Game API Routes Integration', () => {
       const event = createApiGatewayEvent('GET', '/apiv2/games');
       const response = await handler(event);
 
-      expect(response.headers?.['access-control-allow-origin']).toBeDefined();
-      expect(response.headers?.['access-control-allow-methods']).toBeDefined();
-      expect(response.headers?.['access-control-allow-headers']).toBeDefined();
+      expect((response as any).headers?.['access-control-allow-origin']).toBeDefined();
+      expect((response as any).headers?.['access-control-allow-methods']).toBeDefined();
+      expect((response as any).headers?.['access-control-allow-headers']).toBeDefined();
     });
   });
 });
