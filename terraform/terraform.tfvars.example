@@ -1,0 +1,28 @@
+# AWS Configuration
+aws_region     = "eu-north-1"
+aws_account_id = "088455116440"
+environment    = "prod"
+
+# Domain Configuration
+domain_name = "vkp-consulting.fr"
+
+# S3 Buckets
+api_data_bucket_name        = "data-1-088455116440"
+cloudfront_logs_bucket_name = "vkp-cloudfront-logs"
+
+# CORS Configuration
+cors_allowed_origins = [
+  "https://vkp-consulting.fr",
+  "https://www.vkp-consulting.fr"
+]
+
+# ACM Certificate (must be in us-east-1 for CloudFront)
+acm_certificate_arn = "arn:aws:acm:us-east-1:088455116440:certificate/e3774345-7028-415a-ab57-bd1f8e02a021"
+
+# Route53
+route53_zone_id = "Z094077718N53LUC7MTBL"
+
+# API Configuration
+max_body_bytes = 1048576  # 1MB
+json_prefix    = "json/"
+

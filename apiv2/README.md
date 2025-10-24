@@ -12,6 +12,7 @@ A comprehensive file, user, and game management system built with AWS Lambda, fe
 - **Validation**: Comprehensive input validation with Zod schemas
 - **Testing**: 95%+ code coverage with Vitest
 - **Game Management**: Complete game lifecycle with rounds, moves, and state management
+- **Infrastructure as Code**: Complete Terraform setup in `../terraform/`
 
 ## 📋 Quick Start
 
@@ -243,51 +244,79 @@ apiv2/
 
 ## 🔧 Configuration
 
-### S3 Bucket Setup
+### Infrastructure Setup (Terraform - Recommended)
+
+All infrastructure (S3, Lambda, API Gateway, CloudFront, Route53) is managed via Terraform:
+
+```bash
+cd ../terraform
+
+# Initialize (first time only)
+terraform init
+
+# Deploy infrastructure
+terraform apply
+
+# View configuration
+terraform show
+```
+
+See [`../terraform/README.md`](../terraform/README.md) for detailed infrastructure documentation.
+
+### Manual Setup (Legacy)
 
 ```bash
 # Create S3 bucket
-aws s3 mb s3://your-bucket-name
+aws s3 mb s3://data-1-088455116440
 
-# Configure CORS
-aws s3api put-bucket-cors \
-  --bucket your-bucket-name \
-  --cors-configuration file://cors.json
-```
-
-### API Gateway Configuration
-
-```bash
-# Deploy API Gateway
-npm run deploy:api
-
-# Configure custom domain (optional)
-npm run deploy:domain
+# Configure bucket policy
+aws s3api put-bucket-policy \
+  --bucket data-1-088455116440 \
+  --policy file://bucket-policy.json
 ```
 
 ## 🚀 Deployment
 
-### AWS Lambda
+### Infrastructure Management (Recommended)
+
+**All infrastructure is now managed with Terraform** for reproducible deployments:
+
+```bash
+# Navigate to Terraform directory
+cd ../terraform
+
+# Deploy/update infrastructure
+terraform apply
+
+# Deploy Lambda code changes
+cd ../apiv2
+./buildAndDeploy.sh
+```
+
+See [`../terraform/README.md`](../terraform/README.md) for complete infrastructure documentation.
+
+### Manual Deployment (Legacy)
 
 ```bash
 # Build and package
 npm run build
 
 # Deploy Lambda function
-npm run deploy:lambda
+./buildAndDeploy.sh
 
-# Update function configuration
-npm run deploy:config
+# Or use AWS CLI directly
+aws lambda update-function-code \
+  --function-name vkp-api2-service \
+  --zip-file fileb://lambda.zip
 ```
 
-### CloudFront Distribution
+### CloudFront Cache Invalidation
 
 ```bash
-# Deploy CloudFront
-npm run deploy:cloudfront
-
-# Invalidate cache
-npm run invalidate:cache
+# Invalidate cache after deployment
+aws cloudfront create-invalidation \
+  --distribution-id EJWBLACWDMFAZ \
+  --paths "/apiv2/*"
 ```
 
 ## 📊 Monitoring
