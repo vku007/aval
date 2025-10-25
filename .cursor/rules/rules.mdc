@@ -1,4 +1,8 @@
-# VKP Consulting - Cursor AI Rules
+---
+description:
+globs:
+alwaysApply: true
+---
 
 ## Project Context
 This is a production AWS infrastructure with managed resources:

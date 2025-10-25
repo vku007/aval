@@ -1,0 +1,12 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Project Rules - READ FIRST!
+
+⚠️ **CRITICAL**: Always read and follow these rules before making any changes or deployments.
+
+
+See detailed rules in:
+- .cursor/rules/terraform-rules.md

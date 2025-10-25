@@ -772,7 +772,8 @@ Retrieve a specific game by ID.
           "valueDecorated": "ten"
         }
       ],
-      "isFinished": false
+      "isFinished": false,
+      "time": 1640995200000
     }
   ],
   "isFinished": false
@@ -851,7 +852,8 @@ Create a new game with the specified ID, type, users, rounds, and status.
           "valueDecorated": "ten"
         }
       ],
-      "isFinished": false
+      "isFinished": false,
+      "time": 1640995200000
     }
   ],
   "isFinished": false
@@ -894,7 +896,8 @@ Create a new game with the specified ID, type, users, rounds, and status.
           "valueDecorated": "ten"
         }
       ],
-      "isFinished": false
+      "isFinished": false,
+      "time": 1640995200000
     }
   ],
   "isFinished": false
@@ -1102,7 +1105,8 @@ Add a new round to an existing game.
 {
   "id": "round-2",
   "moves": [],
-  "isFinished": false
+  "isFinished": false,
+  "time": 1640995200000
 }
 ```
 
@@ -1126,7 +1130,8 @@ curl -X POST "https://api.example.com/apiv2/games/game-123/rounds" \
   -d '{
     "id": "round-2",
     "moves": [],
-    "isFinished": false
+    "isFinished": false,
+    "time": 1640995200000
   }'
 ```
 
@@ -1579,7 +1584,8 @@ curl -X POST "https://api.example.com/apiv2/games/game-123/rounds" \
   -d '{
     "id": "round-1",
     "moves": [],
-    "isFinished": false
+    "isFinished": false,
+    "time": 1640995200000
   }'
 
 # Add move to round
@@ -1606,7 +1612,15 @@ curl -X DELETE "https://api.example.com/apiv2/files/config" \
 
 ## Changelog
 
-### Version 2.1 (Current)
+### Version 2.2 (Current)
+
+- ✅ **Round Time Property**: Added `time` property to Round class (Unix timestamp in milliseconds)
+- ✅ **Enhanced Round Validation**: Comprehensive timestamp validation for Round entities
+- ✅ **Backward Compatibility**: Existing data without time property uses current timestamp
+- ✅ **Updated API Examples**: All documentation updated with time property examples
+- ✅ **Complete Test Coverage**: All Round-related tests updated and passing
+
+### Version 2.1
 
 - ✅ **GameEntity Implementation**: Complete game management with rounds and moves
 - ✅ **Game-Specific Operations**: Add rounds, moves, finish rounds/games
@@ -1641,4 +1655,4 @@ For API support and questions, please refer to the project documentation or cont
 
 ---
 
-*Last updated: October 17, 2025*
+*Last updated: October 25, 2025*

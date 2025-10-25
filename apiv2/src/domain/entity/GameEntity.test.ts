@@ -17,8 +17,8 @@ describe('GameEntity', () => {
     });
 
     it('should create a game entity with rounds', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(gameEntity.rounds).toHaveLength(2);
@@ -62,7 +62,7 @@ describe('GameEntity', () => {
   describe('immutable operations', () => {
     it('should add a round and return a new GameEntity instance', () => {
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false);
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       
       const updatedGameEntity = gameEntity.addRound(round);
       
@@ -96,7 +96,7 @@ describe('GameEntity', () => {
     });
 
     it('should add a move to a specific round', () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       const move = new Move('move-1', 'user-1', 10, 'ten');
       
@@ -109,7 +109,7 @@ describe('GameEntity', () => {
     });
 
     it('should finish a specific round', () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       
       const updatedGameEntity = gameEntity.finishRound('round-1');
@@ -131,7 +131,7 @@ describe('GameEntity', () => {
   describe('utility methods', () => {
     it('should check if game has rounds', () => {
       const emptyGameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false);
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const gameEntityWithRounds = new GameEntity('game-2', 'tournament', ['user-1'], [round], false);
       
       expect(emptyGameEntity.hasRounds()).toBe(false);
@@ -139,16 +139,16 @@ describe('GameEntity', () => {
     });
 
     it('should get round count', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(gameEntity.getRoundCount()).toBe(2);
     });
 
     it('should get last round', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(gameEntity.getLastRound()?.id).toBe('round-2');
@@ -158,8 +158,8 @@ describe('GameEntity', () => {
     });
 
     it('should get specific round by ID', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(gameEntity.getRound('round-1')?.id).toBe('round-1');
@@ -180,8 +180,8 @@ describe('GameEntity', () => {
       const move2 = new Move('move-2', 'user-2', 20, 'twenty');
       const move3 = new Move('move-3', 'user-1', 30, 'thirty');
       
-      const round1 = new Round('round-1', [move1, move2], false);
-      const round2 = new Round('round-2', [move3], false);
+      const round1 = new Round('round-1', [move1, move2], false, Date.now());
+      const round2 = new Round('round-2', [move3], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1', 'user-2'], [round1, round2], false);
       
       const user1Moves = gameEntity.getMovesForUser('user-1');
@@ -248,7 +248,7 @@ describe('GameEntity', () => {
   describe('toJSON', () => {
     it('should convert game entity to JSON', () => {
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], true);
+      const round = new Round('round-1', [move], true, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1', 'user-2'], [round], true);
       
       const json = gameEntity.toJSON();
@@ -265,7 +265,8 @@ describe('GameEntity', () => {
             value: 10,
             valueDecorated: 'ten'
           }],
-          isFinished: true
+          isFinished: true,
+          time: expect.any(Number)
         }],
         isFinished: true
       });
@@ -286,7 +287,8 @@ describe('GameEntity', () => {
             value: 10,
             valueDecorated: 'ten'
           }],
-          isFinished: true
+          isFinished: true,
+          time: Date.now()
         }],
         isFinished: true
       };
@@ -324,12 +326,12 @@ describe('GameEntity', () => {
     });
 
     it('should not allow mutation of rounds array', () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       const rounds = gameEntity.rounds;
       
       // Attempting to mutate should not affect the original
-      rounds.push(new Round('round-2', [], false));
+      rounds.push(new Round('round-2', [], false, Date.now()));
       
       expect(gameEntity.rounds).toHaveLength(1);
       expect(rounds).toHaveLength(2); // Local copy was mutated

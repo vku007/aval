@@ -20,7 +20,7 @@ describe('GameResponseDto', () => {
 
     it('should create response DTO with rounds and moves', () => {
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], true);
+      const round = new Round('round-1', [move], true, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], true);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
@@ -46,7 +46,7 @@ describe('GameResponseDto', () => {
   describe('toJSON', () => {
     it('should convert to JSON', () => {
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], true);
+      const round = new Round('round-1', [move], true, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1', 'user-2'], [round], true);
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -78,7 +78,7 @@ describe('RoundResponseDto', () => {
   describe('fromRound', () => {
     it('should create response DTO from round', () => {
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], true);
+      const round = new Round('round-1', [move], true, Date.now());
       
       const responseDto = RoundResponseDto.fromRound(round);
       
@@ -92,7 +92,7 @@ describe('RoundResponseDto', () => {
   describe('toJSON', () => {
     it('should convert to JSON', () => {
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], true);
+      const round = new Round('round-1', [move], true, Date.now());
       const responseDto = RoundResponseDto.fromRound(round);
       
       const json = responseDto.toJSON();

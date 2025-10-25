@@ -57,7 +57,7 @@ export class GameService {
       const moves = roundDto.moves.map(moveDto => 
         new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated)
       );
-      return new Round(roundDto.id, moves, roundDto.isFinished);
+      return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     });
 
     // Create domain entity (will validate)
@@ -252,7 +252,7 @@ export class GameService {
       const moves = roundDto.moves.map(moveDto => 
         new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated)
       );
-      return new Round(roundDto.id, moves, roundDto.isFinished);
+      return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     }) : existingGame.rounds;
 
     // Create new game entity with merged data
@@ -278,7 +278,7 @@ export class GameService {
       const moves = roundDto.moves.map(moveDto => 
         new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated)
       );
-      return new Round(roundDto.id, moves, roundDto.isFinished);
+      return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     });
 
     // Create new game entity with replaced data

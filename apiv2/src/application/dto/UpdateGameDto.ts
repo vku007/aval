@@ -87,6 +87,7 @@ export interface RoundDto {
   id: string;
   moves: MoveDto[];
   isFinished: boolean;
+  time: number;
 }
 
 export interface MoveDto {

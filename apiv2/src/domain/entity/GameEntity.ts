@@ -17,6 +17,7 @@ interface RoundData {
   id: string;
   moves: MoveData[];
   isFinished: boolean;
+  time: number;
 }
 
 interface MoveData {
@@ -195,13 +196,14 @@ export class GameEntity {
     return {
       id: round.id,
       moves: round.moves.map(move => this.moveToData(move)),
-      isFinished: round.isFinished
+      isFinished: round.isFinished,
+      time: round.time
     };
   }
 
   private dataToRound(roundData: RoundData): Round {
     const moves = roundData.moves.map(moveData => this.dataToMove(moveData));
-    return new Round(roundData.id, moves, roundData.isFinished);
+    return new Round(roundData.id, moves, roundData.isFinished, roundData.time);
   }
 
   private moveToData(move: Move): MoveData {

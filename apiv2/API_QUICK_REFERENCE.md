@@ -90,6 +90,7 @@ None required (public API)
 - `id` (string, 1-128 chars, alphanumeric + dots, hyphens, underscores)
 - `moves` (array of move objects)
 - `isFinished` (boolean, default: false)
+- `time` (number, Unix timestamp in milliseconds)
 
 ### Move Fields
 - `id` (string, 1-128 chars, alphanumeric + dots, hyphens, underscores)
@@ -176,7 +177,8 @@ curl -X GET "https://api.example.com/apiv2/files?limit=10&cursor=eyJuZXh0VG9rZW4
           "valueDecorated": "ten"
         }
       ],
-      "isFinished": false
+      "isFinished": false,
+      "time": 1640995200000
     }
   ],
   "isFinished": false
@@ -331,4 +333,4 @@ curl -X PATCH "https://api.example.com/apiv2/games/game-123/finish" \
 
 ---
 
-*Last updated: October 17, 2025*
+*Last updated: October 25, 2025*

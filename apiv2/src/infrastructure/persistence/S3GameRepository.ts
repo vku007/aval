@@ -54,7 +54,7 @@ export class S3GameRepository implements IGameRepository {
           const moves = roundData.moves.map((moveData: { id: string; userId: string; value: number; valueDecorated: string }) => 
           new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated)
         );
-        return new Round(roundData.id, moves, roundData.isFinished);
+        return new Round(roundData.id, moves, roundData.isFinished, roundData.time || Date.now());
       });
 
       return this.gameFactory(id, data.type, data.usersIds, rounds, data.isFinished, response.ETag, metadata);

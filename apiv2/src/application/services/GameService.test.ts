@@ -110,13 +110,14 @@ describe('GameService', () => {
             value: 10,
             valueDecorated: 'ten'
           }],
-          isFinished: false
+          isFinished: false,
+          time: Date.now()
         }],
         isFinished: false
       };
 
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], false);
+      const round = new Round('round-1', [move], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       mockRepository.save.mockResolvedValueOnce(gameEntity);
 
@@ -256,7 +257,7 @@ describe('GameService', () => {
   describe('game-specific operations', () => {
     it('should add round to game', async () => {
       const existingGame = new GameEntity('game-1', 'tournament', ['user-1'], [], false);
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);
       mockRepository.save.mockResolvedValueOnce(existingGame);
@@ -271,7 +272,7 @@ describe('GameService', () => {
     });
 
     it('should add move to game round', async () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const existingGame = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       const move = new Move('move-1', 'user-1', 10, 'ten');
       const updatedGame = existingGame.addMoveToRound('round-1', move);
@@ -289,7 +290,7 @@ describe('GameService', () => {
     });
 
     it('should finish game round', async () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const existingGame = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);

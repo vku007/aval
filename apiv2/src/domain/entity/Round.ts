@@ -5,11 +5,13 @@ export class Round {
     constructor(
         public readonly id: string,
         public readonly moves: Move[],
-        public readonly isFinished: boolean
+        public readonly isFinished: boolean,
+        public readonly time: number
     ) {
         this.validateId(id);
         this.validateMoves(moves);
         this.validateIsFinished(isFinished);
+        this.validateTime(time);
     }
 
     /**
@@ -18,7 +20,7 @@ export class Round {
      */
     addMove(move: Move): Round {
         this.validateMove(move);
-        return new Round(this.id, [...this.moves, move], this.isFinished);
+        return new Round(this.id, [...this.moves, move], this.isFinished, this.time);
     }
 
     /**
@@ -27,7 +29,7 @@ export class Round {
      */
     setFinished(finished: boolean): Round {
         this.validateIsFinished(finished);
-        return new Round(this.id, this.moves, finished);
+        return new Round(this.id, this.moves, finished, this.time);
     }
 
     /**
@@ -35,7 +37,7 @@ export class Round {
      * Returns a new Round instance with isFinished = true
      */
     finish(): Round {
-        return new Round(this.id, this.moves, true);
+        return new Round(this.id, this.moves, true, this.time);
     }
 
     /**
@@ -66,7 +68,8 @@ export class Round {
         return {
             id: this.id,
             moves: this.moves.map(move => move.toJSON()),
-            isFinished: this.isFinished
+            isFinished: this.isFinished,
+            time: this.time
         };
     }
 
@@ -90,8 +93,12 @@ export class Round {
             throw new ValidationError('Round isFinished must be a boolean');
         }
 
+        if (typeof data.time !== 'number') {
+            throw new ValidationError('Round time must be a number');
+        }
+
         const moves = data.moves.map((moveData: any) => Move.fromJSON(moveData));
-        return new Round(data.id, moves, data.isFinished);
+        return new Round(data.id, moves, data.isFinished, data.time);
     }
 
     private validateId(id: string): void {
@@ -127,6 +134,28 @@ export class Round {
     private validateIsFinished(isFinished: boolean): void {
         if (typeof isFinished !== 'boolean') {
             throw new ValidationError('Round isFinished must be a boolean');
+        }
+    }
+
+    private validateTime(time: number): void {
+        if (typeof time !== 'number') {
+            throw new ValidationError('Round time must be a number');
+        }
+
+        if (!Number.isInteger(time)) {
+            throw new ValidationError('Round time must be an integer');
+        }
+
+        if (time < 0) {
+            throw new ValidationError('Round time must be a positive number');
+        }
+
+        // Check if it's a reasonable Unix timestamp (after 1970, before year 3000)
+        const minTimestamp = 0; // January 1, 1970
+        const maxTimestamp = 32503680000000; // January 1, 3000
+        
+        if (time < minTimestamp || time > maxTimestamp) {
+            throw new ValidationError('Round time must be a valid Unix timestamp in milliseconds');
         }
     }
 

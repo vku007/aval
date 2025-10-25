@@ -127,7 +127,8 @@ curl -X POST https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/games
   -d '{
     "id": "round-1",
     "moves": [],
-    "isFinished": false
+    "isFinished": false,
+    "time": 1640995200000
   }'
 
 # Get a file with ETag
@@ -148,7 +149,7 @@ curl -X PUT https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files/
 - **JsonEntity**: Generic JSON document entity
 - **User**: User entity with name and externalId
 - **GameEntity**: Game entity with rounds, moves, and state management
-- **Round**: Round entity containing moves and completion status
+- **Round**: Round entity containing moves, completion status, and timestamp
 - **Move**: Move entity with user, value, and decorated value
 
 ### Application Layer
@@ -393,6 +394,12 @@ MIT License - see LICENSE file for details.
 - **Discussions**: Use GitHub Discussions for questions
 
 ## 🔄 Changelog
+
+### v3.1.0
+- Added `time` property to Round class (Unix timestamp in milliseconds)
+- Enhanced Round validation with timestamp validation
+- Updated all Round-related APIs to include time property
+- Maintained backward compatibility for existing data
 
 ### v3.0.0
 - Added comprehensive Game API with rounds, moves, and state management

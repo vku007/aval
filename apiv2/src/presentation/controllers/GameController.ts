@@ -207,7 +207,7 @@ export class GameController {
         new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated)
       ) || [];
       
-      const round = new Round(roundData.id, moves, roundData.isFinished || false);
+      const round = new Round(roundData.id, moves, roundData.isFinished || false, roundData.time || Date.now());
       const gameDto = await this.gameService.addRoundToGame(gameId, round, ifMatch);
       const metadata = await this.gameService.getGameMetadata(gameId);
       

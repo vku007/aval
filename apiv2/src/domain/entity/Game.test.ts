@@ -17,8 +17,8 @@ describe('Game', () => {
     });
 
     it('should create a game with rounds', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(game.rounds).toHaveLength(2);
@@ -55,7 +55,7 @@ describe('Game', () => {
   describe('addRound', () => {
     it('should add a round and return a new Game instance', () => {
       const game = new Game('game-1', 'tournament', ['user-1'], [], false);
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       
       const updatedGame = game.addRound(round);
       
@@ -107,7 +107,7 @@ describe('Game', () => {
 
   describe('addMoveToRound', () => {
     it('should add a move to a specific round', () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1'], [round], false);
       const move = new Move('move-1', 'user-1', 10, 'ten');
       
@@ -129,7 +129,7 @@ describe('Game', () => {
 
   describe('finishRound', () => {
     it('should finish a specific round', () => {
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1'], [round], false);
       
       const updatedGame = game.finishRound('round-1');
@@ -149,7 +149,7 @@ describe('Game', () => {
   describe('utility methods', () => {
     it('should check if game has rounds', () => {
       const emptyGame = new Game('game-1', 'tournament', ['user-1'], [], false);
-      const round = new Round('round-1', [], false);
+      const round = new Round('round-1', [], false, Date.now());
       const gameWithRounds = new Game('game-2', 'tournament', ['user-1'], [round], false);
       
       expect(emptyGame.hasRounds()).toBe(false);
@@ -157,16 +157,16 @@ describe('Game', () => {
     });
 
     it('should get round count', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(game.getRoundCount()).toBe(2);
     });
 
     it('should get last round', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(game.getLastRound()?.id).toBe('round-2');
@@ -176,8 +176,8 @@ describe('Game', () => {
     });
 
     it('should get specific round by ID', () => {
-      const round1 = new Round('round-1', [], false);
-      const round2 = new Round('round-2', [], false);
+      const round1 = new Round('round-1', [], false, Date.now());
+      const round2 = new Round('round-2', [], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1'], [round1, round2], false);
       
       expect(game.getRound('round-1')?.id).toBe('round-1');
@@ -198,8 +198,8 @@ describe('Game', () => {
       const move2 = new Move('move-2', 'user-2', 20, 'twenty');
       const move3 = new Move('move-3', 'user-1', 30, 'thirty');
       
-      const round1 = new Round('round-1', [move1, move2], false);
-      const round2 = new Round('round-2', [move3], false);
+      const round1 = new Round('round-1', [move1, move2], false, Date.now());
+      const round2 = new Round('round-2', [move3], false, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1', 'user-2'], [round1, round2], false);
       
       const user1Moves = game.getMovesForUser('user-1');
@@ -220,7 +220,7 @@ describe('Game', () => {
   describe('toJSON', () => {
     it('should convert game to JSON', () => {
       const move = new Move('move-1', 'user-1', 10, 'ten');
-      const round = new Round('round-1', [move], true);
+      const round = new Round('round-1', [move], true, Date.now());
       const game = new Game('game-1', 'tournament', ['user-1', 'user-2'], [round], true);
       
       const json = game.toJSON();
@@ -237,7 +237,8 @@ describe('Game', () => {
             value: 10,
             valueDecorated: 'ten'
           }],
-          isFinished: true
+          isFinished: true,
+          time: expect.any(Number)
         }],
         isFinished: true
       });
@@ -258,7 +259,8 @@ describe('Game', () => {
             value: 10,
             valueDecorated: 'ten'
           }],
-          isFinished: true
+          isFinished: true,
+          time: Date.now()
         }],
         isFinished: true
       };

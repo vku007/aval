@@ -1,0 +1,55 @@
+---
+alwaysApply: true
+---
+
+## API Development
+
+### API v2 (Advanced)
+- Location: `/apiv2/src/`
+- Architecture: Domain-driven design with layers
+- Testing: Vitest with 95%+ coverage
+- Deployment: `./buildAndDeploy.sh`
+
+### Patterns to Follow
+- Use DTOs for API contracts
+- Implement ETag for concurrency
+- Validate with Zod schemas
+- Return RFC 7807 errors
+- Use repository pattern for data access
+
+## Documentation Standards
+
+- Main docs: README.md, INFRASTRUCTURE_OVERVIEW.md
+- API docs: apiv2/COMPLETE_API_DOCUMENTATION.md
+- Terraform: terraform/README.md
+- Navigation: DOCUMENTATION_INDEX.md
+
+Update these when:
+- Adding new AWS resources → INFRASTRUCTURE_OVERVIEW.md
+- Changing APIs → API documentation
+- Modifying infrastructure → terraform/INFRASTRUCTURE_DATA.md## API Development
+
+### API v2 (Advanced)
+- Location: `/apiv2/src/`
+- Architecture: Domain-driven design with layers
+- Testing: Vitest with 95%+ coverage
+- Deployment: `./buildAndDeploy.sh`
+
+### Patterns to Follow
+- Use DTOs for API contracts
+- Implement ETag for concurrency
+- Validate with Zod schemas
+- Return RFC 7807 errors
+- Use repository pattern for data access
+
+## Documentation Standards
+
+- Main docs: README.md, INFRASTRUCTURE_OVERVIEW.md
+- API docs: apiv2/COMPLETE_API_DOCUMENTATION.md
+- Terraform: terraform/README.md
+- Navigation: DOCUMENTATION_INDEX.md
+
+Update these when:
+- Adding new AWS resources → INFRASTRUCTURE_OVERVIEW.md
+- Changing APIs → API documentation
+- Modifying infrastructure → terraform/INFRASTRUCTURE_DATA.md
