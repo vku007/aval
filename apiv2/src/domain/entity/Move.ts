@@ -5,12 +5,14 @@ export class Move {
         public readonly id: string,
         public readonly userId: string,
         public readonly value: number,
-        public readonly valueDecorated: string
+        public readonly valueDecorated: string,
+        public readonly time: number
     ) {
         this.validateId(id);
         this.validateUserId(userId);
         this.validateValue(value);
         this.validateValueDecorated(valueDecorated);
+        this.validateTime(time);
     }
 
     /**
@@ -21,7 +23,8 @@ export class Move {
             id: this.id,
             userId: this.userId,
             value: this.value,
-            valueDecorated: this.valueDecorated
+            valueDecorated: this.valueDecorated,
+            time: this.time
         };
     }
 
@@ -49,7 +52,11 @@ export class Move {
             throw new ValidationError('Move valueDecorated must be a string');
         }
 
-        return new Move(data.id, data.userId, data.value, data.valueDecorated);
+        if (typeof data.time !== 'number') {
+            throw new ValidationError('Move time must be a number');
+        }
+
+        return new Move(data.id, data.userId, data.value, data.valueDecorated, data.time);
     }
 
     private validateId(id: string): void {
@@ -99,6 +106,30 @@ export class Move {
     private validateValueDecorated(valueDecorated: string): void {
         if (!valueDecorated || typeof valueDecorated !== 'string') {
             throw new ValidationError('Move valueDecorated is required and must be a string');
+        }
+    }
+
+    private validateTime(time: number): void {
+        if (typeof time !== 'number') {
+            throw new ValidationError('Move time must be a number');
+        }
+
+        if (!Number.isFinite(time)) {
+            throw new ValidationError('Move time must be a finite number');
+        }
+
+        if (!Number.isInteger(time)) {
+            throw new ValidationError('Move time must be an integer (Unix timestamp in milliseconds)');
+        }
+
+        // Validate that it's a reasonable Unix timestamp (after 1970-01-01 and before year 2100)
+        const minTimestamp = 0; // 1970-01-01 00:00:00 UTC
+        const maxTimestamp = 4102444800000; // 2100-01-01 00:00:00 UTC
+        
+        if (time < minTimestamp || time > maxTimestamp) {
+            throw new ValidationError(
+                `Move time must be a valid Unix timestamp in milliseconds between ${minTimestamp} and ${maxTimestamp}`
+            );
         }
     }
 }

@@ -66,7 +66,8 @@ export class MoveResponseDto {
     public readonly id: string,
     public readonly userId: string,
     public readonly value: number,
-    public readonly valueDecorated: string
+    public readonly valueDecorated: string,
+    public readonly time: number
   ) {}
 
   static fromMove(move: import('../../domain/entity/Move.js').Move): MoveResponseDto {
@@ -74,7 +75,8 @@ export class MoveResponseDto {
       move.id,
       move.userId,
       move.value,
-      move.valueDecorated
+      move.valueDecorated,
+      move.time
     );
   }
 
@@ -83,7 +85,8 @@ export class MoveResponseDto {
       id: this.id,
       userId: this.userId,
       value: this.value,
-      valueDecorated: this.valueDecorated
+      valueDecorated: this.valueDecorated,
+      time: this.time
     };
   }
 }

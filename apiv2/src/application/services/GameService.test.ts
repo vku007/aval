@@ -116,7 +116,7 @@ describe('GameService', () => {
         isFinished: false
       };
 
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       const round = new Round('round-1', [move], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
       mockRepository.save.mockResolvedValueOnce(gameEntity);
@@ -274,7 +274,7 @@ describe('GameService', () => {
     it('should add move to game round', async () => {
       const round = new Round('round-1', [], false, Date.now());
       const existingGame = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       const updatedGame = existingGame.addMoveToRound('round-1', move);
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);

@@ -55,7 +55,7 @@ export class GameService {
     // Convert DTO rounds to Round objects
     const rounds = dto.rounds.map(roundDto => {
       const moves = roundDto.moves.map(moveDto => 
-        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated)
+        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated, moveDto.time || Date.now())
       );
       return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     });
@@ -250,7 +250,7 @@ export class GameService {
     // Convert DTO rounds to Round objects if provided
     const rounds = dto.rounds ? dto.rounds.map(roundDto => {
       const moves = roundDto.moves.map(moveDto => 
-        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated)
+        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated, moveDto.time || Date.now())
       );
       return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     }) : existingGame.rounds;
@@ -276,7 +276,7 @@ export class GameService {
     // Convert DTO rounds to Round objects
     const rounds = dto.rounds.map(roundDto => {
       const moves = roundDto.moves.map(moveDto => 
-        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated)
+        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated, moveDto.time || Date.now())
       );
       return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     });

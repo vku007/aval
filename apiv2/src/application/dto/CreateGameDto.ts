@@ -42,12 +42,24 @@ const CreateGameSchema = z.object({
         .finite('Move value must be a finite number'),
       
       valueDecorated: z.string()
-        .min(1, 'Move valueDecorated is required')
+        .min(1, 'Move valueDecorated is required'),
+      
+      time: z.number()
+        .int('Move time must be an integer (Unix timestamp in milliseconds)')
+        .min(0, 'Move time must be a valid Unix timestamp')
+        .max(4102444800000, 'Move time must be before year 2100')
+        .optional()
     }))
       .default([]),
     
     isFinished: z.boolean()
-      .default(false)
+      .default(false),
+    
+    time: z.number()
+      .int('Round time must be an integer (Unix timestamp in milliseconds)')
+      .min(0, 'Round time must be a valid Unix timestamp')
+      .max(4102444800000, 'Round time must be before year 2100')
+      .default(() => Date.now())
   }))
     .default([]),
   
@@ -100,6 +112,7 @@ export interface MoveDto {
   userId: string;
   value: number;
   valueDecorated: string;
+  time?: number;
 }
 
 export class CreateGameDtoValidator {

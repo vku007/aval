@@ -204,7 +204,7 @@ export class GameController {
       const { Move } = await import('../../domain/entity/Move.js');
       
       const moves = roundData.moves?.map((moveData: any) => 
-        new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated)
+        new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now())
       ) || [];
       
       const round = new Round(roundData.id, moves, roundData.isFinished || false, roundData.time || Date.now());
@@ -246,7 +246,7 @@ export class GameController {
       const moveData = request.body as any;
       const { Move } = await import('../../domain/entity/Move.js');
       
-      const move = new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated);
+      const move = new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now());
       const gameDto = await this.gameService.addMoveToGameRound(gameId, roundId, move, ifMatch);
       const metadata = await this.gameService.getGameMetadata(gameId);
       

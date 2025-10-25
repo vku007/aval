@@ -5,7 +5,7 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 vi.mock('@aws-sdk/client-s3');
 
 import { handler } from './index.js';
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client, NotFound } from '@aws-sdk/client-s3';
 
 // Get the mocked S3Client
 const MockedS3Client = vi.mocked(S3Client);
@@ -58,6 +58,7 @@ describe('Lambda Handler - Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSend.mockClear();
+    mockSend.mockReset();
     process.env.BUCKET_NAME = 'test-bucket';
     process.env.JSON_PREFIX = 'json/';
     process.env.CORS_ORIGIN = 'https://vkp-consulting.fr';
@@ -89,19 +90,21 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should accept POST with application/json', async () => {
+      const entityId = `test-entity-${Date.now()}`;
+      
       // Mock HEAD checks (not found in both locations) then PUT success
+      const notFoundError = new Error('Not Found');
+      notFoundError.name = 'NotFound';
+      (notFoundError as any).$metadata = { httpStatusCode: 404 };
+      
       mockSend
-        .mockRejectedValueOnce({ // HEAD check base location (not found)
-          name: 'NotFound',
-          $metadata: { httpStatusCode: 404 }
-        })
-        .mockRejectedValueOnce({ // HEAD check user location (not found)
-          name: 'NotFound',
-          $metadata: { httpStatusCode: 404 }
-        })
+        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found) - called by getMetadata
+        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found) - called by getMetadata
         .mockResolvedValueOnce({ ETag: '"abc123"' }); // PUT
 
-      const event = createEvent('POST', '/apiv2/files', { id: 'test', data: { x: 1 } });
+      const event = createEvent('POST', '/apiv2/files', { id: entityId, data: { x: 1 } });
       const response = await handler(event);
 
       expect(response.statusCode).toBe(201);
@@ -150,7 +153,11 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Path routing', () => {
     it('should route GET /apiv2/files to list', async () => {
-      // Mock ListObjectsV2 responses for both base and user prefixes
+      // Mock ListObjectsV2 responses for base, user, and game prefixes
+      mockSend.mockResolvedValueOnce({ 
+        Contents: [],
+        IsTruncated: false
+      });
       mockSend.mockResolvedValueOnce({ 
         Contents: [],
         IsTruncated: false
@@ -199,27 +206,29 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Entity CRUD operations', () => {
     it('should create entity with POST', async () => {
+      const entityId = `new-entity-${Date.now()}`;
+      
       // Mock HEAD checks (not found in both locations) then PUT success
+      const notFoundError = new Error('Not Found');
+      notFoundError.name = 'NotFound';
+      (notFoundError as any).$metadata = { httpStatusCode: 404 };
+      
       mockSend
-        .mockRejectedValueOnce({ // HEAD check base location
-          name: 'NotFound',
-          $metadata: { httpStatusCode: 404 }
-        })
-        .mockRejectedValueOnce({ // HEAD check user location
-          name: 'NotFound',
-          $metadata: { httpStatusCode: 404 }
-        })
+        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found) - called by getMetadata
+        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found) - called by getMetadata
         .mockResolvedValueOnce({ ETag: '"new-etag"' }); // PUT
 
       const event = createEvent('POST', '/apiv2/files', {
-        id: 'new-entity',
+        id: entityId,
         data: { value: 42 }
       });
       
       const response = await handler(event);
 
       expect(response.statusCode).toBe(201);
-      expect(response.headers?.location).toBe('/apiv2/files/new-entity');
+      expect(response.headers?.location).toBe(`/apiv2/files/${entityId}`);
       expect(response.headers?.etag).toBeTruthy();
     });
 
@@ -341,7 +350,7 @@ describe('Lambda Handler - Integration Tests', () => {
     });
 
     it('should list both regular files and user files', async () => {
-      // Mock ListObjectsV2 responses for both base and user prefixes
+      // Mock ListObjectsV2 responses for base, user, and game prefixes
       mockSend.mockResolvedValueOnce({
         Contents: [{ 
           Key: 'json/regular-file.json', 
@@ -360,6 +369,10 @@ describe('Lambda Handler - Integration Tests', () => {
         }],
         IsTruncated: false
       });
+      mockSend.mockResolvedValueOnce({
+        Contents: [],
+        IsTruncated: false
+      });
 
       const event = createEvent('GET', '/apiv2/files');
       const response = await handler(event);
@@ -374,7 +387,7 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('Query parameters', () => {
     it('should handle list pagination with cursor', async () => {
-      // Mock ListObjectsV2 with pagination for both base and user prefixes
+      // Mock ListObjectsV2 with pagination for base, user, and game prefixes
       mockSend.mockResolvedValueOnce({
         Contents: [{ 
           Key: 'json/test.json', 
@@ -384,6 +397,10 @@ describe('Lambda Handler - Integration Tests', () => {
         }],
         IsTruncated: true,
         NextContinuationToken: 'next-token'
+      });
+      mockSend.mockResolvedValueOnce({
+        Contents: [],
+        IsTruncated: false
       });
       mockSend.mockResolvedValueOnce({
         Contents: [],

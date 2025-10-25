@@ -27,7 +27,7 @@ describe('GameEntity', () => {
     });
 
     it('should create a game entity with etag and metadata', () => {
-      const metadata = { size: 100, lastModified: new Date() };
+      const metadata = { size: 100, lastModified: new Date().toISOString() };
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false, 'etag-123', metadata);
       
       expect(gameEntity.metadata).toEqual(metadata);
@@ -98,7 +98,7 @@ describe('GameEntity', () => {
     it('should add a move to a specific round', () => {
       const round = new Round('round-1', [], false, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], false);
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       
       const updatedGameEntity = gameEntity.addMoveToRound('round-1', move);
       
@@ -121,7 +121,7 @@ describe('GameEntity', () => {
 
     it('should throw ValidationError for non-existent round', () => {
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false);
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       
       expect(() => gameEntity.addMoveToRound('non-existent', move)).toThrow(ValidationError);
       expect(() => gameEntity.finishRound('non-existent')).toThrow(ValidationError);
@@ -176,9 +176,9 @@ describe('GameEntity', () => {
     });
 
     it('should get moves for a specific user', () => {
-      const move1 = new Move('move-1', 'user-1', 10, 'ten');
-      const move2 = new Move('move-2', 'user-2', 20, 'twenty');
-      const move3 = new Move('move-3', 'user-1', 30, 'thirty');
+      const move1 = new Move('move-1', 'user-1', 10, 'ten', Date.now());
+      const move2 = new Move('move-2', 'user-2', 20, 'twenty', Date.now());
+      const move3 = new Move('move-3', 'user-1', 30, 'thirty', Date.now());
       
       const round1 = new Round('round-1', [move1, move2], false, Date.now());
       const round2 = new Round('round-2', [move3], false, Date.now());
@@ -223,7 +223,7 @@ describe('GameEntity', () => {
     });
 
     it('should preserve etag and metadata through backing store', () => {
-      const metadata = { size: 100, lastModified: new Date() };
+      const metadata = { size: 100, lastModified: new Date().toISOString() };
       const originalGameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false, 'etag-123', metadata);
       const backingStore = originalGameEntity.internalGetBackingStore();
       
@@ -247,7 +247,7 @@ describe('GameEntity', () => {
 
   describe('toJSON', () => {
     it('should convert game entity to JSON', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       const round = new Round('round-1', [move], true, Date.now());
       const gameEntity = new GameEntity('game-1', 'tournament', ['user-1', 'user-2'], [round], true);
       
@@ -263,7 +263,8 @@ describe('GameEntity', () => {
             id: 'move-1',
             userId: 'user-1',
             value: 10,
-            valueDecorated: 'ten'
+            valueDecorated: 'ten',
+            time: expect.any(Number)
           }],
           isFinished: true,
           time: expect.any(Number)
@@ -285,7 +286,8 @@ describe('GameEntity', () => {
             id: 'move-1',
             userId: 'user-1',
             value: 10,
-            valueDecorated: 'ten'
+            valueDecorated: 'ten',
+            time: Date.now()
           }],
           isFinished: true,
           time: Date.now()

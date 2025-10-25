@@ -15,8 +15,8 @@ describe('Round', () => {
     });
 
     it('should create a round with moves', () => {
-      const move1 = new Move('move-1', 'user-1', 10, 'ten');
-      const move2 = new Move('move-2', 'user-2', 20, 'twenty');
+      const move1 = new Move('move-1', 'user-1', 10, 'ten', Date.now());
+      const move2 = new Move('move-2', 'user-2', 20, 'twenty', Date.now());
       const round = new Round('round-1', [move1, move2], false, Date.now());
       
       expect(round.moves).toHaveLength(2);
@@ -48,7 +48,7 @@ describe('Round', () => {
   describe('addMove', () => {
     it('should add a move and return a new Round instance', () => {
       const round = new Round('round-1', [], false, Date.now());
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       
       const updatedRound = round.addMove(move);
       
@@ -101,7 +101,7 @@ describe('Round', () => {
   describe('utility methods', () => {
     it('should check if round has moves', () => {
       const emptyRound = new Round('round-1', [], false, Date.now());
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       const roundWithMoves = new Round('round-2', [move], false, Date.now());
       
       expect(emptyRound.hasMoves()).toBe(false);
@@ -109,16 +109,16 @@ describe('Round', () => {
     });
 
     it('should get move count', () => {
-      const move1 = new Move('move-1', 'user-1', 10, 'ten');
-      const move2 = new Move('move-2', 'user-2', 20, 'twenty');
+      const move1 = new Move('move-1', 'user-1', 10, 'ten', Date.now());
+      const move2 = new Move('move-2', 'user-2', 20, 'twenty', Date.now());
       const round = new Round('round-1', [move1, move2], false, Date.now());
       
       expect(round.getMoveCount()).toBe(2);
     });
 
     it('should get last move', () => {
-      const move1 = new Move('move-1', 'user-1', 10, 'ten');
-      const move2 = new Move('move-2', 'user-2', 20, 'twenty');
+      const move1 = new Move('move-1', 'user-1', 10, 'ten', Date.now());
+      const move2 = new Move('move-2', 'user-2', 20, 'twenty', Date.now());
       const round = new Round('round-1', [move1, move2], false, Date.now());
       
       expect(round.getLastMove()?.id).toBe('move-2');
@@ -130,7 +130,7 @@ describe('Round', () => {
 
   describe('toJSON', () => {
     it('should convert round to JSON', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten');
+      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
       const round = new Round('round-1', [move], true, Date.now());
       
       const json = round.toJSON();
@@ -141,7 +141,8 @@ describe('Round', () => {
           id: 'move-1',
           userId: 'user-1',
           value: 10,
-          valueDecorated: 'ten'
+          valueDecorated: 'ten',
+          time: expect.any(Number)
         }],
         isFinished: true,
         time: expect.any(Number)
@@ -157,7 +158,8 @@ describe('Round', () => {
           id: 'move-1',
           userId: 'user-1',
           value: 10,
-          valueDecorated: 'ten'
+          valueDecorated: 'ten',
+          time: Date.now()
         }],
         isFinished: true,
         time: Date.now()

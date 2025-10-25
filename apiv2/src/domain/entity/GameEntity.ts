@@ -25,6 +25,7 @@ interface MoveData {
   userId: string;
   value: number;
   valueDecorated: string;
+  time?: number;
 }
 
 export class GameEntity {
@@ -211,12 +212,13 @@ export class GameEntity {
       id: move.id,
       userId: move.userId,
       value: move.value,
-      valueDecorated: move.valueDecorated
+      valueDecorated: move.valueDecorated,
+      time: move.time
     };
   }
 
   private dataToMove(moveData: MoveData): Move {
-    return new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated);
+    return new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now());
   }
 
   // JSON serialization
