@@ -1,0 +1,25 @@
+# VKP Consulting - Cursor AI Rules
+
+## Project Context
+This is a production AWS infrastructure with managed resources:
+- Static website (S3 + CloudFront)
+- Two Lambda APIs (simple + advanced)
+- API Gateway HTTP API
+- Route53 DNS
+- All managed via Terraform
+
+## Critical Rules
+
+### 🚫 Never Do
+- Manual AWS resource creation (use Terraform)
+- Force-unlock Terraform state without investigation
+- Commit terraform.tfvars or .tfstate files
+- Deploy without running tests first
+- Modify IAM policies without security review
+
+### ✅ Always Do
+- Run `terraform plan` before `terraform apply`
+- Run `npm test` before deploying Lambda code
+- Update documentation when changing APIs
+- Invalidate CloudFront cache after static site updates
+- Use ETag headers for all PUT/PATCH operations
