@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GameEntity } from './GameEntity.js';
-import { Round } from './Round.js';
-import { Move } from './Move.js';
+import { Round } from '../value-object/Round.js';
+import { Move } from '../value-object/Move.js';
 import { ValidationError } from '../../shared/errors/index.js';
 
 describe('GameEntity', () => {

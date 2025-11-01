@@ -8,7 +8,7 @@ import { loadConfig } from './config/environment.js';
 import { JsonEntity } from './domain/entity/JsonEntity.js';
 import { User } from './domain/entity/User.js';
 import { GameEntity } from './domain/entity/GameEntity.js';
-import { Round } from './domain/entity/Round.js';
+import { Round } from './domain/value-object/Round.js';
 import type { JsonValue, EntityMetadata } from './shared/types/common.js';
 
 // Infrastructure

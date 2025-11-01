@@ -1,4 +1,4 @@
-import { Round } from "./Round.js";
+import { Round } from "../value-object/Round.js";
 import { ValidationError } from "../../shared/errors/index.js";
 
 export class Game {

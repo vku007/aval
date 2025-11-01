@@ -1,6 +1,6 @@
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { Round } from '../../domain/entity/Round.js';
-import { Move } from '../../domain/entity/Move.js';
+import { Round } from '../../domain/value-object/Round.js';
+import { Move } from '../../domain/value-object/Move.js';
 import { CreateGameDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { GameResponseDto } from '../dto/GameResponseDto.js';

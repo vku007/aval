@@ -200,8 +200,8 @@ export class GameController {
 
     try {
       const roundData = request.body as any;
-      const { Round } = await import('../../domain/entity/Round.js');
-      const { Move } = await import('../../domain/entity/Move.js');
+      const { Round } = await import('../../domain/value-object/Round.js');
+      const { Move } = await import('../../domain/value-object/Move.js');
       
       const moves = roundData.moves?.map((moveData: any) => 
         new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now())
@@ -244,7 +244,7 @@ export class GameController {
 
     try {
       const moveData = request.body as any;
-      const { Move } = await import('../../domain/entity/Move.js');
+      const { Move } = await import('../../domain/value-object/Move.js');
       
       const move = new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now());
       const gameDto = await this.gameService.addMoveToGameRound(gameId, roundId, move, ifMatch);

@@ -2,8 +2,8 @@ import { ValidationError } from '../../shared/errors/index.js';
 import { JsonEntity } from './JsonEntity.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
 import { Game } from './Game.js';
-import { Round } from './Round.js';
-import { Move } from './Move.js';
+import { Round } from '../value-object/Round.js';
+import { Move } from '../value-object/Move.js';
 
 // Define the data structure for better type safety
 interface GameData {

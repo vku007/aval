@@ -44,7 +44,7 @@ export class RoundResponseDto {
     public readonly isFinished: boolean
   ) {}
 
-  static fromRound(round: import('../../domain/entity/Round.js').Round): RoundResponseDto {
+  static fromRound(round: import('../../domain/value-object/Round.js').Round): RoundResponseDto {
     return new RoundResponseDto(
       round.id,
       round.moves.map(move => MoveResponseDto.fromMove(move)),
@@ -70,7 +70,7 @@ export class MoveResponseDto {
     public readonly time: number
   ) {}
 
-  static fromMove(move: import('../../domain/entity/Move.js').Move): MoveResponseDto {
+  static fromMove(move: import('../../domain/value-object/Move.js').Move): MoveResponseDto {
     return new MoveResponseDto(
       move.id,
       move.userId,

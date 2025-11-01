@@ -1,7 +1,7 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { Round } from '../../domain/entity/Round.js';
-import { Move } from '../../domain/entity/Move.js';
+import { Round } from '../../domain/value-object/Round.js';
+import { Move } from '../../domain/value-object/Move.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 import { IGameRepository } from '../../application/services/GameService.js';
 import { NotFoundError, ConflictError, PreconditionFailedError, NotModifiedError } from '../../shared/errors/index.js';

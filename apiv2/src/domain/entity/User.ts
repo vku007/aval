@@ -1,5 +1,6 @@
 import { ValidationError } from '../../shared/errors/index.js';
 import { JsonEntity } from './JsonEntity.js';
+import { UserProfile } from './UserProfile.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
 
 // Define the data structure for better type safety
@@ -8,7 +9,19 @@ interface UserData {
   externalId: number;
 }
 
-export class User {
+/**
+ * UserEntity - Persistence and conversion layer
+ * 
+ * This class handles persistence concerns and delegates domain logic to UserProfile.
+ * 
+ * Following the Delegating Backing Store Pattern:
+ * - UserEntity = Persistence + Conversion (this class)
+ * - UserProfile = Pure domain logic (separate class)
+ * 
+ * Architecture:
+ * UserEntity (persistence) → UserProfile (domain logic) → operations → back to UserEntity
+ */
+export class UserEntity {
   private readonly _backed: JsonEntity;
 
   constructor(
@@ -44,9 +57,6 @@ export class User {
     return this._backed.metadata;
   }
 
-  // Removed backed getter - implementation detail is now hidden
-  // If needed for persistence layer, use internal methods instead
-
   // Helper method for type-safe access to user data
   private getUserData(): UserData {
     return this._backed.data as unknown as UserData;
@@ -57,36 +67,65 @@ export class User {
     return this._backed;
   }
 
-  internalCreateFromBackingStore(backed: JsonEntity): User {
+  internalCreateFromBackingStore(backed: JsonEntity): UserEntity {
     const userData = backed.data as unknown as UserData;
-    return new User(backed.id, userData.name, userData.externalId, backed.etag, backed.metadata);
+    return new UserEntity(backed.id, userData.name, userData.externalId, backed.etag, backed.metadata);
   }
 
-  static create(id: string, name: string, externalId: number, etag?: string, metadata?: EntityMetadata): User {
-    return new User(id, name, externalId, etag, metadata);
+  // Factory method
+  static create(id: string, name: string, externalId: number, etag?: string, metadata?: EntityMetadata): UserEntity {
+    return new UserEntity(id, name, externalId, etag, metadata);
   }
 
-  updateName(name: string): User {
-    return new User(this.id, name, this.externalId, this._backed.etag, this._backed.metadata);
+  // Immutable operations that delegate to UserProfile class
+  updateName(name: string): UserEntity {
+    const profile = this.toUserProfile();
+    const updatedProfile = profile.updateName(name);
+    return this.fromUserProfile(updatedProfile);
   }
 
-  updateExternalId(externalId: number): User {
-    return new User(this.id, this.name, externalId, this._backed.etag, this._backed.metadata);
+  updateExternalId(externalId: number): UserEntity {
+    const profile = this.toUserProfile();
+    const updatedProfile = profile.updateExternalId(externalId);
+    return this.fromUserProfile(updatedProfile);
   }
 
-  // Removed updateBacked - use internalCreateFromBackingStore for persistence operations
+  merge(partial: Partial<UserData>): UserEntity {
+    const profile = this.toUserProfile();
+    const updatedProfile = profile.merge(partial);
+    return this.fromUserProfile(updatedProfile);
+  }
 
-  merge(partial: Partial<UserData>): User {
-    const currentData = this.getUserData();
-    return new User(
-      this.id,
-      partial.name ?? currentData.name,
-      partial.externalId ?? currentData.externalId,
+  // Utility methods that delegate to UserProfile class
+  hasName(name: string): boolean {
+    return this.toUserProfile().hasName(name);
+  }
+
+  hasExternalId(externalId: number): boolean {
+    return this.toUserProfile().hasExternalId(externalId);
+  }
+
+  getDisplayName(): string {
+    return this.toUserProfile().getDisplayName();
+  }
+
+  // Conversion methods between UserEntity and UserProfile
+  private toUserProfile(): UserProfile {
+    const userData = this.getUserData();
+    return new UserProfile(this.id, userData.name, userData.externalId);
+  }
+
+  private fromUserProfile(profile: UserProfile): UserEntity {
+    return new UserEntity(
+      profile.id,
+      profile.name,
+      profile.externalId,
       this._backed.etag,
       this._backed.metadata
     );
   }
 
+  // JSON serialization
   toJSON(): object {
     return {
       id: this.id,
@@ -95,9 +134,34 @@ export class User {
     };
   }
 
+  static fromJSON(data: any): UserEntity {
+    if (!data || typeof data !== 'object') {
+      throw new ValidationError('Invalid user entity data: must be an object');
+    }
+
+    if (!data.id || typeof data.id !== 'string') {
+      throw new ValidationError('User entity ID is required and must be a string');
+    }
+
+    if (!data.name || typeof data.name !== 'string') {
+      throw new ValidationError('User entity name is required and must be a string');
+    }
+
+    if (typeof data.externalId !== 'number') {
+      throw new ValidationError('User entity externalId must be a number');
+    }
+
+    return new UserEntity(data.id, data.name, data.externalId);
+  }
+
+  // Validation methods
   private validateId(id: string): void {
     if (!id || typeof id !== 'string') {
       throw new ValidationError('User ID is required and must be a string');
+    }
+
+    if (id.trim().length === 0) {
+      throw new ValidationError('User ID cannot be empty');
     }
 
     // ID validation pattern: alphanumeric, dots, hyphens, underscores, 1-128 chars
@@ -126,3 +190,6 @@ export class User {
     }
   }
 }
+
+// Export UserEntity as User for backward compatibility
+export { UserEntity as User };
