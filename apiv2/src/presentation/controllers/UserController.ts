@@ -68,7 +68,7 @@ export class UserController {
       
       return HttpResponse.created(userDto.toJSON())
         .withETag(metadata.etag)
-        .withLocation(`/apiv2/users/${userDto.id}`);
+        .withLocation(`/apiv2/internal/users/${userDto.id}`);
     } catch (error: any) {
       if (error instanceof ValidationError) {
         return HttpResponse.badRequest({

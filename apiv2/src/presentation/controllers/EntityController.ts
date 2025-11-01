@@ -19,7 +19,7 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * List entities
-   * GET /apiv2/files?prefix=&limit=&cursor=
+   * GET /apiv2/internal/files?prefix=&limit=&cursor=
    */
   async list(request: HttpRequest): Promise<HttpResponse> {
     const prefix = request.query.prefix;
@@ -33,7 +33,7 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Get entity data
-   * GET /apiv2/files/{name}
+   * GET /apiv2/internal/files/{name}
    */
   async get(request: HttpRequest): Promise<HttpResponse> {
     const id = this.extractId(request);
@@ -56,7 +56,7 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Get entity metadata
-   * GET /apiv2/files/{id}/meta
+   * GET /apiv2/internal/files/{id}/meta
    */
   async getMeta(request: HttpRequest): Promise<HttpResponse> {
     const id = this.extractId(request);
@@ -69,7 +69,7 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Create entity
-   * POST /apiv2/files
+   * POST /apiv2/internal/files
    */
   async create(request: HttpRequest): Promise<HttpResponse> {
     const dto = CreateEntityDto.fromRequest(request.body);
@@ -78,12 +78,12 @@ export class EntityController<T extends BaseEntity> {
 
     return HttpResponse.created(entity.toDataResponse())
       .withETag(entity.etag)
-      .withLocation(`/apiv2/files/${entity.id}`);
+      .withLocation(`/apiv2/internal/files/${entity.id}`);
   }
 
   /**
    * Update entity (replace)
-   * PUT /apiv2/files/{id}
+   * PUT /apiv2/internal/files/{id}
    */
   async update(request: HttpRequest): Promise<HttpResponse> {
     const id = this.extractId(request);
@@ -98,7 +98,7 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Update entity (merge)
-   * PATCH /apiv2/files/{id}
+   * PATCH /apiv2/internal/files/{id}
    */
   async patch(request: HttpRequest): Promise<HttpResponse> {
     const id = this.extractId(request);
@@ -113,7 +113,7 @@ export class EntityController<T extends BaseEntity> {
 
   /**
    * Delete entity
-   * DELETE /apiv2/files/{id}
+   * DELETE /apiv2/internal/files/{id}
    */
   async delete(request: HttpRequest): Promise<HttpResponse> {
     const id = this.extractId(request);

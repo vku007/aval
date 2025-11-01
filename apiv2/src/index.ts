@@ -75,7 +75,7 @@ function initializeServices() {
 }
 
 // Presentation layer - Controllers created inside handler for testability
-let entityController: EntityController;
+let entityController: EntityController<JsonEntity>;
 let userController: UserController;
 let gameController: GameController;
 
@@ -96,34 +96,34 @@ function createRouter() {
       .use(corsMiddleware(config))
       .use(contentTypeMiddleware())
       // JsonEntity routes
-      .get('/apiv2/files', (req) => entityController.list(req))
-      .get('/apiv2/files/:id/meta', (req) => entityController.getMeta(req))
-      .get('/apiv2/files/:id', (req) => entityController.get(req))
-      .post('/apiv2/files', (req) => entityController.create(req))
-      .put('/apiv2/files/:id', (req) => entityController.update(req))
-      .patch('/apiv2/files/:id', (req) => entityController.patch(req))
-      .delete('/apiv2/files/:id', (req) => entityController.delete(req))
+      .get('/apiv2/internal/files', (req) => entityController.list(req))
+      .get('/apiv2/internal/files/:id/meta', (req) => entityController.getMeta(req))
+      .get('/apiv2/internal/files/:id', (req) => entityController.get(req))
+      .post('/apiv2/internal/files', (req) => entityController.create(req))
+      .put('/apiv2/internal/files/:id', (req) => entityController.update(req))
+      .patch('/apiv2/internal/files/:id', (req) => entityController.patch(req))
+      .delete('/apiv2/internal/files/:id', (req) => entityController.delete(req))
       // User routes
-      .get('/apiv2/users', (req) => userController.list(req))
-      .get('/apiv2/users/:id/meta', (req) => userController.getMeta(req))
-      .get('/apiv2/users/:id', (req) => userController.get(req))
-      .post('/apiv2/users', (req) => userController.create(req))
-      .put('/apiv2/users/:id', (req) => userController.update(req))
-      .patch('/apiv2/users/:id', (req) => userController.patch(req))
-      .delete('/apiv2/users/:id', (req) => userController.delete(req))
+      .get('/apiv2/internal/users', (req) => userController.list(req))
+      .get('/apiv2/internal/users/:id/meta', (req) => userController.getMeta(req))
+      .get('/apiv2/internal/users/:id', (req) => userController.get(req))
+      .post('/apiv2/internal/users', (req) => userController.create(req))
+      .put('/apiv2/internal/users/:id', (req) => userController.update(req))
+      .patch('/apiv2/internal/users/:id', (req) => userController.patch(req))
+      .delete('/apiv2/internal/users/:id', (req) => userController.delete(req))
       // Game routes
-      .get('/apiv2/games', (req) => gameController.list(req))
-      .get('/apiv2/games/:id/meta', (req) => gameController.getMeta(req))
-      .get('/apiv2/games/:id', (req) => gameController.get(req))
-      .post('/apiv2/games', (req) => gameController.create(req))
-      .put('/apiv2/games/:id', (req) => gameController.update(req))
-      .patch('/apiv2/games/:id', (req) => gameController.patch(req))
-      .delete('/apiv2/games/:id', (req) => gameController.delete(req))
+      .get('/apiv2/internal/games', (req) => gameController.list(req))
+      .get('/apiv2/internal/games/:id/meta', (req) => gameController.getMeta(req))
+      .get('/apiv2/internal/games/:id', (req) => gameController.get(req))
+      .post('/apiv2/internal/games', (req) => gameController.create(req))
+      .put('/apiv2/internal/games/:id', (req) => gameController.update(req))
+      .patch('/apiv2/internal/games/:id', (req) => gameController.patch(req))
+      .delete('/apiv2/internal/games/:id', (req) => gameController.delete(req))
       // Game-specific operations
-      .post('/apiv2/games/:id/rounds', (req) => gameController.addRound(req))
-      .post('/apiv2/games/:gameId/rounds/:roundId/moves', (req) => gameController.addMove(req))
-      .patch('/apiv2/games/:gameId/rounds/:roundId/finish', (req) => gameController.finishRound(req))
-      .patch('/apiv2/games/:id/finish', (req) => gameController.finishGame(req));
+      .post('/apiv2/internal/games/:id/rounds', (req) => gameController.addRound(req))
+      .post('/apiv2/internal/games/:gameId/rounds/:roundId/moves', (req) => gameController.addMove(req))
+      .patch('/apiv2/internal/games/:gameId/rounds/:roundId/finish', (req) => gameController.finishRound(req))
+      .patch('/apiv2/internal/games/:id/finish', (req) => gameController.finishGame(req));
   }
   return router;
 }

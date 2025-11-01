@@ -63,7 +63,7 @@ describe('EntityController Integration Tests', () => {
 
   describe('Core Entity Operations', () => {
     it('should handle OPTIONS preflight request', async () => {
-      const event = createEvent('OPTIONS', '/apiv2/files');
+      const event = createEvent('OPTIONS', '/apiv2/internal/files');
       const result = await handler(event);
 
       expect((result as any).statusCode).toBe(204);
@@ -72,7 +72,7 @@ describe('EntityController Integration Tests', () => {
       expect((result as any).body).toBeUndefined();
     });
 
-    it('should handle POST /apiv2/files (create entity)', async () => {
+    it('should handle POST /apiv2/internal/files (create entity)', async () => {
       // Mock S3 head response (entity doesn't exist)
       mockSend.mockResolvedValueOnce({
         $metadata: { httpStatusCode: 404 }
@@ -84,7 +84,7 @@ describe('EntityController Integration Tests', () => {
         VersionId: 'version-1'
       });
 
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: 'new-entity',
         data: { content: 'new data' }
       });
@@ -92,13 +92,13 @@ describe('EntityController Integration Tests', () => {
 
       expect((result as any).statusCode).toBe(201);
       expect((result as any).headers?.['etag']).toBe('"new-etag"');
-      expect((result as any).headers?.['location']).toBe('/apiv2/files/new-entity');
+      expect((result as any).headers?.['location']).toBe('/apiv2/internal/files/new-entity');
       
       const body = JSON.parse((result as any).body || '{}');
       expect(body).toEqual({ content: 'new data' });
     });
 
-    it('should handle DELETE /apiv2/files/{id} (delete entity)', async () => {
+    it('should handle DELETE /apiv2/internal/files/{id} (delete entity)', async () => {
       // Mock S3 head response (entity exists)
       mockSend.mockResolvedValueOnce({
         ETag: '"etag123"',
@@ -111,7 +111,7 @@ describe('EntityController Integration Tests', () => {
         $metadata: { httpStatusCode: 204 }
       });
 
-      const event = createEvent('DELETE', '/apiv2/files/to-delete', undefined, {
+      const event = createEvent('DELETE', '/apiv2/internal/files/to-delete', undefined, {
         'if-match': '"etag123"'
       });
       const result = await handler(event);
@@ -123,7 +123,7 @@ describe('EntityController Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should return 400 for invalid entity ID', async () => {
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: '', // Invalid empty ID
         data: { content: 'test' }
       });
@@ -146,7 +146,7 @@ describe('EntityController Integration Tests', () => {
         LastModified: new Date('2024-01-01')
       });
 
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: 'existing-entity',
         data: { content: 'test' }
       });
@@ -162,7 +162,7 @@ describe('EntityController Integration Tests', () => {
     });
 
     it('should return 415 for invalid content type', async () => {
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: 'test',
         data: { content: 'test' }
       }, {
@@ -182,7 +182,7 @@ describe('EntityController Integration Tests', () => {
 
   describe('CORS Headers', () => {
     it('should include CORS headers in error responses', async () => {
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: '', // Invalid ID to trigger error
         data: { content: 'test' }
       });
@@ -196,7 +196,7 @@ describe('EntityController Integration Tests', () => {
 
   describe('Request Validation', () => {
     it('should validate request body structure', async () => {
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         // Missing required 'id' field
         data: { content: 'test' }
       });

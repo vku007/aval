@@ -68,7 +68,7 @@ export class GameController {
       
       return HttpResponse.created(gameDto.toJSON())
         .withETag(metadata.etag)
-        .withLocation(`/apiv2/games/${gameDto.id}`);
+        .withLocation(`/apiv2/internal/games/${gameDto.id}`);
     } catch (error: any) {
       if (error instanceof ValidationError) {
         return HttpResponse.badRequest({

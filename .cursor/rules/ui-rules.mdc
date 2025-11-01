@@ -1,0 +1,216 @@
+---
+alwaysApply: false
+---
+
+# UI Development Rules
+
+## Design System Standards
+
+### Colors
+- **Primary**: Use `--color-primary` (blue-600) for main actions
+- **Secondary**: Use `--color-secondary` (gray-600) for secondary actions  
+- **Success**: Use `--color-success` (green-600) for positive feedback
+- **Error**: Use `--color-error` (red-600) for errors and warnings
+- **Background**: Use `--color-bg-primary` (white) and `--color-bg-secondary` (gray-50)
+
+### Typography
+- **Headings**: Use `font-weight: 600` and `line-height: 1.2`
+- **Body text**: Use `font-weight: 400` and `line-height: 1.5`
+- **Small text**: Use `font-size: 0.875rem` for captions and labels
+
+### Spacing
+- Use 8px grid system: `4px, 8px, 16px, 24px, 32px, 48px, 64px`
+- **Component padding**: `16px` for cards, `12px` for buttons
+- **Section spacing**: `32px` between major sections
+
+## Component Patterns
+
+### Buttons
+```tsx
+// Primary Button
+<button className="btn btn-primary">
+  Primary Action
+</button>
+
+// Secondary Button  
+<button className="btn btn-secondary">
+  Secondary Action
+</button>
+
+// Disabled State
+<button className="btn btn-primary" disabled>
+  Disabled Action
+</button>
+```
+
+### Form Inputs
+```tsx
+// Text Input with Label
+<div className="form-group">
+  <label htmlFor="email" className="form-label">
+    Email Address
+  </label>
+  <input 
+    type="email" 
+    id="email"
+    className="form-input"
+    placeholder="Enter your email"
+    required
+  />
+</div>
+
+// Error State
+<div className="form-group">
+  <label htmlFor="password" className="form-label">
+    Password
+  </label>
+  <input 
+    type="password" 
+    id="password"
+    className="form-input form-input--error"
+    aria-invalid="true"
+  />
+  <span className="form-error">Password is required</span>
+</div>
+```
+
+### Cards
+```tsx
+// Standard Card
+<div className="card">
+  <div className="card-header">
+    <h3 className="card-title">Card Title</h3>
+  </div>
+  <div className="card-body">
+    <p>Card content goes here</p>
+  </div>
+  <div className="card-footer">
+    <button className="btn btn-primary">Action</button>
+  </div>
+</div>
+```
+
+## Layout Guidelines
+
+### Grid System
+- Use CSS Grid for complex layouts
+- Use Flexbox for simple component layouts
+- **Container max-width**: `1200px` with `16px` padding
+- **Breakpoints**: `sm: 640px, md: 768px, lg: 1024px, xl: 1280px`
+
+### Responsive Design
+```css
+/* Mobile First Approach */
+.container {
+  padding: 16px;
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+```
+
+## Interaction Patterns
+
+### Loading States
+```tsx
+// Button Loading State
+<button className="btn btn-primary" disabled>
+  <span className="spinner"></span>
+  Loading...
+</button>
+
+// Page Loading
+<div className="loading-container">
+  <div className="spinner spinner--large"></div>
+  <p>Loading content...</p>
+</div>
+```
+
+### Error Handling
+```tsx
+// Error Message Component
+<div className="alert alert--error" role="alert">
+  <span className="alert-icon">⚠️</span>
+  <span className="alert-message">
+    Something went wrong. Please try again.
+  </span>
+</div>
+```
+
+## Accessibility Requirements
+
+### ARIA Labels
+- Always include `aria-label` for icon buttons
+- Use `aria-describedby` for form validation messages
+- Include `role` attributes for custom components
+
+### Keyboard Navigation
+- All interactive elements must be keyboard accessible
+- Use `tabindex="0"` for custom interactive elements
+- Implement proper focus management
+
+### Color Contrast
+- Minimum contrast ratio: 4.5:1 for normal text
+- Minimum contrast ratio: 3:1 for large text
+- Never rely on color alone to convey information
+
+## Animation Guidelines
+
+### Transitions
+```css
+/* Standard Transition */
+.transition {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover Effects */
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+```
+
+### Micro-interactions
+- **Button hover**: Subtle lift effect (`translateY(-1px)`)
+- **Form focus**: Border color change and subtle glow
+- **Page transitions**: Fade in/out with `opacity` and `transform`
+
+## Performance Rules
+
+### Image Optimization
+- Use `loading="lazy"` for images below the fold
+- Provide `alt` attributes for all images
+- Use WebP format when possible
+
+### Code Splitting
+- Implement lazy loading for route components
+- Use dynamic imports for heavy libraries
+- Split vendor bundles from application code
+
+## Testing Requirements
+
+### Component Testing
+- Test all user interactions (click, hover, focus)
+- Test accessibility features (keyboard navigation, screen readers)
+- Test responsive behavior at different breakpoints
+
+### Visual Regression
+- Use consistent test data and mock images
+- Test both light and dark themes
+- Verify cross-browser compatibility
+
+## Common Anti-patterns to Avoid
+
+❌ **Don't**: Use inline styles for complex styling
+❌ **Don't**: Create components without proper TypeScript types
+❌ **Don't**: Skip accessibility testing
+❌ **Don't**: Use hardcoded colors instead of CSS variables
+❌ **Don't**: Ignore mobile-first responsive design
+❌ **Don't**: Create components without loading and error states
+
+

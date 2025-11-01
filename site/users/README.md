@@ -32,13 +32,13 @@ A web-based interface for managing User entities via the VKP API.
 
 The User Manager integrates with the following VKP API endpoints:
 
-- `GET /apiv2/users` - List users with pagination
-- `GET /apiv2/users/{id}` - Get user by ID
-- `GET /apiv2/users/{id}/meta` - Get user metadata
-- `POST /apiv2/users` - Create new user
-- `PUT /apiv2/users/{id}` - Replace user (full update)
-- `PATCH /apiv2/users/{id}` - Merge user (partial update)
-- `DELETE /apiv2/users/{id}` - Delete user
+- `GET /apiv2/internal/users` - List users with pagination
+- `GET /apiv2/internal/users/{id}` - Get user by ID
+- `GET /apiv2/internal/users/{id}/meta` - Get user metadata
+- `POST /apiv2/internal/users` - Create new user
+- `PUT /apiv2/internal/users/{id}` - Replace user (full update)
+- `PATCH /apiv2/internal/users/{id}` - Merge user (partial update)
+- `DELETE /apiv2/internal/users/{id}` - Delete user
 
 ## User Entity Structure
 

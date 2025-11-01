@@ -44,7 +44,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files',
+        path: '/apiv2/internal/files',
         params: {},
         headers: {},
         query: { prefix: 'test', limit: '10', cursor: 'token' },
@@ -66,7 +66,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files',
+        path: '/apiv2/internal/files',
         params: {},
         headers: {},
         query: {},
@@ -89,7 +89,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: {},
         query: {},
@@ -113,7 +113,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: { 'if-none-match': '"etag-123"' },
         query: {},
@@ -132,7 +132,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: { 'if-none-match': '"etag-123"' },
         query: {},
@@ -152,7 +152,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: {},
         query: {},
@@ -176,7 +176,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/entity-123/meta',
+        path: '/apiv2/internal/files/entity-123/meta',
         params: { id: 'entity-123' },
         headers: {},
         query: {},
@@ -201,7 +201,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/files',
+        path: '/apiv2/internal/files',
         params: {},
         headers: {},
         query: {},
@@ -213,14 +213,14 @@ describe('EntityController', () => {
       expect(response.statusCode).toBe(201);
       expect(response.body).toEqual({ data: 'test' });
       expect(response.headers?.['etag']).toBe('"etag-123"');
-      expect(response.headers?.['location']).toBe('/apiv2/files/entity-123');
+      expect(response.headers?.['location']).toBe('/apiv2/internal/files/entity-123');
     });
 
     it('should validate request body', async () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/files',
+        path: '/apiv2/internal/files',
         params: {},
         headers: {},
         query: {},
@@ -241,7 +241,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'PUT',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: { 'if-match': '"etag-123"' },
         query: {},
@@ -271,7 +271,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'PATCH',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: { 'if-match': '"etag-123"' },
         query: {},
@@ -298,7 +298,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'DELETE',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: { 'if-match': '"etag-123"' },
         query: {},
@@ -318,7 +318,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/test-entity',
+        path: '/apiv2/internal/files/test-entity',
         params: { id: 'test-entity' },
         headers: {},
         query: {},
@@ -334,7 +334,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/test-entity',
+        path: '/apiv2/internal/files/test-entity',
         params: { name: 'test-entity' },
         headers: {},
         query: {},
@@ -349,7 +349,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/test-entity',
+        path: '/apiv2/internal/files/test-entity',
         params: { proxy: 'files/test-entity' },
         headers: {},
         query: {},
@@ -364,7 +364,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/test-entity/meta',
+        path: '/apiv2/internal/files/test-entity/meta',
         params: { proxy: 'files/test-entity/meta' },
         headers: {},
         query: {},
@@ -379,7 +379,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files',
+        path: '/apiv2/internal/files',
         params: {},
         headers: {},
         query: {},
@@ -397,7 +397,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/files/entity-123',
+        path: '/apiv2/internal/files/entity-123',
         params: { id: 'entity-123' },
         headers: {},
         query: {},
@@ -413,7 +413,7 @@ describe('EntityController', () => {
       const request: HttpRequest = {
         requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/files',
+        path: '/apiv2/internal/files',
         params: {},
         headers: {},
         query: {},

@@ -43,8 +43,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.getUser).mockResolvedValue(mockUser as any);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: {},
         query: {},
@@ -71,8 +72,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.getUser).mockResolvedValue(mockUser as any);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: { 'if-none-match': '"etag-123"' },
         query: {},
@@ -88,8 +90,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.getUser).mockRejectedValue(new NotFoundError('User not found'));
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: {},
         query: {},
@@ -104,7 +107,7 @@ describe('UserController', () => {
         title: 'User Not Found',
         status: 404,
         detail: "User 'user-123' not found",
-        instance: '/apiv2/users/user-123'
+        instance: '/apiv2/internal/users/user-123'
       });
     });
   });
@@ -120,8 +123,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.getUserMetadata).mockResolvedValue(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123/meta',
+        path: '/apiv2/internal/users/user-123/meta',
         params: { id: 'user-123' },
         headers: {},
         query: {},
@@ -139,8 +143,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.getUserMetadata).mockRejectedValue(new NotFoundError('User not found'));
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123/meta',
+        path: '/apiv2/internal/users/user-123/meta',
         params: { id: 'user-123' },
         headers: {},
         query: {},
@@ -166,8 +171,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.createUser).mockResolvedValue(mockUser as any);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/users',
+        path: '/apiv2/internal/users',
         params: {},
         headers: {},
         query: {},
@@ -178,7 +184,7 @@ describe('UserController', () => {
 
       expect(response.statusCode).toBe(201);
       expect(response.body).toEqual({ id: 'user-123', name: 'John Doe', externalId: 1001 });
-      expect(response.headers?.['location']).toBe('/apiv2/users/user-123');
+      expect(response.headers?.['location']).toBe('/apiv2/internal/users/user-123');
       expect(response.headers?.['etag']).toBe('"etag-123"');
     });
 
@@ -194,8 +200,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.createUser).mockResolvedValue(mockUser as any);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/users',
+        path: '/apiv2/internal/users',
         params: {},
         headers: { 'if-none-match': '*' },
         query: {},
@@ -217,8 +224,9 @@ describe('UserController', () => {
       );
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/users',
+        path: '/apiv2/internal/users',
         params: {},
         headers: {},
         query: {},
@@ -245,8 +253,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.updateUser).mockResolvedValue(mockUser as any);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'PUT',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: { 'if-match': '"old-etag"' },
         query: {},
@@ -280,8 +289,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.updateUser).mockResolvedValue(mockUser as any);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'PATCH',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: { 'if-match': '"old-etag"' },
         query: {},
@@ -306,8 +316,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.deleteUser).mockResolvedValue();
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'DELETE',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: { 'if-match': '"etag-123"' },
         query: {},
@@ -326,8 +337,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.deleteUser).mockRejectedValue(new NotFoundError('User not found'));
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'DELETE',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: {},
         query: {},
@@ -350,8 +362,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.listUsers).mockResolvedValue(listResult);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users',
+        path: '/apiv2/internal/users',
         params: {},
         headers: {},
         query: { prefix: 'user-', limit: '10' },
@@ -372,8 +385,9 @@ describe('UserController', () => {
       vi.mocked(mockUserService.listUsers).mockResolvedValue(listResult);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users',
+        path: '/apiv2/internal/users',
         params: {},
         headers: {},
         query: { cursor: 'cursor-token' },
@@ -389,8 +403,9 @@ describe('UserController', () => {
   describe('extractId', () => {
     it('should extract ID from params.id', async () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { id: 'user-123' },
         headers: {},
         query: {},
@@ -414,8 +429,9 @@ describe('UserController', () => {
 
     it('should extract ID from params.name (legacy)', async () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { name: 'user-123' },
         headers: {},
         query: {},
@@ -439,8 +455,9 @@ describe('UserController', () => {
 
     it('should extract ID from proxy parameter', async () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/user-123',
+        path: '/apiv2/internal/users/user-123',
         params: { proxy: 'users/user-123' },
         headers: {},
         query: {},
@@ -464,8 +481,9 @@ describe('UserController', () => {
 
     it('should throw ValidationError when no ID found', async () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/users/',
+        path: '/apiv2/internal/users/',
         params: {},
         headers: {},
         query: {},

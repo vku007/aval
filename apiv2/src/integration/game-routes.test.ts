@@ -89,16 +89,16 @@ describe('Game API Routes Integration', () => {
   }
 
   describe('Game API Routes', () => {
-    it('should handle GET /apiv2/games (list games)', async () => {
-      const event = createApiGatewayEvent('GET', '/apiv2/games');
+    it('should handle GET /apiv2/internal/games (list games)', async () => {
+      const event = createApiGatewayEvent('GET', '/apiv2/internal/games');
       const response = await handler(event);
       
       expect((response as any).statusCode).toBe(200);
       expect((response as any).headers?.['content-type']).toContain('application/json');
     });
 
-    it('should handle POST /apiv2/games (create game)', async () => {
-      const event = createApiGatewayEvent('POST', '/apiv2/games', {
+    it('should handle POST /apiv2/internal/games (create game)', async () => {
+      const event = createApiGatewayEvent('POST', '/apiv2/internal/games', {
         id: 'test-game',
         type: 'tournament',
         usersIds: ['user-1'],
@@ -112,24 +112,24 @@ describe('Game API Routes Integration', () => {
       expect((response as any).statusCode).toBe(201);
     });
 
-    it('should handle GET /apiv2/games/:id (get game)', async () => {
-      const event = createApiGatewayEvent('GET', '/apiv2/games/test-game');
+    it('should handle GET /apiv2/internal/games/:id (get game)', async () => {
+      const event = createApiGatewayEvent('GET', '/apiv2/internal/games/test-game');
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
       expect((response as any).statusCode).toBe(404);
     });
 
-    it('should handle GET /apiv2/games/:id/meta (get game metadata)', async () => {
-      const event = createApiGatewayEvent('GET', '/apiv2/games/test-game/meta');
+    it('should handle GET /apiv2/internal/games/:id/meta (get game metadata)', async () => {
+      const event = createApiGatewayEvent('GET', '/apiv2/internal/games/test-game/meta');
       const response = await handler(event);
       
       // Should return 200 (metadata exists)
       expect((response as any).statusCode).toBe(200);
     });
 
-    it('should handle PUT /apiv2/games/:id (update game)', async () => {
-      const event = createApiGatewayEvent('PUT', '/apiv2/games/test-game', {
+    it('should handle PUT /apiv2/internal/games/:id (update game)', async () => {
+      const event = createApiGatewayEvent('PUT', '/apiv2/internal/games/test-game', {
         type: 'championship',
         usersIds: ['user-1'],
         rounds: [],
@@ -142,8 +142,8 @@ describe('Game API Routes Integration', () => {
       expect((response as any).statusCode).toBe(404);
     });
 
-    it('should handle PATCH /apiv2/games/:id (patch game)', async () => {
-      const event = createApiGatewayEvent('PATCH', '/apiv2/games/test-game', {
+    it('should handle PATCH /apiv2/internal/games/:id (patch game)', async () => {
+      const event = createApiGatewayEvent('PATCH', '/apiv2/internal/games/test-game', {
         isFinished: true
       });
       
@@ -153,16 +153,16 @@ describe('Game API Routes Integration', () => {
       expect((response as any).statusCode).toBe(404);
     });
 
-    it('should handle DELETE /apiv2/games/:id (delete game)', async () => {
-      const event = createApiGatewayEvent('DELETE', '/apiv2/games/test-game');
+    it('should handle DELETE /apiv2/internal/games/:id (delete game)', async () => {
+      const event = createApiGatewayEvent('DELETE', '/apiv2/internal/games/test-game');
       const response = await handler(event);
       
       // Should return 204 (successful deletion)
       expect((response as any).statusCode).toBe(204);
     });
 
-    it('should handle POST /apiv2/games/:id/rounds (add round)', async () => {
-      const event = createApiGatewayEvent('POST', '/apiv2/games/test-game/rounds', {
+    it('should handle POST /apiv2/internal/games/:id/rounds (add round)', async () => {
+      const event = createApiGatewayEvent('POST', '/apiv2/internal/games/test-game/rounds', {
         id: 'round-1',
         moves: [],
         isFinished: false
@@ -174,8 +174,8 @@ describe('Game API Routes Integration', () => {
       expect((response as any).statusCode).toBe(404);
     });
 
-    it('should handle POST /apiv2/games/:gameId/rounds/:roundId/moves (add move)', async () => {
-      const event = createApiGatewayEvent('POST', '/apiv2/games/test-game/rounds/round-1/moves', {
+    it('should handle POST /apiv2/internal/games/:gameId/rounds/:roundId/moves (add move)', async () => {
+      const event = createApiGatewayEvent('POST', '/apiv2/internal/games/test-game/rounds/round-1/moves', {
         id: 'move-1',
         userId: 'user-1',
         value: 10,
@@ -188,16 +188,16 @@ describe('Game API Routes Integration', () => {
       expect((response as any).statusCode).toBe(404);
     });
 
-    it('should handle PATCH /apiv2/games/:gameId/rounds/:roundId/finish (finish round)', async () => {
-      const event = createApiGatewayEvent('PATCH', '/apiv2/games/test-game/rounds/round-1/finish');
+    it('should handle PATCH /apiv2/internal/games/:gameId/rounds/:roundId/finish (finish round)', async () => {
+      const event = createApiGatewayEvent('PATCH', '/apiv2/internal/games/test-game/rounds/round-1/finish');
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist (parameter extraction works correctly)
       expect((response as any).statusCode).toBe(404);
     });
 
-    it('should handle PATCH /apiv2/games/:id/finish (finish game)', async () => {
-      const event = createApiGatewayEvent('PATCH', '/apiv2/games/test-game/finish');
+    it('should handle PATCH /apiv2/internal/games/:id/finish (finish game)', async () => {
+      const event = createApiGatewayEvent('PATCH', '/apiv2/internal/games/test-game/finish');
       const response = await handler(event);
       
       // Should return 404 since game doesn't exist
@@ -207,7 +207,7 @@ describe('Game API Routes Integration', () => {
 
   describe('CORS Headers', () => {
     it('should include CORS headers in game API responses', async () => {
-      const event = createApiGatewayEvent('GET', '/apiv2/games');
+      const event = createApiGatewayEvent('GET', '/apiv2/internal/games');
       const response = await handler(event);
 
       expect((response as any).headers?.['access-control-allow-origin']).toBeDefined();

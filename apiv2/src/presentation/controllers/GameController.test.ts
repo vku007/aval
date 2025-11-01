@@ -51,8 +51,9 @@ describe('GameController', () => {
       mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: {},
         query: {},
         params: { id: 'game-1' },
@@ -82,8 +83,9 @@ describe('GameController', () => {
       mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: { 'if-none-match': 'etag-123' },
         query: {},
         params: { id: 'game-1' },
@@ -99,8 +101,9 @@ describe('GameController', () => {
       mockGameService.getGame.mockRejectedValueOnce(new NotFoundError('Game not found'));
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: {},
         query: {},
         params: { id: 'game-1' },
@@ -115,7 +118,7 @@ describe('GameController', () => {
         title: 'Game Not Found',
         status: 404,
         detail: "Game 'game-1' not found",
-        instance: '/apiv2/games/game-1'
+        instance: '/apiv2/internal/games/game-1'
       });
     });
   });
@@ -127,8 +130,9 @@ describe('GameController', () => {
       mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1/meta',
+        path: '/apiv2/internal/games/game-1/meta',
         headers: {},
         query: {},
         params: { id: 'game-1' },
@@ -160,8 +164,9 @@ describe('GameController', () => {
       mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/games',
+        path: '/apiv2/internal/games',
         headers: {},
         query: {},
         params: {},
@@ -178,7 +183,7 @@ describe('GameController', () => {
 
       expect(response.statusCode).toBe(201);
       expect(response.headers?.['etag']).toBe('"etag-123"');
-      expect(response.headers?.['location']).toBe('/apiv2/games/game-1');
+      expect(response.headers?.['location']).toBe('/apiv2/internal/games/game-1');
       expect(mockGameService.createGame).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'game-1',
@@ -195,8 +200,9 @@ describe('GameController', () => {
       mockGameService.createGame.mockRejectedValueOnce(new ValidationError('Invalid game data'));
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
-        path: '/apiv2/games',
+        path: '/apiv2/internal/games',
         headers: {},
         query: {},
         params: {},
@@ -211,7 +217,7 @@ describe('GameController', () => {
         title: 'Validation Error',
         status: 400,
         detail: 'Validation failed: id: Required, type: Required, usersIds: Required',
-        instance: '/apiv2/games',
+        instance: '/apiv2/internal/games',
         field: undefined
       });
     });
@@ -233,8 +239,9 @@ describe('GameController', () => {
       mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'PUT',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: { 'if-match': 'etag-123' },
         query: {},
         params: { id: 'game-1' },
@@ -270,8 +277,9 @@ describe('GameController', () => {
       mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'PATCH',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: { 'if-match': 'etag-123' },
         query: {},
         params: { id: 'game-1' },
@@ -293,8 +301,9 @@ describe('GameController', () => {
       mockGameService.deleteGame.mockResolvedValueOnce(undefined);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'DELETE',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: { 'if-match': 'etag-123' },
         query: {},
         params: { id: 'game-1' },
@@ -318,8 +327,9 @@ describe('GameController', () => {
       mockGameService.listGames.mockResolvedValueOnce(result);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games',
+        path: '/apiv2/internal/games',
         headers: {},
         query: {},
         params: {},
@@ -342,8 +352,9 @@ describe('GameController', () => {
       mockGameService.listGames.mockResolvedValueOnce(result);
 
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games',
+        path: '/apiv2/internal/games',
         headers: {},
         query: { prefix: 'game-', limit: '10', cursor: 'cursor-123' },
         params: {},
@@ -372,13 +383,14 @@ describe('GameController', () => {
         mockGameService.addRoundToGame.mockResolvedValueOnce(gameDto);
         mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
-        const request: HttpRequest = {
-          method: 'POST',
-          path: '/apiv2/games/game-1/rounds',
-          headers: { 'if-match': 'etag-123' },
-          query: {},
-          params: { id: 'game-1' },
-          body: {
+      const request: HttpRequest = {
+        requestId: 'test-request-id',
+        method: 'POST',
+        path: '/apiv2/internal/games/game-1/rounds',
+        headers: { 'if-match': 'etag-123' },
+        query: {},
+        params: { id: 'game-1' },
+        body: {
             id: 'round-1',
             moves: [],
             isFinished: false
@@ -408,13 +420,14 @@ describe('GameController', () => {
         mockGameService.addMoveToGameRound.mockResolvedValueOnce(gameDto);
         mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
-        const request: HttpRequest = {
-          method: 'POST',
-          path: '/apiv2/games/game-1/rounds/round-1/moves',
-          headers: { 'if-match': 'etag-123' },
-          query: {},
-          params: { id: 'game-1', roundId: 'round-1' },
-          body: {
+      const request: HttpRequest = {
+        requestId: 'test-request-id',
+        method: 'POST',
+        path: '/apiv2/internal/games/game-1/rounds/round-1/moves',
+        headers: { 'if-match': 'etag-123' },
+        query: {},
+        params: { id: 'game-1', roundId: 'round-1' },
+        body: {
             id: 'move-1',
             userId: 'user-1',
             value: 10,
@@ -445,14 +458,15 @@ describe('GameController', () => {
         mockGameService.finishGameRound.mockResolvedValueOnce(gameDto);
         mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
-        const request: HttpRequest = {
-          method: 'PATCH',
-          path: '/apiv2/games/game-1/rounds/round-1/finish',
-          headers: { 'if-match': 'etag-123' },
-          query: {},
-          params: { id: 'game-1', roundId: 'round-1' },
-          body: null
-        };
+      const request: HttpRequest = {
+        requestId: 'test-request-id',
+        method: 'PATCH',
+        path: '/apiv2/internal/games/game-1/rounds/round-1/finish',
+        headers: { 'if-match': 'etag-123' },
+        query: {},
+        params: { id: 'game-1', roundId: 'round-1' },
+        body: null
+      };
 
         const response = await gameController.finishRound(request);
 
@@ -477,14 +491,15 @@ describe('GameController', () => {
         mockGameService.finishGame.mockResolvedValueOnce(gameDto);
         mockGameService.getGameMetadata.mockResolvedValueOnce(metadata);
 
-        const request: HttpRequest = {
-          method: 'PATCH',
-          path: '/apiv2/games/game-1/finish',
-          headers: { 'if-match': 'etag-123' },
-          query: {},
-          params: { id: 'game-1' },
-          body: null
-        };
+      const request: HttpRequest = {
+        requestId: 'test-request-id',
+        method: 'PATCH',
+        path: '/apiv2/internal/games/game-1/finish',
+        headers: { 'if-match': 'etag-123' },
+        query: {},
+        params: { id: 'game-1' },
+        body: null
+      };
 
         const response = await gameController.finishGame(request);
 
@@ -498,8 +513,9 @@ describe('GameController', () => {
   describe('extractId', () => {
     it('should extract id from params.id', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: {},
         query: {},
         params: { id: 'game-1' },
@@ -513,8 +529,9 @@ describe('GameController', () => {
 
     it('should extract id from params.name (legacy)', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: {},
         query: {},
         params: { name: 'game-1' },
@@ -527,8 +544,9 @@ describe('GameController', () => {
 
     it('should extract id from proxy parameter', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games/game-1',
+        path: '/apiv2/internal/games/game-1',
         headers: {},
         query: {},
         params: { proxy: 'games/game-1' },
@@ -541,8 +559,9 @@ describe('GameController', () => {
 
     it('should throw ValidationError when no id found', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'GET',
-        path: '/apiv2/games',
+        path: '/apiv2/internal/games',
         headers: {},
         query: {},
         params: {},
@@ -557,6 +576,7 @@ describe('GameController', () => {
   describe('extractRoundId', () => {
     it('should extract roundId from params.roundId', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
         path: '/apiv2/games/game-1/rounds/round-1/moves',
         headers: {},
@@ -571,6 +591,7 @@ describe('GameController', () => {
 
     it('should extract roundId from path', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
         path: '/apiv2/games/game-1/rounds/round-1/moves',
         headers: {},
@@ -585,6 +606,7 @@ describe('GameController', () => {
 
     it('should throw ValidationError when no roundId found', () => {
       const request: HttpRequest = {
+        requestId: 'test-request-id',
         method: 'POST',
         path: '/apiv2/games/game-1/rounds',
         headers: {},

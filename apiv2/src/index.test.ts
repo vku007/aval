@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 
 // Mock S3Client
 vi.mock('@aws-sdk/client-s3');
@@ -66,8 +66,8 @@ describe('Lambda Handler - Integration Tests', () => {
 
   describe('CORS', () => {
     it('should handle OPTIONS preflight', async () => {
-      const event = createEvent('OPTIONS', '/apiv2/files');
-      const response = await handler(event);
+      const event = createEvent('OPTIONS', '/apiv2/internal/files');
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(204);
       expect(response.headers?.['access-control-allow-origin']).toBe('https://vkp-consulting.fr');
@@ -79,11 +79,11 @@ describe('Lambda Handler - Integration Tests', () => {
     it('should reject POST without application/json', async () => {
       const event = createEvent(
         'POST',
-        '/apiv2/files',
+        '/apiv2/internal/files',
         { id: 'test', data: {} },
         { 'content-type': 'text/plain' }
       );
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(415);
       expect(response.headers?.['content-type']).toBe('application/problem+json');
@@ -104,8 +104,8 @@ describe('Lambda Handler - Integration Tests', () => {
         .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found) - called by getMetadata
         .mockResolvedValueOnce({ ETag: '"abc123"' }); // PUT
 
-      const event = createEvent('POST', '/apiv2/files', { id: entityId, data: { x: 1 } });
-      const response = await handler(event);
+      const event = createEvent('POST', '/apiv2/internal/files', { id: entityId, data: { x: 1 } });
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(201);
     });
@@ -114,18 +114,18 @@ describe('Lambda Handler - Integration Tests', () => {
   describe('Error handling', () => {
     it('should return 404 for non-existent routes', async () => {
       const event = createEvent('GET', '/apiv2/unknown');
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(500); // Router throws error for no match
       expect(response.headers?.['content-type']).toBe('application/problem+json');
     });
 
     it('should return validation error for invalid entity id', async () => {
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: 'invalid name with spaces',
         data: {}
       });
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body || '{}');
@@ -137,7 +137,7 @@ describe('Lambda Handler - Integration Tests', () => {
   describe('Logging', () => {
     it('should log request and response', async () => {
       const consoleSpy = vi.spyOn(console, 'log');
-      const event = createEvent('OPTIONS', '/apiv2/files');
+      const event = createEvent('OPTIONS', '/apiv2/internal/files');
       
       await handler(event);
 
@@ -152,7 +152,7 @@ describe('Lambda Handler - Integration Tests', () => {
   });
 
   describe('Path routing', () => {
-    it('should route GET /apiv2/files to list', async () => {
+    it('should route GET /apiv2/internal/files to list', async () => {
       // Mock ListObjectsV2 responses for base, user, and game prefixes
       mockSend.mockResolvedValueOnce({ 
         Contents: [],
@@ -167,15 +167,15 @@ describe('Lambda Handler - Integration Tests', () => {
         IsTruncated: false
       });
 
-      const event = createEvent('GET', '/apiv2/files');
-      const response = await handler(event);
+      const event = createEvent('GET', '/apiv2/internal/files');
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body || '{}');
       expect(body).toHaveProperty('names');
     });
 
-    it('should route GET /apiv2/files/:id to get entity', async () => {
+    it('should route GET /apiv2/internal/files/:id to get entity', async () => {
       const mockBody = {
         async *[Symbol.asyncIterator]() {
           yield Buffer.from(JSON.stringify({ test: 'data' }));
@@ -189,10 +189,10 @@ describe('Lambda Handler - Integration Tests', () => {
         LastModified: new Date()
       });
 
-      const event = createEvent('GET', '/apiv2/files/test-entity');
-      event.pathParameters = { proxy: 'files/test-entity' };
+      const event = createEvent('GET', '/apiv2/internal/files/test-entity');
+      event.pathParameters = { proxy: 'internal/files/test-entity' };
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(200);
       expect(response.headers?.etag).toBeTruthy();
@@ -220,15 +220,15 @@ describe('Lambda Handler - Integration Tests', () => {
         .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found) - called by getMetadata
         .mockResolvedValueOnce({ ETag: '"new-etag"' }); // PUT
 
-      const event = createEvent('POST', '/apiv2/files', {
+      const event = createEvent('POST', '/apiv2/internal/files', {
         id: entityId,
         data: { value: 42 }
       });
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(201);
-      expect(response.headers?.location).toBe(`/apiv2/files/${entityId}`);
+      expect(response.headers?.location).toBe(`/apiv2/internal/files/${entityId}`);
       expect(response.headers?.etag).toBeTruthy();
     });
 
@@ -248,10 +248,10 @@ describe('Lambda Handler - Integration Tests', () => {
         })
         .mockResolvedValueOnce({ ETag: '"updated-etag"' }); // PUT
 
-      const event = createEvent('PUT', '/apiv2/files/existing', { updated: true });
-      event.pathParameters = { proxy: 'files/existing' };
+      const event = createEvent('PUT', '/apiv2/internal/files/existing', { updated: true });
+      event.pathParameters = { proxy: 'internal/files/existing' };
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(200);
       expect(response.headers?.etag).toBeTruthy();
@@ -267,10 +267,10 @@ describe('Lambda Handler - Integration Tests', () => {
         })
         .mockResolvedValueOnce({}); // DELETE
 
-      const event = createEvent('DELETE', '/apiv2/files/to-delete');
-      event.pathParameters = { proxy: 'files/to-delete' };
+      const event = createEvent('DELETE', '/apiv2/internal/files/to-delete');
+      event.pathParameters = { proxy: 'internal/files/to-delete' };
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(204);
       expect(response.body).toBeUndefined();
@@ -284,12 +284,12 @@ describe('Lambda Handler - Integration Tests', () => {
         $metadata: { httpStatusCode: 304 }
       });
 
-      const event = createEvent('GET', '/apiv2/files/test', undefined, {
+      const event = createEvent('GET', '/apiv2/internal/files/test', undefined, {
         'if-none-match': '"matching-etag"'
       });
-      event.pathParameters = { proxy: 'files/test' };
+      event.pathParameters = { proxy: 'internal/files/test' };
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(304);
     });
@@ -308,10 +308,10 @@ describe('Lambda Handler - Integration Tests', () => {
         LastModified: new Date()
       });
 
-      const event = createEvent('GET', '/apiv2/files/test');
-      event.pathParameters = { proxy: 'files/test' };
+      const event = createEvent('GET', '/apiv2/internal/files/test');
+      event.pathParameters = { proxy: 'internal/files/test' };
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.headers?.etag).toBe('"response-etag"');
     });
@@ -338,8 +338,8 @@ describe('Lambda Handler - Integration Tests', () => {
           LastModified: new Date('2023-01-01T00:00:00Z')
         });
 
-      const event = createEvent('GET', '/apiv2/files/user-123');
-      const response = await handler(event);
+      const event = createEvent('GET', '/apiv2/internal/files/user-123');
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body || '{}');
@@ -374,8 +374,8 @@ describe('Lambda Handler - Integration Tests', () => {
         IsTruncated: false
       });
 
-      const event = createEvent('GET', '/apiv2/files');
-      const response = await handler(event);
+      const event = createEvent('GET', '/apiv2/internal/files');
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body || '{}');
@@ -407,12 +407,12 @@ describe('Lambda Handler - Integration Tests', () => {
         IsTruncated: false
       });
 
-      const event = createEvent('GET', '/apiv2/files', undefined, undefined, {
+      const event = createEvent('GET', '/apiv2/internal/files', undefined, undefined, {
         limit: '10',
         cursor: Buffer.from('next-token', 'utf8').toString('base64url')
       });
       
-      const response = await handler(event);
+      const response = await handler(event) as Exclude<APIGatewayProxyResultV2, string>;
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body || '{}');

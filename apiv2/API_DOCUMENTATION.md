@@ -2,12 +2,18 @@
 
 ## Overview
 
-The VKP REST API is a comprehensive file and user management system built with AWS Lambda, providing CRUD operations for JSON documents and user entities. The API follows RESTful principles with proper HTTP status codes, ETag-based concurrency control, and RFC 7807 problem+json error responses.
+The VKP REST API is a comprehensive file, user, and game management system built with AWS Lambda, providing CRUD operations for JSON documents, user entities, and game entities. The API follows RESTful principles with proper HTTP status codes, ETag-based concurrency control, and RFC 7807 problem+json error responses.
 
 ## Base URL
 
+**Production (via CloudFront)**:
 ```
-https://your-api-gateway-url.amazonaws.com
+https://vkp-consulting.fr
+```
+
+**Direct API Gateway** (for testing):
+```
+https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com
 ```
 
 ## Authentication
@@ -25,17 +31,37 @@ Currently, no authentication is required. All endpoints are publicly accessible.
 The API supports CORS with the following configuration:
 - **Allowed Origin**: `https://vkp-consulting.fr` (configurable)
 - **Allowed Methods**: `GET, POST, PUT, PATCH, DELETE, OPTIONS`
-- **Allowed Headers**: `Content-Type, Authorization`
+- **Allowed Headers**: `Content-Type, Authorization, If-Match, If-None-Match`
 
 ---
 
-## Files API (`/apiv2/files`)
+## API Endpoints Summary
 
-The Files API provides unified management for JSON documents and user entity files. It can read from both `json/` and `json/users/` folders, providing a single interface for all file types.
+| Resource | Endpoint | Methods | Description |
+|----------|----------|---------|-------------|
+| **Files** | `/apiv2/internal/files` | GET, POST | List/Create JSON files |
+| **File** | `/apiv2/internal/files/{id}` | GET, PUT, PATCH, DELETE | Manage specific file |
+| **File Meta** | `/apiv2/internal/files/{id}/meta` | GET | Get file metadata |
+| **Users** | `/apiv2/internal/users` | GET, POST | List/Create users |
+| **User** | `/apiv2/internal/users/{id}` | GET, PUT, PATCH, DELETE | Manage specific user |
+| **User Meta** | `/apiv2/internal/users/{id}/meta` | GET | Get user metadata |
+| **Games** | `/apiv2/internal/games` | GET, POST | List/Create games |
+| **Game** | `/apiv2/internal/games/{id}` | GET, PUT, PATCH, DELETE | Manage specific game |
+| **Game Meta** | `/apiv2/internal/games/{id}/meta` | GET | Get game metadata |
+| **Game Rounds** | `/apiv2/internal/games/{id}/rounds` | POST | Add round to game |
+| **Round Moves** | `/apiv2/internal/games/{gameId}/rounds/{roundId}/moves` | POST | Add move to round |
+| **Finish Round** | `/apiv2/internal/games/{gameId}/rounds/{roundId}/finish` | PATCH | Mark round as finished |
+| **Finish Game** | `/apiv2/internal/games/{id}/finish` | PATCH | Mark game as finished |
+
+---
+
+## Files API (`/apiv2/internal/files`)
+
+The Files API provides unified management for JSON documents, user entity files, and game files. It can read from `json/`, `json/users/`, and `json/games/` folders, providing a single interface for all file types.
 
 ### List Files
 
-**GET** `/apiv2/files`
+**GET** `/apiv2/internal/files`
 
 Retrieve a paginated list of all files (including both regular JSON files and user files).
 
@@ -59,14 +85,14 @@ Retrieve a paginated list of all files (including both regular JSON files and us
 #### Example
 
 ```bash
-curl -X GET "https://api.example.com/apiv2/files?limit=10"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files?limit=10"
 ```
 
 ---
 
 ### Get File
 
-**GET** `/apiv2/files/{id}`
+**GET** `/apiv2/internal/files/{id}`
 
 Retrieve a specific file by its ID. Works for both regular JSON files and user files.
 
@@ -109,7 +135,7 @@ Retrieve a specific file by its ID. Works for both regular JSON files and user f
 #### Example
 
 ```bash
-curl -X GET "https://api.example.com/apiv2/files/config" \
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "If-None-Match: \"abc123\""
 ```
 
@@ -117,7 +143,7 @@ curl -X GET "https://api.example.com/apiv2/files/config" \
 
 ### Get File Metadata
 
-**GET** `/apiv2/files/{id}/meta`
+**GET** `/apiv2/internal/files/{id}/meta`
 
 Retrieve metadata for a specific file without downloading the content.
 
@@ -140,14 +166,14 @@ Retrieve metadata for a specific file without downloading the content.
 #### Example
 
 ```bash
-curl -X GET "https://api.example.com/apiv2/files/config/meta"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files/config/meta"
 ```
 
 ---
 
 ### Create File
 
-**POST** `/apiv2/files`
+**POST** `/apiv2/internal/files`
 
 Create a new file with the specified ID and data.
 
@@ -197,7 +223,7 @@ Create a new file with the specified ID and data.
 #### Example
 
 ```bash
-curl -X POST "https://api.example.com/apiv2/files" \
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/files" \
   -H "Content-Type: application/json" \
   -H "If-None-Match: *" \
   -d '{
@@ -216,7 +242,7 @@ curl -X POST "https://api.example.com/apiv2/files" \
 
 ### Update File (Replace)
 
-**PUT** `/apiv2/files/{id}`
+**PUT** `/apiv2/internal/files/{id}`
 
 Replace the entire content of a file.
 
@@ -258,7 +284,7 @@ Replace the entire content of a file.
 #### Example
 
 ```bash
-curl -X PUT "https://api.example.com/apiv2/files/config" \
+curl -X PUT "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
@@ -274,7 +300,7 @@ curl -X PUT "https://api.example.com/apiv2/files/config" \
 
 ### Update File (Merge)
 
-**PATCH** `/apiv2/files/{id}`
+**PATCH** `/apiv2/internal/files/{id}`
 
 Partially update a file by merging new data with existing content.
 
@@ -320,7 +346,7 @@ Partially update a file by merging new data with existing content.
 #### Example
 
 ```bash
-curl -X PATCH "https://api.example.com/apiv2/files/config" \
+curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
@@ -338,7 +364,7 @@ curl -X PATCH "https://api.example.com/apiv2/files/config" \
 
 ### Delete File
 
-**DELETE** `/apiv2/files/{id}`
+**DELETE** `/apiv2/internal/files/{id}`
 
 Delete a file permanently.
 
@@ -361,19 +387,19 @@ Delete a file permanently.
 #### Example
 
 ```bash
-curl -X DELETE "https://api.example.com/apiv2/files/old-config" \
+curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/files/old-config" \
   -H "If-Match: \"abc123\""
 ```
 
 ---
 
-## Users API (`/apiv2/users`)
+## Users API (`/apiv2/internal/users`)
 
 The Users API provides specialized management for user entities with structured data validation.
 
 ### List Users
 
-**GET** `/apiv2/users`
+**GET** `/apiv2/internal/users`
 
 Retrieve a paginated list of all users.
 
@@ -397,14 +423,14 @@ Retrieve a paginated list of all users.
 #### Example
 
 ```bash
-curl -X GET "https://api.example.com/apiv2/users?limit=20"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/users?limit=20"
 ```
 
 ---
 
 ### Get User
 
-**GET** `/apiv2/users/{id}`
+**GET** `/apiv2/internal/users/{id}`
 
 Retrieve a specific user by ID.
 
@@ -443,7 +469,7 @@ Retrieve a specific user by ID.
 #### Example
 
 ```bash
-curl -X GET "https://api.example.com/apiv2/users/user-123" \
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/users/user-123" \
   -H "If-None-Match: \"abc123\""
 ```
 
@@ -451,7 +477,7 @@ curl -X GET "https://api.example.com/apiv2/users/user-123" \
 
 ### Get User Metadata
 
-**GET** `/apiv2/users/{id}/meta`
+**GET** `/apiv2/internal/users/{id}/meta`
 
 Retrieve metadata for a specific user without downloading the content.
 
@@ -474,14 +500,14 @@ Retrieve metadata for a specific user without downloading the content.
 #### Example
 
 ```bash
-curl -X GET "https://api.example.com/apiv2/users/user-123/meta"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/users/user-123/meta"
 ```
 
 ---
 
 ### Create User
 
-**POST** `/apiv2/users`
+**POST** `/apiv2/internal/users`
 
 Create a new user with the specified ID, name, and external ID.
 
@@ -531,7 +557,7 @@ Create a new user with the specified ID, name, and external ID.
 #### Example
 
 ```bash
-curl -X POST "https://api.example.com/apiv2/users" \
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/users" \
   -H "Content-Type: application/json" \
   -H "If-None-Match: *" \
   -d '{
@@ -545,7 +571,7 @@ curl -X POST "https://api.example.com/apiv2/users" \
 
 ### Update User (Replace)
 
-**PUT** `/apiv2/users/{id}`
+**PUT** `/apiv2/internal/users/{id}`
 
 Replace the entire user data.
 
@@ -585,7 +611,7 @@ Replace the entire user data.
 #### Example
 
 ```bash
-curl -X PUT "https://api.example.com/apiv2/users/user-123" \
+curl -X PUT "https://vkp-consulting.fr/apiv2/internal/users/user-123" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
@@ -598,7 +624,7 @@ curl -X PUT "https://api.example.com/apiv2/users/user-123" \
 
 ### Update User (Merge)
 
-**PATCH** `/apiv2/users/{id}`
+**PATCH** `/apiv2/internal/users/{id}`
 
 Partially update a user by merging new data with existing content.
 
@@ -640,7 +666,7 @@ Partially update a user by merging new data with existing content.
 #### Example
 
 ```bash
-curl -X PATCH "https://api.example.com/apiv2/users/user-123" \
+curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/users/user-123" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
@@ -655,7 +681,7 @@ curl -X PATCH "https://api.example.com/apiv2/users/user-123" \
 
 ### Delete User
 
-**DELETE** `/apiv2/users/{id}`
+**DELETE** `/apiv2/internal/users/{id}`
 
 Delete a user permanently.
 
@@ -678,7 +704,638 @@ Delete a user permanently.
 #### Example
 
 ```bash
-curl -X DELETE "https://api.example.com/apiv2/users/user-123" \
+curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/users/user-123" \
+  -H "If-Match: \"abc123\""
+```
+
+---
+
+## Games API (`/apiv2/internal/games`)
+
+The Games API provides specialized management for game entities with structured data validation, including support for rounds and moves.
+
+### List Games
+
+**GET** `/apiv2/games`
+
+Retrieve a paginated list of all games.
+
+#### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 100 | Maximum number of games to return (1-1000) |
+| `cursor` | string | - | Base64-encoded cursor for pagination |
+| `prefix` | string | - | Filter games by ID prefix |
+
+#### Response
+
+```json
+{
+  "names": ["game-001", "game-002", "poker-123"],
+  "nextCursor": "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+}
+```
+
+#### Example
+
+```bash
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/games?limit=20"
+```
+
+---
+
+### Get Game
+
+**GET** `/apiv2/games/{id}`
+
+Retrieve a specific game by ID.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier (alphanumeric, dots, hyphens, underscores, 1-128 chars) |
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `If-None-Match` | string | No | ETag to check if game has been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [
+        {
+          "id": "move-1",
+          "userId": "user-001",
+          "value": 10,
+          "valueDecorated": "10♠",
+          "time": 1697123456789
+        }
+      ],
+      "isFinished": false
+    }
+  ],
+  "isFinished": false
+}
+```
+
+**Not Modified (304)**: When `If-None-Match` matches current ETag
+
+#### Response Headers
+
+| Header | Description |
+|--------|-------------|
+| `ETag` | Entity tag for concurrency control |
+| `Cache-Control` | `private, must-revalidate` |
+
+#### Example
+
+```bash
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
+  -H "If-None-Match: \"abc123\""
+```
+
+---
+
+### Get Game Metadata
+
+**GET** `/apiv2/games/{id}/meta`
+
+Retrieve metadata for a specific game without downloading the content.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier |
+
+#### Response
+
+```json
+{
+  "etag": "\"abc123def456\"",
+  "size": 512,
+  "lastModified": "2023-10-12T18:30:00.000Z"
+}
+```
+
+#### Example
+
+```bash
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/games/game-123/meta"
+```
+
+---
+
+### Create Game
+
+**POST** `/apiv2/games`
+
+Create a new game with the specified ID, type, users, rounds, and status.
+
+#### Request Body
+
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [],
+  "isFinished": false
+}
+```
+
+#### Field Validation
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
+| `type` | string | Yes | 1-100 characters |
+| `usersIds` | string[] | Yes | 1-10 unique user IDs |
+| `rounds` | Round[] | No | Array of round objects (default: []) |
+| `isFinished` | boolean | No | Default: false |
+
+**Round Object**:
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
+| `moves` | Move[] | No | Array of move objects (default: []) |
+| `isFinished` | boolean | No | Default: false |
+| `time` | number | No | Unix timestamp in milliseconds (default: current time) |
+
+**Move Object**:
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
+| `userId` | string | Yes | Must be a valid user ID |
+| `value` | number | Yes | Finite number |
+| `valueDecorated` | string | Yes | Display representation of the value |
+| `time` | number | No | Unix timestamp in milliseconds (default: current time) |
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `Content-Type` | string | Yes | Must be `application/json` |
+| `If-None-Match` | string | No | Set to `*` to ensure game doesn't exist |
+
+#### Response
+
+**Success (201)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [],
+  "isFinished": false
+}
+```
+
+#### Response Headers
+
+| Header | Description |
+|--------|-------------|
+| `Location` | URL of the created game |
+| `ETag` | Entity tag for the created game |
+
+#### Example
+
+```bash
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/games" \
+  -H "Content-Type: application/json" \
+  -H "If-None-Match: *" \
+  -d '{
+    "id": "poker-game-1",
+    "type": "texas-holdem",
+    "usersIds": ["player1", "player2", "player3"],
+    "rounds": [],
+    "isFinished": false
+  }'
+```
+
+---
+
+### Update Game (Replace)
+
+**PUT** `/apiv2/games/{id}`
+
+Replace the entire game data.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier |
+
+#### Request Body
+
+```json
+{
+  "type": "poker",
+  "usersIds": ["user-001", "user-002", "user-003"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [],
+      "isFinished": false,
+      "time": 1697123456789
+    }
+  ],
+  "isFinished": false
+}
+```
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `Content-Type` | string | Yes | Must be `application/json` |
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002", "user-003"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [],
+      "isFinished": false
+    }
+  ],
+  "isFinished": false
+}
+```
+
+#### Example
+
+```bash
+curl -X PUT "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
+  -H "Content-Type: application/json" \
+  -H "If-Match: \"abc123\"" \
+  -d '{
+    "type": "poker",
+    "usersIds": ["user-001", "user-002", "user-003"],
+    "rounds": [],
+    "isFinished": false
+  }'
+```
+
+---
+
+### Update Game (Merge)
+
+**PATCH** `/apiv2/games/{id}`
+
+Partially update a game by merging new data with existing content.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier |
+
+#### Request Body
+
+```json
+{
+  "merge": true,
+  "data": {
+    "isFinished": true
+  }
+}
+```
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `Content-Type` | string | Yes | Must be `application/json` |
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [],
+      "isFinished": false
+    }
+  ],
+  "isFinished": true
+}
+```
+
+#### Example
+
+```bash
+curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
+  -H "Content-Type: application/json" \
+  -H "If-Match: \"abc123\"" \
+  -d '{
+    "merge": true,
+    "data": {
+      "isFinished": true
+    }
+  }'
+```
+
+---
+
+### Delete Game
+
+**DELETE** `/apiv2/games/{id}`
+
+Delete a game permanently.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier |
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (204)**: No content
+
+#### Example
+
+```bash
+curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/games/old-game" \
+  -H "If-Match: \"abc123\""
+```
+
+---
+
+### Add Round to Game
+
+**POST** `/apiv2/games/{id}/rounds`
+
+Add a new round to an existing game.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier |
+
+#### Request Body
+
+```json
+{
+  "id": "round-2",
+  "moves": [],
+  "isFinished": false,
+  "time": 1697123456789
+}
+```
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `Content-Type` | string | Yes | Must be `application/json` |
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [],
+      "isFinished": true
+    },
+    {
+      "id": "round-2",
+      "moves": [],
+      "isFinished": false
+    }
+  ],
+  "isFinished": false
+}
+```
+
+#### Example
+
+```bash
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds" \
+  -H "Content-Type: application/json" \
+  -H "If-Match: \"abc123\"" \
+  -d '{
+    "id": "round-2",
+    "moves": [],
+    "isFinished": false,
+    "time": 1697123456789
+  }'
+```
+
+---
+
+### Add Move to Round
+
+**POST** `/apiv2/games/{gameId}/rounds/{roundId}/moves`
+
+Add a new move to a specific round in a game.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `gameId` | string | Yes | Game identifier |
+| `roundId` | string | Yes | Round identifier |
+
+#### Request Body
+
+```json
+{
+  "id": "move-1",
+  "userId": "user-001",
+  "value": 10,
+  "valueDecorated": "10♠",
+  "time": 1697123456789
+}
+```
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `Content-Type` | string | Yes | Must be `application/json` |
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [
+        {
+          "id": "move-1",
+          "userId": "user-001",
+          "value": 10,
+          "valueDecorated": "10♠",
+          "time": 1697123456789
+        }
+      ],
+      "isFinished": false
+    }
+  ],
+  "isFinished": false
+}
+```
+
+#### Example
+
+```bash
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds/round-1/moves" \
+  -H "Content-Type: application/json" \
+  -H "If-Match: \"abc123\"" \
+  -d '{
+    "id": "move-1",
+    "userId": "user-001",
+    "value": 10,
+    "valueDecorated": "10♠"
+  }'
+```
+
+---
+
+### Finish Round
+
+**PATCH** `/apiv2/games/{gameId}/rounds/{roundId}/finish`
+
+Mark a specific round as finished.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `gameId` | string | Yes | Game identifier |
+| `roundId` | string | Yes | Round identifier |
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [
+        {
+          "id": "move-1",
+          "userId": "user-001",
+          "value": 10,
+          "valueDecorated": "10♠",
+          "time": 1697123456789
+        }
+      ],
+      "isFinished": true
+    }
+  ],
+  "isFinished": false
+}
+```
+
+#### Example
+
+```bash
+curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds/round-1/finish" \
+  -H "If-Match: \"abc123\""
+```
+
+---
+
+### Finish Game
+
+**PATCH** `/apiv2/games/{id}/finish`
+
+Mark a game as finished.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Game identifier |
+
+#### Headers
+
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| `If-Match` | string | No | ETag to ensure game hasn't been modified |
+
+#### Response
+
+**Success (200)**:
+```json
+{
+  "id": "game-123",
+  "type": "poker",
+  "usersIds": ["user-001", "user-002"],
+  "rounds": [
+    {
+      "id": "round-1",
+      "moves": [],
+      "isFinished": true
+    }
+  ],
+  "isFinished": true
+}
+```
+
+#### Example
+
+```bash
+curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/games/game-123/finish" \
   -H "If-Match: \"abc123\""
 ```
 
@@ -696,7 +1353,7 @@ All errors follow the RFC 7807 problem+json format.
   "title": "Error Title",
   "status": 400,
   "detail": "Detailed error description",
-  "instance": "/apiv2/files/invalid-id"
+  "instance": "/apiv2/internal/files/invalid-id"
 }
 ```
 
@@ -726,7 +1383,7 @@ All errors follow the RFC 7807 problem+json format.
   "title": "Validation Error",
   "status": 400,
   "detail": "ID must contain only alphanumeric characters, dots, hyphens, and underscores",
-  "instance": "/apiv2/files/invalid-id!"
+  "instance": "/apiv2/internal/files/invalid-id!"
 }
 ```
 
@@ -738,7 +1395,7 @@ All errors follow the RFC 7807 problem+json format.
   "title": "File Not Found",
   "status": 404,
   "detail": "Entity 'nonexistent-file' not found",
-  "instance": "/apiv2/files/nonexistent-file"
+  "instance": "/apiv2/internal/files/nonexistent-file"
 }
 ```
 
@@ -750,7 +1407,7 @@ All errors follow the RFC 7807 problem+json format.
   "title": "Conflict",
   "status": 409,
   "detail": "Entity 'existing-file' already exists",
-  "instance": "/apiv2/files/existing-file"
+  "instance": "/apiv2/internal/files/existing-file"
 }
 ```
 
@@ -762,7 +1419,7 @@ All errors follow the RFC 7807 problem+json format.
   "title": "Precondition Failed",
   "status": 412,
   "detail": "Entity 'file-123' ETag mismatch",
-  "instance": "/apiv2/files/file-123"
+  "instance": "/apiv2/internal/files/file-123"
 }
 ```
 
@@ -776,12 +1433,12 @@ The API uses ETags for optimistic concurrency control:
 
 ```bash
 # Get file and capture ETag
-curl -X GET "https://api.example.com/apiv2/files/config" \
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -i | grep ETag
 # ETag: "abc123def456"
 
 # Use ETag to avoid unnecessary downloads
-curl -X GET "https://api.example.com/apiv2/files/config" \
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "If-None-Match: \"abc123def456\""
 # Returns 304 Not Modified if unchanged
 ```
@@ -790,7 +1447,7 @@ curl -X GET "https://api.example.com/apiv2/files/config" \
 
 ```bash
 # Update only if file hasn't changed
-curl -X PUT "https://api.example.com/apiv2/files/config" \
+curl -X PUT "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123def456\"" \
   -d '{"new": "data"}'
@@ -801,7 +1458,7 @@ curl -X PUT "https://api.example.com/apiv2/files/config" \
 
 ```bash
 # Ensure file doesn't exist before creating
-curl -X POST "https://api.example.com/apiv2/files/new-config" \
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/files/new-config" \
   -H "Content-Type: application/json" \
   -H "If-None-Match: *" \
   -d '{"initial": "data"}'
@@ -818,15 +1475,15 @@ List endpoints support cursor-based pagination:
 
 ```bash
 # Get first page
-curl -X GET "https://api.example.com/apiv2/files?limit=10"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files?limit=10"
 # Response: {"names": [...], "nextCursor": "eyJuZXh0VG9rZW4iOiIxMjMifQ=="}
 
 # Get next page using cursor
-curl -X GET "https://api.example.com/apiv2/files?limit=10&cursor=eyJuZXh0VG9rZW4iOiIxMjMifQ=="
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files?limit=10&cursor=eyJuZXh0VG9rZW4iOiIxMjMifQ=="
 # Response: {"names": [...], "nextCursor": "..."}
 
 # No nextCursor means you've reached the end
-curl -X GET "https://api.example.com/apiv2/files?limit=10&cursor=finalCursor"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files?limit=10&cursor=finalCursor"
 # Response: {"names": [...]} // No nextCursor field
 ```
 
@@ -844,7 +1501,8 @@ Currently, no rate limiting is implemented. All requests are processed immediate
 
 - **Regular JSON files**: Stored in `json/{id}.json`
 - **User files**: Stored in `json/users/{id}.json`
-- **Files API**: Can read from both locations automatically
+- **Game files**: Stored in `json/games/{id}.json`
+- **Files API**: Can read from all locations automatically
 
 ### File Size Limits
 
@@ -865,7 +1523,7 @@ Currently, no rate limiting is implemented. All requests are processed immediate
 
 ```javascript
 // Using fetch API
-const response = await fetch('https://api.example.com/apiv2/files/config', {
+const response = await fetch('https://vkp-consulting.fr/apiv2/internal/files/config', {
   headers: {
     'If-None-Match': '"abc123"'
   }
@@ -879,7 +1537,7 @@ if (response.status === 304) {
 }
 
 // Creating a user
-const userResponse = await fetch('https://api.example.com/apiv2/users', {
+const userResponse = await fetch('https://vkp-consulting.fr/apiv2/internal/users', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -894,6 +1552,25 @@ const userResponse = await fetch('https://api.example.com/apiv2/users', {
 
 const user = await userResponse.json();
 console.log('Created user:', user);
+
+// Creating a game
+const gameResponse = await fetch('https://vkp-consulting.fr/apiv2/internal/games', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'If-None-Match': '*'
+  },
+  body: JSON.stringify({
+    id: 'poker-game-1',
+    type: 'texas-holdem',
+    usersIds: ['user-123', 'user-456'],
+    rounds: [],
+    isFinished: false
+  })
+});
+
+const game = await gameResponse.json();
+console.log('Created game:', game);
 ```
 
 ### Python
@@ -904,7 +1581,7 @@ import json
 
 # Get file with ETag check
 headers = {'If-None-Match': '"abc123"'}
-response = requests.get('https://api.example.com/apiv2/files/config', headers=headers)
+response = requests.get('https://vkp-consulting.fr/apiv2/internal/files/config', headers=headers)
 
 if response.status_code == 304:
     print('File not modified')
@@ -920,7 +1597,7 @@ user_data = {
 }
 
 response = requests.post(
-    'https://api.example.com/apiv2/users',
+    'https://vkp-consulting.fr/apiv2/internal/users',
     headers={
         'Content-Type': 'application/json',
         'If-None-Match': '*'
@@ -930,35 +1607,66 @@ response = requests.post(
 
 user = response.json()
 print('Created user:', user)
+
+# Create game
+game_data = {
+    'id': 'poker-game-1',
+    'type': 'texas-holdem',
+    'usersIds': ['user-123', 'user-456'],
+    'rounds': [],
+    'isFinished': False
+}
+
+response = requests.post(
+    'https://vkp-consulting.fr/apiv2/internal/games',
+    headers={
+        'Content-Type': 'application/json',
+        'If-None-Match': '*'
+    },
+    data=json.dumps(game_data)
+)
+
+game = response.json()
+print('Created game:', game)
 ```
 
 ### cURL Examples
 
 ```bash
 # List all files
-curl -X GET "https://api.example.com/apiv2/files"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files"
 
 # Get specific file
-curl -X GET "https://api.example.com/apiv2/files/config"
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/files/config"
 
 # Create new file
-curl -X POST "https://api.example.com/apiv2/files" \
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/files" \
   -H "Content-Type: application/json" \
   -d '{"id": "config", "data": {"setting": "value"}}'
 
 # Update file with ETag
-curl -X PUT "https://api.example.com/apiv2/files/config" \
+curl -X PUT "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{"setting": "new-value"}'
 
 # Create user
-curl -X POST "https://api.example.com/apiv2/users" \
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/users" \
   -H "Content-Type: application/json" \
   -d '{"id": "user-123", "name": "John Doe", "externalId": 1001}'
 
+# Create game
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/games" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "poker-game-1", "type": "texas-holdem", "usersIds": ["user-123", "user-456"], "rounds": [], "isFinished": false}'
+
+# Add round to game
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/poker-game-1/rounds" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "round-1", "moves": [], "isFinished": false}'
+
 # Delete file
-curl -X DELETE "https://api.example.com/apiv2/files/config" \
+curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/files/config" \
   -H "If-Match: \"abc123\""
 ```
 
@@ -966,14 +1674,22 @@ curl -X DELETE "https://api.example.com/apiv2/files/config" \
 
 ## Changelog
 
-### Version 2.0 (Current)
+### Version 2.1 (Current)
 
-- ✅ **Unified Files API**: Files API can now read both regular JSON files and user files
+- ✅ **Games API**: Complete game management with rounds and moves
+- ✅ **Game Operations**: Add rounds, add moves, finish rounds, finish games
+- ✅ **Game Validation**: Structured validation for games, rounds, and moves
+- ✅ **Multi-User Games**: Support for 1-10 users per game
+- ✅ **Immutable Game Entities**: Functional approach with immutable operations
+
+### Version 2.0
+
+- ✅ **Unified Files API**: Files API can now read regular JSON files, user files, and game files
 - ✅ **Enhanced User Management**: Dedicated Users API with structured validation
 - ✅ **Domain Architecture**: Clean separation of concerns with layered architecture
 - ✅ **ETag Concurrency Control**: Full optimistic concurrency control support
 - ✅ **RFC 7807 Error Format**: Standardized problem+json error responses
-- ✅ **Comprehensive Testing**: 109 tests covering all functionality
+- ✅ **Comprehensive Testing**: 109+ tests covering all functionality
 - ✅ **CORS Support**: Cross-origin request handling
 - ✅ **Pagination**: Cursor-based pagination for list endpoints
 
@@ -992,4 +1708,4 @@ For API support and questions, please refer to the project documentation or cont
 
 ---
 
-*Last updated: October 12, 2023*
+*Last updated: November 1, 2025*

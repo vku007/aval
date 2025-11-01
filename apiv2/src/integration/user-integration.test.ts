@@ -69,7 +69,7 @@ describe.skip('User API Integration Tests', () => {
         LastModified: new Date('2023-01-01T00:00:00Z')
       });
 
-      const event = createEvent('POST', '/apiv2/users', {
+      const event = createEvent('POST', '/apiv2/internal/users', {
         id: 'user-123',
         name: 'John Doe',
         externalId: 1001
@@ -83,7 +83,7 @@ describe.skip('User API Integration Tests', () => {
         name: 'John Doe',
         externalId: 1001
       });
-      expect((result as any).headers).toHaveProperty('location', '/apiv2/users/user-123');
+      expect((result as any).headers).toHaveProperty('location', '/apiv2/internal/users/user-123');
       expect((result as any).headers).toHaveProperty('etag', '"user-etag-123"');
     });
 
@@ -105,7 +105,7 @@ describe.skip('User API Integration Tests', () => {
         LastModified: new Date('2023-01-01T00:00:00Z')
       });
 
-      const event = createEvent('GET', '/apiv2/users/user-123');
+      const event = createEvent('GET', '/apiv2/internal/users/user-123');
 
       const result = await handler(event);
 
@@ -147,7 +147,7 @@ describe.skip('User API Integration Tests', () => {
         LastModified: new Date('2023-01-02T00:00:00Z')
       });
 
-      const event = createEvent('PUT', '/apiv2/users/user-123', {
+      const event = createEvent('PUT', '/apiv2/internal/users/user-123', {
         name: 'Jane Smith',
         externalId: 2002
       }, {
@@ -193,7 +193,7 @@ describe.skip('User API Integration Tests', () => {
         LastModified: new Date('2023-01-02T00:00:00Z')
       });
 
-      const event = createEvent('PATCH', '/apiv2/users/user-123', {
+      const event = createEvent('PATCH', '/apiv2/internal/users/user-123', {
         name: 'John Smith'
       }, {
         'if-match': '"old-etag"'
@@ -228,7 +228,7 @@ describe.skip('User API Integration Tests', () => {
       // Mock S3 DeleteObject
       mockSend.mockResolvedValueOnce({});
 
-      const event = createEvent('DELETE', '/apiv2/users/user-123', undefined, {
+      const event = createEvent('DELETE', '/apiv2/internal/users/user-123', undefined, {
         'if-match': '"user-etag-123"'
       });
 
@@ -246,7 +246,7 @@ describe.skip('User API Integration Tests', () => {
         LastModified: new Date('2023-01-01T00:00:00Z')
       });
 
-      const event = createEvent('GET', '/apiv2/users/user-123/meta');
+      const event = createEvent('GET', '/apiv2/internal/users/user-123/meta');
 
       const result = await handler(event);
 
@@ -281,7 +281,7 @@ describe.skip('User API Integration Tests', () => {
         LastModified: new Date('2023-01-01T00:00:00Z')
       });
 
-      const event = createEvent('GET', '/apiv2/users');
+      const event = createEvent('GET', '/apiv2/internal/users');
 
       const result = await handler(event);
 
@@ -301,7 +301,7 @@ describe.skip('User API Integration Tests', () => {
       error.name = 'NoSuchKey';
       mockSend.mockRejectedValueOnce(error);
 
-      const event = createEvent('GET', '/apiv2/users/non-existent');
+      const event = createEvent('GET', '/apiv2/internal/users/non-existent');
 
       const result = await handler(event);
 
@@ -310,7 +310,7 @@ describe.skip('User API Integration Tests', () => {
     });
 
     it('should return 400 for invalid user data', async () => {
-      const event = createEvent('POST', '/apiv2/users', {
+      const event = createEvent('POST', '/apiv2/internal/users', {
         id: 'invalid id with spaces',
         name: 'John Doe',
         externalId: 1001
@@ -338,7 +338,7 @@ describe.skip('User API Integration Tests', () => {
         ETag: '"existing-etag"'
       });
 
-      const event = createEvent('POST', '/apiv2/users', {
+      const event = createEvent('POST', '/apiv2/internal/users', {
         id: 'existing-user',
         name: 'New User',
         externalId: 2002
@@ -366,7 +366,7 @@ describe.skip('User API Integration Tests', () => {
         ETag: '"old-etag"'
       });
 
-      const event = createEvent('PUT', '/apiv2/users/user-123', {
+      const event = createEvent('PUT', '/apiv2/internal/users/user-123', {
         name: 'Jane Smith',
         externalId: 2002
       }, {
@@ -382,7 +382,7 @@ describe.skip('User API Integration Tests', () => {
 
   describe('CORS and Headers', () => {
     it('should handle OPTIONS preflight request', async () => {
-      const event = createEvent('OPTIONS', '/apiv2/users');
+      const event = createEvent('OPTIONS', '/apiv2/internal/users');
 
       const result = await handler(event);
 
@@ -397,7 +397,7 @@ describe.skip('User API Integration Tests', () => {
         ETag: '"user-etag-123"'
       });
 
-      const event = createEvent('POST', '/apiv2/users', {
+      const event = createEvent('POST', '/apiv2/internal/users', {
         id: 'user-123',
         name: 'John Doe',
         externalId: 1001
@@ -414,7 +414,7 @@ describe.skip('User API Integration Tests', () => {
 
   describe('Content-Type Validation', () => {
     it('should reject POST without application/json content-type', async () => {
-      const event = createEvent('POST', '/apiv2/users', {
+      const event = createEvent('POST', '/apiv2/internal/users', {
         id: 'user-123',
         name: 'John Doe',
         externalId: 1001
@@ -432,7 +432,7 @@ describe.skip('User API Integration Tests', () => {
         ETag: '"user-etag-123"'
       });
 
-      const event = createEvent('POST', '/apiv2/users', {
+      const event = createEvent('POST', '/apiv2/internal/users', {
         id: 'user-123',
         name: 'John Doe',
         externalId: 1001

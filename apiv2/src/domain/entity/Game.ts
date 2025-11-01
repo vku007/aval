@@ -1,4 +1,5 @@
 import { Round } from "../value-object/Round.js";
+import { Move } from "../value-object/Move.js";
 import { ValidationError } from "../../shared/errors/index.js";
 
 export class Game {
@@ -46,7 +47,7 @@ export class Game {
      * Add a move to a specific round
      * Returns a new Game instance (immutable)
      */
-    addMoveToRound(roundId: string, move: import('./Move.js').Move): Game {
+    addMoveToRound(roundId: string, move: Move): Game {
         const roundIndex = this.rounds.findIndex(round => round.id === roundId);
         if (roundIndex === -1) {
             throw new ValidationError(`Round with ID '${roundId}' not found in game`);
@@ -114,8 +115,8 @@ export class Game {
     /**
      * Get all moves from all rounds for a specific user
      */
-    getMovesForUser(userId: string): import('./Move.js').Move[] {
-        const moves: import('./Move.js').Move[] = [];
+    getMovesForUser(userId: string): Move[] {
+        const moves: Move[] = [];
         for (const round of this.rounds) {
             moves.push(...round.moves.filter(move => move.userId === userId));
         }
