@@ -41,7 +41,7 @@ S3 Static Site      API Gateway           CloudWatch Logs
 | **CloudFront** | https://d1kcdf4orzsjcw.cloudfront.net | CDN distribution |
 | **API Gateway** | https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com | Direct API access |
 | **API v1** | https://vkp-consulting.fr/api/* | Simple file operations |
-| **API v2** | https://vkp-consulting.fr/apiv2/* | Advanced file/user/game mgmt |
+| **API v2** | https://vkp-consulting.fr/apiv2/internal/* | Advanced file/user/game mgmt |
 
 ---
 
@@ -137,7 +137,7 @@ Return: index.html
 
 ```
 User Browser
-  ↓ HTTPS POST https://vkp-consulting.fr/apiv2/users
+  ↓ HTTPS POST https://vkp-consulting.fr/apiv2/internal/users
 Route53
   ↓ DNS Resolution
 CloudFront (EJWBLACWDMFAZ)
@@ -162,7 +162,7 @@ Return: 201 Created
 
 ```
 API Client
-  ↓ HTTPS GET https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/files
+  ↓ HTTPS GET https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2/internal/files
 API Gateway (wmrksdxxml)
   ↓ Route: ANY /apiv2/{proxy+}
 Lambda (vkp-api2-service)
@@ -346,7 +346,7 @@ npm run build              # Build TypeScript
 aws lambda get-function --function-name vkp-api2-service
 
 # Test live endpoint
-curl https://vkp-consulting.fr/apiv2/files
+curl https://vkp-consulting.fr/apiv2/internal/files
 ```
 
 ### Static Website Updates
@@ -415,14 +415,14 @@ curl -I https://vkp-consulting.fr/
 curl https://vkp-consulting.fr/api/files
 
 # Test API v2
-curl -X POST https://vkp-consulting.fr/apiv2/users \
+curl -X POST https://vkp-consulting.fr/apiv2/internal/users \
   -H "Content-Type: application/json" \
   -d '{"id":"test","name":"Test User","externalId":999}'
 
 # Test CORS
 curl -H "Origin: https://vkp-consulting.fr" \
   -H "Access-Control-Request-Method: POST" \
-  -X OPTIONS https://vkp-consulting.fr/apiv2/files
+  -X OPTIONS https://vkp-consulting.fr/apiv2/internal/files
 ```
 
 ---
@@ -543,8 +543,9 @@ aws s3 sync s3://backups/site-v1/ s3://vkp-consulting.fr/
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: October 24, 2025  
+**Document Version**: 1.1  
+**Last Updated**: November 1, 2025  
 **Infrastructure Status**: ✅ Fully Operational  
-**Terraform State**: ✅ In Sync
+**Terraform State**: ✅ In Sync  
+**Recent Changes**: Added `/internal/` path prefix to all API v2 endpoints
 
