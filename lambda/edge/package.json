@@ -1,0 +1,27 @@
+{
+  "name": "lambda-edge-auth",
+  "version": "1.0.0",
+  "description": "Lambda@Edge for CloudFront authentication check",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "zip": "npm run build && cd dist && zip -r viewer-request.zip viewer-request.js",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["lambda-edge", "cloudfront", "authentication", "jwt"],
+  "author": "VKP Consulting",
+  "license": "MIT",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.126",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/jwks-rsa": "^3.0.0",
+    "@types/node": "^20.10.0",
+    "esbuild": "^0.19.8",
+    "typescript": "^5.3.2"
+  }
+}
+

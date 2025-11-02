@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VKP - Logging Out...</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      padding: 3rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+    }
+
+    .message {
+      color: #666;
+      margin-top: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .success {
+      color: #27ae60;
+      background: #e6ffe6;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>VKP Consulting</h1>
+    <div class="message" id="message">
+      <div class="success">✓ Logged out successfully!</div>
+    </div>
+  </div>
+
+  <script>
+    // Clear all authentication cookies
+    function clearAuthCookies() {
+      const cookies = ['idToken', 'accessToken', 'refreshToken'];
+      cookies.forEach(cookie => {
+        document.cookie = `${cookie}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; secure; samesite=strict`;
+      });
+    }
+
+    // Perform logout
+    function logout() {
+      clearAuthCookies();
+      
+      // Redirect to home after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    }
+
+    // Execute logout
+    logout();
+  </script>
+</body>
+</html>
+

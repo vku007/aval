@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VKP - Authenticating...</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      padding: 3rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .message {
+      color: #666;
+      margin-top: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .error {
+      color: #e74c3c;
+      background: #ffe6e6;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .success {
+      color: #27ae60;
+      background: #e6ffe6;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .retry-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: background 0.3s;
+    }
+
+    .retry-btn:hover {
+      background: #5568d3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>VKP Consulting</h1>
+    <div class="spinner" id="spinner"></div>
+    <div class="message" id="message">Authenticating...</div>
+    <div id="error-container"></div>
+  </div>
+
+  <script>
+    // Configuration
+    const COGNITO_DOMAIN = 'vkp-auth.auth.eu-north-1.amazoncognito.com';
+    const CLIENT_ID = 'YOUR_CLIENT_ID'; // Will be replaced by Terraform
+    const REDIRECT_URI = 'https://vkp-consulting.fr/callback';
+    const TOKEN_ENDPOINT = `https://${COGNITO_DOMAIN}/oauth2/token`;
+
+    // Parse URL parameters
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        code: params.get('code'),
+        state: params.get('state'),
+        error: params.get('error'),
+        error_description: params.get('error_description')
+      };
+    }
+
+    // Exchange authorization code for tokens
+    async function exchangeCodeForTokens(code) {
+      const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: CLIENT_ID,
+        code: code,
+        redirect_uri: REDIRECT_URI
+      });
+
+      const response = await fetch(TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body.toString()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error_description || 'Failed to exchange code for tokens');
+      }
+
+      return await response.json();
+    }
+
+    // Store tokens in cookies
+    function storeTokens(tokens) {
+      const expiresIn = tokens.expires_in || 3600; // Default 1 hour
+      const expiresDate = new Date(Date.now() + expiresIn * 1000);
+
+      // Store ID token (used for authentication)
+      document.cookie = `idToken=${tokens.id_token}; path=/; expires=${expiresDate.toUTCString()}; secure; samesite=strict`;
+      
+      // Store access token (used for API calls)
+      document.cookie = `accessToken=${tokens.access_token}; path=/; expires=${expiresDate.toUTCString()}; secure; samesite=strict`;
+      
+      // Store refresh token (used to get new tokens)
+      if (tokens.refresh_token) {
+        const refreshExpiresDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        document.cookie = `refreshToken=${tokens.refresh_token}; path=/; expires=${refreshExpiresDate.toUTCString()}; secure; samesite=strict; httponly`;
+      }
+    }
+
+    // Show error message
+    function showError(message) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('message').style.display = 'none';
+      document.getElementById('error-container').innerHTML = `
+        <div class="error">
+          <strong>Authentication Failed</strong><br>
+          ${message}
+        </div>
+        <button class="retry-btn" onclick="retryLogin()">Try Again</button>
+      `;
+    }
+
+    // Show success message
+    function showSuccess() {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('message').innerHTML = '<div class="success">✓ Authentication successful! Redirecting...</div>';
+    }
+
+    // Retry login
+    function retryLogin() {
+      window.location.href = '/';
+    }
+
+    // Main authentication flow
+    async function handleCallback() {
+      const params = getUrlParams();
+
+      // Check for errors from Cognito
+      if (params.error) {
+        showError(params.error_description || params.error);
+        return;
+      }
+
+      // Check for authorization code
+      if (!params.code) {
+        showError('No authorization code received');
+        return;
+      }
+
+      try {
+        // Exchange code for tokens
+        const tokens = await exchangeCodeForTokens(params.code);
+
+        // Store tokens
+        storeTokens(tokens);
+
+        // Show success
+        showSuccess();
+
+        // Redirect to original page or home
+        const redirectTo = params.state || '/';
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 1500);
+
+      } catch (error) {
+        console.error('Authentication error:', error);
+        showError(error.message || 'An unexpected error occurred');
+      }
+    }
+
+    // Start the authentication flow
+    handleCallback();
+  </script>
+</body>
+</html>
+
