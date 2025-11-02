@@ -43,17 +43,17 @@ output "identity_pool_id" {
 
 output "admin_group_name" {
   description = "The name of the admin group"
-  value       = aws_cognito_user_pool_group.admin.name
+  value       = aws_cognito_user_group.admin.name
 }
 
 output "user_group_name" {
   description = "The name of the user group"
-  value       = aws_cognito_user_pool_group.user.name
+  value       = aws_cognito_user_group.user.name
 }
 
 output "guest_group_name" {
   description = "The name of the guest group"
-  value       = aws_cognito_user_pool_group.guest.name
+  value       = aws_cognito_user_group.guest.name
 }
 
 output "admin_role_arn" {

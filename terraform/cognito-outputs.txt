@@ -1,0 +1,14 @@
+# Cognito Configuration Values
+USER_POOL_ID=eu-north-1_OxGtXG08i
+CLIENT_ID=77e2cmbthjul60ui7guh514u50
+COGNITO_DOMAIN=vkp-auth
+REGION=eu-north-1
+
+# URLs
+HOSTED_UI_URL=https://vkp-auth.auth.eu-north-1.amazoncognito.com
+LOGIN_URL=https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&scope=email+openid+profile&redirect_uri=https://vkp-consulting.fr/callback
+LOGOUT_URL=https://vkp-auth.auth.eu-north-1.amazoncognito.com/logout?client_id=77e2cmbthjul60ui7guh514u50&logout_uri=https://vkp-consulting.fr/logout
+
+# JWT Validation
+ISSUER_URL=https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_OxGtXG08i
+JWKS_URI=https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_OxGtXG08i/.well-known/jwks.json

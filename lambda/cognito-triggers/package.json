@@ -8,7 +8,7 @@
     "build:pre-signup": "node esbuild.config.mjs pre-signup",
     "build:post-confirmation": "node esbuild.config.mjs post-confirmation",
     "build:pre-token": "node esbuild.config.mjs pre-token-generation",
-    "zip": "npm run build && cd dist && zip -r pre-signup.zip pre-signup.js && zip -r post-confirmation.zip post-confirmation.js && zip -r pre-token-generation.zip pre-token-generation.js",
+    "zip": "npm run build && cd dist && cd pre-signup && zip -r ../pre-signup.zip . && cd ../post-confirmation && zip -r ../post-confirmation.zip . && cd ../pre-token-generation && zip -r ../pre-token-generation.zip .",
     "clean": "rm -rf dist"
   },
   "keywords": ["cognito", "lambda", "authentication"],

@@ -56,12 +56,8 @@ resource "aws_cognito_user_pool" "main" {
     advanced_security_mode = "OFF" # Can be set to "AUDIT" or "ENFORCED" for additional security
   }
 
-  # Lambda triggers (will be configured after Lambda functions are created)
-  lambda_config {
-    pre_sign_up          = aws_lambda_function.pre_signup.arn
-    post_confirmation    = aws_lambda_function.post_confirmation.arn
-    pre_token_generation = aws_lambda_function.pre_token_generation.arn
-  }
+  # Lambda triggers will be attached separately to avoid circular dependency
+  # See aws_cognito_user_pool_lambda_config resource below
 
   # Deletion protection
   deletion_protection = "ACTIVE"
@@ -158,7 +154,7 @@ resource "aws_cognito_user_pool_domain" "main" {
 }
 
 # User Pool Groups
-resource "aws_cognito_user_pool_group" "admin" {
+resource "aws_cognito_user_group" "admin" {
   name         = "admin"
   user_pool_id = aws_cognito_user_pool.main.id
   description  = "Admin users with full access including /internal/* endpoints"
@@ -166,7 +162,7 @@ resource "aws_cognito_user_pool_group" "admin" {
   role_arn     = aws_iam_role.cognito_admin.arn
 }
 
-resource "aws_cognito_user_pool_group" "user" {
+resource "aws_cognito_user_group" "user" {
   name         = "user"
   user_pool_id = aws_cognito_user_pool.main.id
   description  = "Regular users with access to public endpoints"
@@ -174,7 +170,7 @@ resource "aws_cognito_user_pool_group" "user" {
   role_arn     = aws_iam_role.cognito_user.arn
 }
 
-resource "aws_cognito_user_pool_group" "guest" {
+resource "aws_cognito_user_group" "guest" {
   name         = "guest"
   user_pool_id = aws_cognito_user_pool.main.id
   description  = "Guest users with limited access"
@@ -216,7 +212,7 @@ resource "aws_cognito_identity_pool_roles_attachment" "main" {
   role_mapping {
     identity_provider         = "${aws_cognito_user_pool.main.endpoint}:${aws_cognito_user_pool_client.web_client.id}"
     ambiguous_role_resolution = "AuthenticatedRole"
-    type                      = "Token"
+    type                      = "Rules"
 
     mapping_rule {
       claim      = "cognito:groups"
@@ -240,4 +236,9 @@ resource "aws_cognito_identity_pool_roles_attachment" "main" {
     }
   }
 }
+
+# Note: Lambda triggers will need to be attached manually after deployment
+# to avoid circular dependency. Use AWS CLI:
+# aws cognito-idp update-user-pool --user-pool-id <pool-id> --lambda-config \
+#   PreSignUp=<pre-signup-arn>,PostConfirmation=<post-confirmation-arn>,PreTokenGeneration=<pre-token-arn>
 

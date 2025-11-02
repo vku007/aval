@@ -1,6 +1,8 @@
 # API Gateway JWT Authorizer for Cognito
 
 resource "aws_apigatewayv2_authorizer" "cognito_jwt" {
+  count = var.enable_jwt_authorizer && var.cognito_issuer_url != "" ? 1 : 0
+
   api_id           = aws_apigatewayv2_api.main.id
   authorizer_type  = "JWT"
   identity_sources = ["$request.header.Authorization"]

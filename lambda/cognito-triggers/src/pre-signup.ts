@@ -24,23 +24,11 @@ export const handler: PreSignUpTriggerHandler = async (event: PreSignUpTriggerEv
     const email = event.request.userAttributes.email;
     const userPoolId = event.userPoolId;
 
-    // Check if display name is provided and validate uniqueness
+    // Note: Display name uniqueness check is disabled for now
+    // Cognito doesn't support filtering on custom attributes via ListUsers
+    // This can be implemented using a DynamoDB table to track display names
     if (displayName) {
-      console.log(`Checking uniqueness for display name: ${displayName}`);
-      
-      const command = new ListUsersCommand({
-        UserPoolId: userPoolId,
-        Filter: `custom:display_name = "${displayName}"`
-      });
-
-      const response = await cognito.send(command);
-
-      if (response.Users && response.Users.length > 0) {
-        console.error(`Display name "${displayName}" already exists`);
-        throw new Error(`Display name "${displayName}" is already taken. Please choose a different name.`);
-      }
-
-      console.log(`Display name "${displayName}" is available`);
+      console.log(`Display name provided: ${displayName}`);
     }
 
     // Determine if this is a guest user (no email)

@@ -7,4 +7,6 @@ export { PreconditionRequiredError } from './PreconditionRequiredError.js';
 export { PayloadTooLargeError } from './PayloadTooLargeError.js';
 export { UnsupportedMediaTypeError } from './UnsupportedMediaTypeError.js';
 export { NotModifiedError } from './NotModifiedError.js';
+export { UnauthorizedError } from './UnauthorizedError.js';
+export { ForbiddenError } from './ForbiddenError.js';
 
