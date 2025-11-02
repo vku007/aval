@@ -9,16 +9,16 @@
 
 import { HttpRequest, HttpResponse } from '../../infrastructure/http/HttpTypes.js';
 import * as jwt from 'jsonwebtoken';
-import * as jwksClient from 'jwks-rsa';
+import jwksClient from 'jwks-rsa';
 import { UnauthorizedError } from '../../shared/errors/index.js';
 
 const USER_POOL_ID = process.env.USER_POOL_ID || '';
-const REGION = process.env.AWS_REGION || 'eu-north-1';
+const REGION = process.env.REGION || process.env.AWS_REGION || 'eu-north-1';
 const CLIENT_ID = process.env.CLIENT_ID || '';
 
 // JWKS client for JWT verification
 const jwksUri = `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`;
-const client = jwksClient.jwksClient({ jwksUri });
+const client = jwksClient({ jwksUri });
 
 /**
  * Get signing key from JWKS

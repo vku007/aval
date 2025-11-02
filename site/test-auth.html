@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #0e4429; border: 1px solid #26a641; }
+        .error { background: #4d1f1f; border: 1px solid #f85149; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #2d2d2d; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Authentication Test</h1>
+    
+    <h2>Cookies Check:</h2>
+    <div id="cookies"></div>
+    
+    <h2>API Tests:</h2>
+    <button onclick="testPublicEndpoint()">Test Public Endpoint (GET /apiv2/internal/users)</button>
+    <button onclick="testInternalEndpoint()">Test Internal Endpoint (GET /apiv2/internal/users)</button>
+    <button onclick="getCookies()">Show Cookies</button>
+    
+    <div id="results"></div>
+
+    <script>
+        function getCookies() {
+            const cookies = document.cookie.split(';').map(c => c.trim());
+            const cookieDiv = document.getElementById('cookies');
+            cookieDiv.innerHTML = '<pre>' + JSON.stringify({
+                allCookies: cookies,
+                hasIdToken: cookies.some(c => c.startsWith('idToken=')),
+                hasAccessToken: cookies.some(c => c.startsWith('accessToken=')),
+                hasRefreshToken: cookies.some(c => c.startsWith('refreshToken='))
+            }, null, 2) + '</pre>';
+        }
+
+        async function testPublicEndpoint() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Testing public endpoint...</p>';
+            
+            try {
+                const response = await fetch('https://vkp-consulting.fr/apiv2/internal/users', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.text();
+                resultsDiv.innerHTML += `
+                    <div class="result ${response.ok ? 'success' : 'error'}">
+                        <strong>Public Endpoint Test:</strong><br>
+                        Status: ${response.status} ${response.statusText}<br>
+                        <pre>${data}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML += `
+                    <div class="result error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testInternalEndpoint() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Testing internal endpoint with Authorization header...</p>';
+            
+            // Get access token from cookie
+            const cookies = document.cookie.split(';').map(c => c.trim());
+            const accessTokenCookie = cookies.find(c => c.startsWith('accessToken='));
+            const accessToken = accessTokenCookie ? accessTokenCookie.split('=')[1] : null;
+            
+            if (!accessToken) {
+                resultsDiv.innerHTML += `
+                    <div class="result error">
+                        <strong>Error:</strong> No access token found in cookies!
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://vkp-consulting.fr/apiv2/internal/users', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.text();
+                resultsDiv.innerHTML += `
+                    <div class="result ${response.ok ? 'success' : 'error'}">
+                        <strong>Internal Endpoint Test (with Bearer token):</strong><br>
+                        Status: ${response.status} ${response.statusText}<br>
+                        <pre>${data.substring(0, 500)}${data.length > 500 ? '...' : ''}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML += `
+                    <div class="result error">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-run on load
+        window.onload = getCookies;
+    </script>
+</body>
+</html>

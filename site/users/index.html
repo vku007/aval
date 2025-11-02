@@ -33,6 +33,7 @@
       color: white;
       padding: 2rem;
       text-align: center;
+      position: relative;
     }
 
     header h1 {
@@ -44,6 +45,49 @@
     header p {
       opacity: 0.9;
       font-size: 0.95rem;
+    }
+
+    .user-info-bar {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+
+    .user-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .user-role {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .logout-btn {
+      background: rgba(239, 68, 68, 0.9);
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.3s;
+    }
+
+    .logout-btn:hover {
+      background: rgba(220, 38, 38, 1);
     }
 
     .content {
@@ -313,6 +357,13 @@
 <body>
   <div class="container">
     <header>
+      <div class="user-info-bar" id="user-info-bar" style="display: none;">
+        <div>
+          <div class="user-name" id="user-display-name">Loading...</div>
+          <div class="user-role" id="user-role">...</div>
+        </div>
+        <button class="logout-btn" onclick="app.logout()">🚪 Logout</button>
+      </div>
       <h1>👥 User Manager</h1>
       <p>Manage User entities via VKP API</p>
     </header>
@@ -424,6 +475,44 @@
   </div>
 
   <script>
+    // Helper to get cookie value
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    }
+
+    // Helper to decode JWT token
+    function decodeJWT(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Initialize user info display
+    function initUserInfo() {
+      const idToken = getCookie('idToken');
+      if (idToken) {
+        const payload = decodeJWT(idToken);
+        if (payload) {
+          const displayName = payload.display_name || payload['custom:display_name'] || payload.email || 'User';
+          const role = payload.role || payload['custom:role'] || payload['cognito:groups']?.[0] || 'user';
+          
+          document.getElementById('user-display-name').textContent = displayName;
+          document.getElementById('user-role').textContent = role;
+          document.getElementById('user-info-bar').style.display = 'flex';
+        }
+      }
+    }
+
     const app = {
       apiBase: 'https://vkp-consulting.fr/apiv2/internal',
       users: [],
@@ -436,6 +525,9 @@
       },
 
       async request(method, path, body = null, headers = {}) {
+        // Get ID token from cookie for authentication
+        const idToken = getCookie('idToken');
+        
         const url = `${this.apiBase}${path}`;
         const options = {
           method,
@@ -445,6 +537,11 @@
           }
         };
 
+        // Add Authorization header if token exists
+        if (idToken) {
+          options.headers['Authorization'] = `Bearer ${idToken}`;
+        }
+
         if (body) {
           options.body = JSON.stringify(body);
         }
@@ -452,6 +549,14 @@
         const response = await fetch(url, options);
         
         if (!response.ok) {
+          // If unauthorized, redirect to login
+          if (response.status === 401) {
+            const loginUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&scope=email+openid+profile&redirect_uri=https://vkp-consulting.fr/callback';
+            if (confirm('Authentication required. Redirect to login?')) {
+              window.location.href = loginUrl;
+            }
+          }
+          
           const errorText = await response.text();
           let errorData;
           try {
@@ -665,11 +770,27 @@ User Details:
         } catch (err) {
           this.showAlert(`Error deleting user: ${err.message}`, 'error');
         }
+      },
+
+      logout() {
+        if (confirm('Are you sure you want to logout?')) {
+          // Clear all auth cookies
+          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          
+          // Redirect to Cognito logout
+          const logoutUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/logout?client_id=77e2cmbthjul60ui7guh514u50&logout_uri=https://vkp-consulting.fr/';
+          window.location.href = logoutUrl;
+        }
       }
     };
 
     // Initialize the app
     document.addEventListener('DOMContentLoaded', () => {
+      // Initialize user info
+      initUserInfo();
+      
       app.loadUsers();
       
       // Tab switching

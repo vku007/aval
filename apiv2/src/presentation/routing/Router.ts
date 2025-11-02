@@ -7,6 +7,7 @@ interface Route {
   method: string;
   pattern: RegExp;
   paramNames: string[];
+  middlewares: Middleware[];
   handler: RouteHandler;
 }
 
@@ -18,7 +19,7 @@ export class Router {
   private middlewares: Middleware[] = [];
 
   /**
-   * Add middleware
+   * Add global middleware
    */
   use(middleware: Middleware): this {
     this.middlewares.push(middleware);
@@ -28,36 +29,36 @@ export class Router {
   /**
    * Register GET route
    */
-  get(path: string, handler: RouteHandler): this {
-    return this.addRoute('GET', path, handler);
+  get(path: string, ...handlers: (Middleware | RouteHandler)[]): this {
+    return this.addRoute('GET', path, ...handlers);
   }
 
   /**
    * Register POST route
    */
-  post(path: string, handler: RouteHandler): this {
-    return this.addRoute('POST', path, handler);
+  post(path: string, ...handlers: (Middleware | RouteHandler)[]): this {
+    return this.addRoute('POST', path, ...handlers);
   }
 
   /**
    * Register PUT route
    */
-  put(path: string, handler: RouteHandler): this {
-    return this.addRoute('PUT', path, handler);
+  put(path: string, ...handlers: (Middleware | RouteHandler)[]): this {
+    return this.addRoute('PUT', path, ...handlers);
   }
 
   /**
    * Register PATCH route
    */
-  patch(path: string, handler: RouteHandler): this {
-    return this.addRoute('PATCH', path, handler);
+  patch(path: string, ...handlers: (Middleware | RouteHandler)[]): this {
+    return this.addRoute('PATCH', path, ...handlers);
   }
 
   /**
    * Register DELETE route
    */
-  delete(path: string, handler: RouteHandler): this {
-    return this.addRoute('DELETE', path, handler);
+  delete(path: string, ...handlers: (Middleware | RouteHandler)[]): this {
+    return this.addRoute('DELETE', path, ...handlers);
   }
 
   /**
@@ -79,16 +80,21 @@ export class Router {
   }
 
   /**
-   * Add route
+   * Add route with optional per-route middleware
    */
-  private addRoute(method: string, path: string, handler: RouteHandler): this {
+  private addRoute(method: string, path: string, ...handlers: (Middleware | RouteHandler)[]): this {
     const { pattern, paramNames } = this.pathToRegex(path);
-    this.routes.push({ method, pattern, paramNames, handler });
+    
+    // Last handler is the route handler, rest are middleware
+    const handler = handlers[handlers.length - 1] as RouteHandler;
+    const middlewares = handlers.slice(0, -1) as Middleware[];
+    
+    this.routes.push({ method, pattern, paramNames, middlewares, handler });
     return this;
   }
 
   /**
-   * Execute matched route
+   * Execute matched route with per-route middleware
    */
   private async executeRoute(request: HttpRequest): Promise<HttpResponse> {
     for (const route of this.routes) {
@@ -106,7 +112,18 @@ export class Router {
       // Merge with existing params
       request.params = { ...request.params, ...params };
 
-      return route.handler(request);
+      // Execute per-route middleware chain
+      let middlewareIndex = 0;
+      const executeRouteMiddleware = async (): Promise<HttpResponse> => {
+        if (middlewareIndex < route.middlewares.length) {
+          const middleware = route.middlewares[middlewareIndex++];
+          return middleware(request, executeRouteMiddleware);
+        }
+        // All route middleware executed, now call handler
+        return route.handler(request);
+      };
+
+      return executeRouteMiddleware();
     }
 
     // No route matched - 404
