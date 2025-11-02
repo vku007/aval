@@ -237,6 +237,40 @@ module "api_gateway" {
   tags = local.common_tags
 }
 
+# ===== COGNITO AUTHENTICATION =====
+
+module "cognito" {
+  count  = var.enable_cognito_auth ? 1 : 0
+  source = "./modules/cognito"
+
+  project_name = var.project_name
+  environment  = var.environment
+  region       = var.aws_region
+
+  # Domain configuration
+  domain_prefix = var.cognito_domain_prefix
+
+  # OAuth configuration
+  callback_urls = [
+    "https://${var.domain_name}/callback",
+    "https://${var.domain_name}"
+  ]
+  logout_urls = [
+    "https://${var.domain_name}/logout",
+    "https://${var.domain_name}"
+  ]
+
+  # Google OAuth (optional)
+  enable_google_oauth  = var.enable_google_oauth
+  google_client_id     = var.google_client_id
+  google_client_secret = var.google_client_secret
+
+  # API Gateway ARN for IAM policies
+  api_gateway_arn = module.api_gateway.api_arn
+
+  tags = local.common_tags
+}
+
 # ===== CLOUDFRONT =====
 
 module "cloudfront" {

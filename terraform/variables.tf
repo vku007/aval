@@ -64,3 +64,42 @@ variable "json_prefix" {
   default     = "json/"
 }
 
+# Cognito Authentication Variables
+variable "enable_cognito_auth" {
+  description = "Enable Cognito authentication"
+  type        = bool
+  default     = false
+}
+
+variable "cognito_domain_prefix" {
+  description = "Cognito domain prefix (must be globally unique)"
+  type        = string
+  default     = "vkp-auth"
+}
+
+variable "enable_google_oauth" {
+  description = "Enable Google OAuth integration"
+  type        = bool
+  default     = false
+}
+
+variable "google_client_id" {
+  description = "Google OAuth Client ID (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth Client Secret (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "vkp"
+}
+

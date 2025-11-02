@@ -53,3 +53,49 @@ output "route53_name_servers" {
   value       = module.route53.name_servers
 }
 
+# Cognito Outputs (conditional)
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = var.enable_cognito_auth ? module.cognito[0].user_pool_id : null
+}
+
+output "cognito_user_pool_arn" {
+  description = "Cognito User Pool ARN"
+  value       = var.enable_cognito_auth ? module.cognito[0].user_pool_arn : null
+}
+
+output "cognito_client_id" {
+  description = "Cognito User Pool Client ID"
+  value       = var.enable_cognito_auth ? module.cognito[0].user_pool_client_id : null
+}
+
+output "cognito_domain" {
+  description = "Cognito User Pool Domain"
+  value       = var.enable_cognito_auth ? module.cognito[0].user_pool_domain : null
+}
+
+output "cognito_hosted_ui_url" {
+  description = "Cognito Hosted UI URL"
+  value       = var.enable_cognito_auth ? module.cognito[0].hosted_ui_url : null
+}
+
+output "cognito_login_url" {
+  description = "Cognito Login URL"
+  value       = var.enable_cognito_auth ? module.cognito[0].login_url : null
+}
+
+output "cognito_logout_url" {
+  description = "Cognito Logout URL"
+  value       = var.enable_cognito_auth ? module.cognito[0].logout_url : null
+}
+
+output "cognito_issuer_url" {
+  description = "Cognito Issuer URL for JWT validation"
+  value       = var.enable_cognito_auth ? module.cognito[0].issuer_url : null
+}
+
+output "cognito_jwks_uri" {
+  description = "Cognito JWKS URI for JWT validation"
+  value       = var.enable_cognito_auth ? module.cognito[0].jwks_uri : null
+}
+

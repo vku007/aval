@@ -23,3 +23,8 @@ output "stage_id" {
   value       = aws_apigatewayv2_stage.default.id
 }
 
+output "api_arn" {
+  description = "ARN of the API Gateway for IAM policies"
+  value       = aws_apigatewayv2_api.main.execution_arn
+}
+
