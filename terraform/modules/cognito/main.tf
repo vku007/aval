@@ -76,8 +76,10 @@ resource "aws_cognito_user_pool" "main" {
   )
 }
 
-# Google Identity Provider
+# Google Identity Provider (optional)
 resource "aws_cognito_identity_provider" "google" {
+  count = var.enable_google_oauth ? 1 : 0
+
   user_pool_id  = aws_cognito_user_pool.main.id
   provider_name = "Google"
   provider_type = "Google"
@@ -110,7 +112,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
   logout_urls   = var.logout_urls
 
   # Supported identity providers
-  supported_identity_providers = ["COGNITO", "Google"]
+  supported_identity_providers = var.enable_google_oauth ? ["COGNITO", "Google"] : ["COGNITO"]
 
   # Token validity
   id_token_validity      = 60 # minutes
@@ -146,7 +148,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
   # Enable token revocation
   enable_token_revocation = true
 
-  depends_on = [aws_cognito_identity_provider.google]
+  depends_on = [aws_cognito_user_pool.main]
 }
 
 # Cognito Domain

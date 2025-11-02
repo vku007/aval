@@ -13,15 +13,23 @@ variable "environment" {
 }
 
 variable "google_client_id" {
-  description = "Google OAuth Client ID"
+  description = "Google OAuth Client ID (optional)"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "google_client_secret" {
-  description = "Google OAuth Client Secret"
+  description = "Google OAuth Client Secret (optional)"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "enable_google_oauth" {
+  description = "Enable Google OAuth integration"
+  type        = bool
+  default     = false
 }
 
 variable "callback_urls" {
