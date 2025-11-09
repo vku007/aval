@@ -549,11 +549,10 @@
         const response = await fetch(url, options);
         
         if (!response.ok) {
-          // If unauthorized, redirect to login
+          // If unauthorized, redirect to custom login page
           if (response.status === 401) {
-            const loginUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&scope=email+openid+profile&redirect_uri=https://vkp-consulting.fr/callback';
             if (confirm('Authentication required. Redirect to login?')) {
-              window.location.href = loginUrl;
+              window.location.href = '/login.html';
             }
             throw new Error('Authentication required');
           }

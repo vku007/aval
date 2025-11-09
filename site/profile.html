@@ -405,7 +405,7 @@
       if (!idToken) {
         showError('Not authenticated. Please login first.');
         setTimeout(() => {
-          const loginUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&redirect_uri=https://vkp-consulting.fr/callback';
+          const loginUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&redirect_uri=https://vkp-consulting.fr/callback.html';
           window.location.href = loginUrl;
         }, 2000);
         return;
@@ -432,7 +432,7 @@
         if (response.status === 401) {
           showError('Session expired. Redirecting to login...');
           setTimeout(() => {
-            const loginUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&redirect_uri=https://vkp-consulting.fr/callback';
+            const loginUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&redirect_uri=https://vkp-consulting.fr/callback.html';
             window.location.href = loginUrl;
           }, 2000);
           return;

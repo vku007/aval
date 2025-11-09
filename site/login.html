@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - VKP Consulting</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      max-width: 500px;
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .content {
+      padding: 2rem;
+    }
+
+    .login-option {
+      margin-bottom: 1.5rem;
+      padding: 1.5rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .login-option:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+    }
+
+    .login-option.guest {
+      background: #f9fafb;
+    }
+
+    .option-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .option-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+    }
+
+    .option-description {
+      color: #6b7280;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    .primary-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 0.875rem 2rem;
+      border-radius: 8px;
+      width: 100%;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .primary-btn:hover {
+      background: #5568d3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .secondary-btn {
+      background: #6b7280;
+      color: white;
+      border: none;
+      padding: 0.875rem 2rem;
+      border-radius: 8px;
+      width: 100%;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .secondary-btn:hover {
+      background: #4b5563;
+      transform: translateY(-1px);
+    }
+
+    .secondary-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+      color: #667eea;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      display: none;
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .error-message.active {
+      display: block;
+    }
+
+    .divider {
+      text-align: center;
+      margin: 1.5rem 0;
+      color: #9ca3af;
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 600px) {
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .content {
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="header">
+      <h1>🚀 Welcome to VKP</h1>
+      <p>Choose how you'd like to continue</p>
+    </div>
+
+    <div class="content">
+      <div id="error-message" class="error-message"></div>
+      
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Creating guest session...</p>
+      </div>
+
+      <div id="login-options">
+        <div class="login-option" onclick="loginWithAccount()">
+          <div class="option-icon">🔐</div>
+          <div class="option-title">Sign In</div>
+          <div class="option-description">
+            Login with your account to access all features and save your data
+          </div>
+          <button class="primary-btn">Sign In with Email</button>
+        </div>
+
+        <div class="divider">OR</div>
+
+        <div class="login-option guest" onclick="continueAsGuest()">
+          <div class="option-icon">👤</div>
+          <div class="option-title">Continue as Guest</div>
+          <div class="option-description">
+            Browse with limited access, no account needed
+          </div>
+          <button class="secondary-btn" id="guest-btn">Continue as Guest</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://vkp-consulting.fr';
+    const COGNITO_DOMAIN = 'vkp-auth.auth.eu-north-1.amazoncognito.com';
+    const CLIENT_ID = '77e2cmbthjul60ui7guh514u50';
+
+    function loginWithAccount() {
+      // Redirect to Cognito Hosted UI
+      const loginUrl = `https://${COGNITO_DOMAIN}/login?` +
+        `client_id=${CLIENT_ID}&` +
+        `response_type=code&` +
+        `scope=email+openid+profile&` +
+        `redirect_uri=${encodeURIComponent(API_BASE + '/callback.html')}`;
+      
+      window.location.href = loginUrl;
+    }
+
+    async function continueAsGuest() {
+      const loadingEl = document.getElementById('loading');
+      const optionsEl = document.getElementById('login-options');
+      const errorEl = document.getElementById('error-message');
+      const guestBtn = document.getElementById('guest-btn');
+
+      try {
+        // Disable button and show loading
+        guestBtn.disabled = true;
+        loadingEl.classList.add('active');
+        optionsEl.style.display = 'none';
+        errorEl.classList.remove('active');
+
+        // Call API to create guest user
+        const response = await fetch(`${API_BASE}/apiv2/public/create-guest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to create guest session');
+        }
+
+        const data = await response.json();
+        
+        // Store tokens in cookies
+        storeTokens(data.tokens);
+
+        // Redirect to app
+        window.location.href = '/';
+
+      } catch (error) {
+        console.error('Failed to create guest user:', error);
+        
+        // Show error
+        errorEl.textContent = `Error: ${error.message}. Please try again or sign in with an account.`;
+        errorEl.classList.add('active');
+        
+        // Reset UI
+        loadingEl.classList.remove('active');
+        optionsEl.style.display = 'block';
+        guestBtn.disabled = false;
+      }
+    }
+
+    function storeTokens(tokens) {
+      const expiresIn = tokens.expiresIn || 3600; // Default 1 hour
+      const expiresDate = new Date(Date.now() + expiresIn * 1000);
+
+      // Store ID token (used for authentication)
+      document.cookie = `idToken=${tokens.idToken}; path=/; expires=${expiresDate.toUTCString()}; secure; samesite=strict`;
+      
+      // Store access token (used for API calls)
+      document.cookie = `accessToken=${tokens.accessToken}; path=/; expires=${expiresDate.toUTCString()}; secure; samesite=strict`;
+      
+      // Store refresh token (used to get new tokens)
+      if (tokens.refreshToken) {
+        const refreshExpiresDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        document.cookie = `refreshToken=${tokens.refreshToken}; path=/; expires=${refreshExpiresDate.toUTCString()}; secure; samesite=strict`;
+      }
+    }
+
+    // Check if already logged in
+    function checkExistingAuth() {
+      const idToken = document.cookie.split('; ').find(row => row.startsWith('idToken='));
+      if (idToken) {
+        // Already logged in, redirect to app
+        window.location.href = '/';
+      }
+    }
+
+    // Check on page load
+    checkExistingAuth();
+  </script>
+</body>
+</html>
+

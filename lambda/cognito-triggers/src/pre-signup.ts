@@ -24,6 +24,8 @@ export const handler: PreSignUpTriggerHandler = async (event: PreSignUpTriggerEv
     const email = event.request.userAttributes.email;
     const userPoolId = event.userPoolId;
 
+    console.log('Pre-signup trigger invoked:', { email, displayName });
+
     // Note: Display name uniqueness check is disabled for now
     // Cognito doesn't support filtering on custom attributes via ListUsers
     // This can be implemented using a DynamoDB table to track display names
@@ -31,12 +33,18 @@ export const handler: PreSignUpTriggerHandler = async (event: PreSignUpTriggerEv
       console.log(`Display name provided: ${displayName}`);
     }
 
-    // Determine if this is a guest user (no email)
-    const isGuestUser = !email || email.trim() === '';
+    // Determine if this is a guest user (dummy email with @vkp.local domain)
+    const isGuestUser = email && (email.endsWith('@vkp.local') || email.endsWith('@guest.vkp'));
 
     if (isGuestUser) {
-      console.log('Guest user detected - auto-confirming');
-      // Auto-confirm guest users
+      console.log('Guest user detected (dummy email) - auto-confirming');
+      // Auto-confirm guest users with dummy emails
+      event.response.autoConfirmUser = true;
+      event.response.autoVerifyEmail = true;  // Mark as verified (no email sent)
+      event.response.autoVerifyPhone = false;
+    } else if (!email || email.trim() === '') {
+      console.log('No email provided - auto-confirming as anonymous guest');
+      // Fallback for users without email (shouldn't happen with current config)
       event.response.autoConfirmUser = true;
       event.response.autoVerifyEmail = false;
       event.response.autoVerifyPhone = false;
@@ -48,7 +56,10 @@ export const handler: PreSignUpTriggerHandler = async (event: PreSignUpTriggerEv
       event.response.autoVerifyPhone = false;
     }
 
-    console.log('Pre-signup validation successful');
+    console.log('Pre-signup validation successful', {
+      autoConfirmUser: event.response.autoConfirmUser,
+      autoVerifyEmail: event.response.autoVerifyEmail
+    });
     return event;
 
   } catch (error) {

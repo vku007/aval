@@ -28,6 +28,7 @@ import { EntityController } from './presentation/controllers/EntityController.js
 import { UserController } from './presentation/controllers/UserController.js';
 import { GameController } from './presentation/controllers/GameController.js';
 import { ExternalController } from './presentation/controllers/ExternalController.js';
+import { AuthController } from './presentation/controllers/AuthController.js';
 import { Router } from './presentation/routing/Router.js';
 import { corsMiddleware } from './presentation/middleware/cors.js';
 import { contentTypeMiddleware } from './presentation/middleware/contentType.js';
@@ -85,6 +86,7 @@ let entityController: EntityController<JsonEntity>;
 let userController: UserController;
 let gameController: GameController;
 let externalController: ExternalController;
+let authController: AuthController;
 
 // Build error handler
 const handleError = errorHandler(logger, config.cors.allowedOrigin);
@@ -99,10 +101,16 @@ function createRouter() {
     userController = new UserController(userService, logger);
     gameController = new GameController(gameService, logger);
     externalController = new ExternalController(userService, logger);
+    authController = new AuthController(logger);
     
     router = new Router()
       .use(corsMiddleware(config))
       .use(contentTypeMiddleware())
+      
+      // Public routes (no authentication required)
+      .post('/apiv2/public/create-guest', (req: HttpRequest) => authController.createGuestUser(req))
+      
+      // Apply authentication middleware for all other routes
       .use(authMiddleware()) // Add JWT authentication middleware
       
       // External routes (authenticated users, any role)

@@ -259,12 +259,12 @@ module "cognito" {
 
   # OAuth configuration
   callback_urls = [
-    "https://${var.domain_name}/callback",
-    "https://${var.domain_name}"
+    "https://${var.domain_name}/callback.html",
+    "https://${var.domain_name}/"
   ]
   logout_urls = [
-    "https://${var.domain_name}/logout",
-    "https://${var.domain_name}"
+    "https://${var.domain_name}/",
+    "https://${var.domain_name}/logout.html"
   ]
 
   # Google OAuth (optional)
