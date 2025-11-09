@@ -118,6 +118,47 @@ cd ../terraform
 terraform apply -target=module.lambda_api2.aws_lambda_function.main
 ```
 
+### Managing Cognito Users
+
+```bash
+# List all users
+../scripts/list-cognito-users.sh
+
+# Create test user
+../scripts/create-test-user.sh admin "Admin User" "SecurePass123!"
+
+# Reset user password
+../scripts/reset-user-password.sh user@example.com "NewPass123!"
+
+# Delete test users
+../scripts/delete-test-users.sh
+```
+
+### Updating Cognito Lambda Triggers
+
+```bash
+# Build trigger functions
+cd ../lambda/cognito-triggers
+npm ci
+npm run build
+npm run zip
+
+# Deploy via Terraform
+cd ../../terraform
+terraform apply \
+  -target='module.cognito[0].aws_lambda_function.pre_signup' \
+  -target='module.cognito[0].aws_lambda_function.post_confirmation' \
+  -target='module.cognito[0].aws_lambda_function.pre_token_generation'
+
+# Re-attach triggers to user pool (required after updates)
+aws cognito-idp update-user-pool \
+  --user-pool-id eu-north-1_OxGtXG08i \
+  --lambda-config \
+    PreSignUp=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-signup \
+    PostConfirmation=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-post-confirmation \
+    PreTokenGeneration=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-token-generation
+```
+
 ### Viewing Current State
 
 ```bash
@@ -199,6 +240,89 @@ terraform destroy
 - **Records**:
   - `vkp-consulting.fr` (A/AAAA) → CloudFront
   - `www.vkp-consulting.fr` (A/AAAA) → CloudFront
+
+### Cognito Authentication
+
+- **User Pool**: vkp-user-pool (eu-north-1_OxGtXG08i)
+- **Client ID**: 77e2cmbthjul60ui7guh514u50
+- **Domain**: vkp-auth.auth.eu-north-1.amazoncognito.com
+- **Groups**: admin, user, guest
+- **Lambda Triggers**: Pre-signup, Post-confirmation, Pre-token-generation
+  - ⚠️ **Note**: Triggers must be manually attached (see below)
+
+#### Attaching Cognito Lambda Triggers
+
+Due to Terraform circular dependency limitations, Lambda triggers must be manually attached after initial deployment.
+
+**Step 1: Get Lambda Function ARNs**
+
+```bash
+# Get trigger function ARNs
+aws lambda get-function --function-name vkp-cognito-pre-signup \
+  --query 'Configuration.FunctionArn' --output text
+
+aws lambda get-function --function-name vkp-cognito-post-confirmation \
+  --query 'Configuration.FunctionArn' --output text
+
+aws lambda get-function --function-name vkp-cognito-pre-token-generation \
+  --query 'Configuration.FunctionArn' --output text
+```
+
+**Step 2: Attach Triggers to User Pool**
+
+```bash
+# Attach all triggers at once
+aws cognito-idp update-user-pool \
+  --user-pool-id eu-north-1_OxGtXG08i \
+  --lambda-config \
+    PreSignUp=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-signup \
+    PostConfirmation=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-post-confirmation \
+    PreTokenGeneration=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-token-generation
+```
+
+**Step 3: Verify Attachment**
+
+```bash
+# Check if triggers are attached
+aws cognito-idp describe-user-pool \
+  --user-pool-id eu-north-1_OxGtXG08i \
+  --query 'UserPool.LambdaConfig' \
+  --output json
+```
+
+**Expected Output:**
+
+```json
+{
+  "PreSignUp": "arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-signup",
+  "PostConfirmation": "arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-post-confirmation",
+  "PreTokenGeneration": "arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-token-generation"
+}
+```
+
+**What Each Trigger Does:**
+
+1. **Pre-Signup** (`vkp-cognito-pre-signup`)
+   - Validates display name
+   - Auto-confirms guest users (no email)
+   - Requires email verification for regular users
+
+2. **Post-Confirmation** (`vkp-cognito-post-confirmation`)
+   - Assigns default group based on user type
+   - Guest users → `guest` group
+   - Regular users → `user` group
+   - Admins must be manually assigned
+
+3. **Pre-Token-Generation** (`vkp-cognito-pre-token-generation`)
+   - Adds custom claims to JWT tokens
+   - Includes: role, display_name, email
+   - Based on group membership (admin > user > guest)
+
+**When to Re-attach:**
+
+- After initial Cognito deployment
+- After updating Lambda trigger code
+- If authentication stops working (triggers may have been detached)
 
 ## 🔧 Configuration
 
@@ -292,6 +416,19 @@ aws lambda update-function-code \
   --function-name vkp-api2-service \
   --zip-file fileb://../apiv2/lambda.zip \
   --region eu-north-1
+```
+
+### Cognito Lambda Triggers Not Attached
+
+If Cognito authentication isn't working (users can't sign up, roles not assigned):
+
+```bash
+# Check if triggers are attached
+aws cognito-idp describe-user-pool \
+  --user-pool-id eu-north-1_OxGtXG08i \
+  --query 'UserPool.LambdaConfig'
+
+# If empty, attach triggers manually (see Cognito section below)
 ```
 
 ## 📚 Additional Resources
