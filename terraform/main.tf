@@ -165,6 +165,30 @@ module "lambda_api2" {
   tags = local.common_tags
 }
 
+# IAM policy for Lambda to create Cognito guest users
+resource "aws_iam_role_policy" "lambda_cognito_access" {
+  count = var.enable_cognito_auth ? 1 : 0
+
+  name = "CognitoGuestUserAccess"
+  role = module.lambda_api2.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:InitiateAuth"
+        ]
+        Resource = module.cognito[0].user_pool_arn
+      }
+    ]
+  })
+}
+
 # Legacy/Alternative API (vkp-simple-service)
 module "lambda_simple" {
   source = "./modules/lambda-function"

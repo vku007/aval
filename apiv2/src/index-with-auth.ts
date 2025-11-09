@@ -103,6 +103,10 @@ function createRouter() {
     externalController = new ExternalController(userService, logger);
     authController = new AuthController(logger);
     
+    // Helper to combine auth + role middleware
+    const adminOnly = () => [authMiddleware(), requireRole('admin')];
+    const authenticated = () => [authMiddleware()];
+    
     router = new Router()
       .use(corsMiddleware(config))
       .use(contentTypeMiddleware())
@@ -110,42 +114,39 @@ function createRouter() {
       // Public routes (no authentication required)
       .post('/apiv2/public/create-guest', (req: HttpRequest) => authController.createGuestUser(req))
       
-      // Apply authentication middleware for all other routes
-      .use(authMiddleware()) // Add JWT authentication middleware
-      
       // External routes (authenticated users, any role)
-      .get('/apiv2/external/me', (req: HttpRequest) => externalController.getMe(req))
+      .get('/apiv2/external/me', ...authenticated(), (req: HttpRequest) => externalController.getMe(req))
       
       // Admin-only routes (/internal/* endpoints)
-      .get('/apiv2/internal/files', requireRole('admin'), (req: HttpRequest) => entityController.list(req))
-      .get('/apiv2/internal/files/:id/meta', requireRole('admin'), (req: HttpRequest) => entityController.getMeta(req))
-      .get('/apiv2/internal/files/:id', requireRole('admin'), (req: HttpRequest) => entityController.get(req))
-      .post('/apiv2/internal/files', requireRole('admin'), (req: HttpRequest) => entityController.create(req))
-      .put('/apiv2/internal/files/:id', requireRole('admin'), (req: HttpRequest) => entityController.update(req))
-      .patch('/apiv2/internal/files/:id', requireRole('admin'), (req: HttpRequest) => entityController.patch(req))
-      .delete('/apiv2/internal/files/:id', requireRole('admin'), (req: HttpRequest) => entityController.delete(req))
+      .get('/apiv2/internal/files', ...adminOnly(), (req: HttpRequest) => entityController.list(req))
+      .get('/apiv2/internal/files/:id/meta', ...adminOnly(), (req: HttpRequest) => entityController.getMeta(req))
+      .get('/apiv2/internal/files/:id', ...adminOnly(), (req: HttpRequest) => entityController.get(req))
+      .post('/apiv2/internal/files', ...adminOnly(), (req: HttpRequest) => entityController.create(req))
+      .put('/apiv2/internal/files/:id', ...adminOnly(), (req: HttpRequest) => entityController.update(req))
+      .patch('/apiv2/internal/files/:id', ...adminOnly(), (req: HttpRequest) => entityController.patch(req))
+      .delete('/apiv2/internal/files/:id', ...adminOnly(), (req: HttpRequest) => entityController.delete(req))
       
-      .get('/apiv2/internal/users', requireRole('admin'), (req: HttpRequest) => userController.list(req))
-      .get('/apiv2/internal/users/:id/meta', requireRole('admin'), (req: HttpRequest) => userController.getMeta(req))
-      .get('/apiv2/internal/users/:id', requireRole('admin'), (req: HttpRequest) => userController.get(req))
-      .post('/apiv2/internal/users', requireRole('admin'), (req: HttpRequest) => userController.create(req))
-      .put('/apiv2/internal/users/:id', requireRole('admin'), (req: HttpRequest) => userController.update(req))
-      .patch('/apiv2/internal/users/:id', requireRole('admin'), (req: HttpRequest) => userController.patch(req))
-      .delete('/apiv2/internal/users/:id', requireRole('admin'), (req: HttpRequest) => userController.delete(req))
+      .get('/apiv2/internal/users', ...adminOnly(), (req: HttpRequest) => userController.list(req))
+      .get('/apiv2/internal/users/:id/meta', ...adminOnly(), (req: HttpRequest) => userController.getMeta(req))
+      .get('/apiv2/internal/users/:id', ...adminOnly(), (req: HttpRequest) => userController.get(req))
+      .post('/apiv2/internal/users', ...adminOnly(), (req: HttpRequest) => userController.create(req))
+      .put('/apiv2/internal/users/:id', ...adminOnly(), (req: HttpRequest) => userController.update(req))
+      .patch('/apiv2/internal/users/:id', ...adminOnly(), (req: HttpRequest) => userController.patch(req))
+      .delete('/apiv2/internal/users/:id', ...adminOnly(), (req: HttpRequest) => userController.delete(req))
       
-      .get('/apiv2/internal/games', requireRole('admin'), (req: HttpRequest) => gameController.list(req))
-      .get('/apiv2/internal/games/:id/meta', requireRole('admin'), (req: HttpRequest) => gameController.getMeta(req))
-      .get('/apiv2/internal/games/:id', requireRole('admin'), (req: HttpRequest) => gameController.get(req))
-      .post('/apiv2/internal/games', requireRole('admin'), (req: HttpRequest) => gameController.create(req))
-      .put('/apiv2/internal/games/:id', requireRole('admin'), (req: HttpRequest) => gameController.update(req))
-      .patch('/apiv2/internal/games/:id', requireRole('admin'), (req: HttpRequest) => gameController.patch(req))
-      .delete('/apiv2/internal/games/:id', requireRole('admin'), (req: HttpRequest) => gameController.delete(req))
+      .get('/apiv2/internal/games', ...adminOnly(), (req: HttpRequest) => gameController.list(req))
+      .get('/apiv2/internal/games/:id/meta', ...adminOnly(), (req: HttpRequest) => gameController.getMeta(req))
+      .get('/apiv2/internal/games/:id', ...adminOnly(), (req: HttpRequest) => gameController.get(req))
+      .post('/apiv2/internal/games', ...adminOnly(), (req: HttpRequest) => gameController.create(req))
+      .put('/apiv2/internal/games/:id', ...adminOnly(), (req: HttpRequest) => gameController.update(req))
+      .patch('/apiv2/internal/games/:id', ...adminOnly(), (req: HttpRequest) => gameController.patch(req))
+      .delete('/apiv2/internal/games/:id', ...adminOnly(), (req: HttpRequest) => gameController.delete(req))
       
       // Game-specific operations (admin only)
-      .post('/apiv2/internal/games/:id/rounds', requireRole('admin'), (req: HttpRequest) => gameController.addRound(req))
-      .post('/apiv2/internal/games/:gameId/rounds/:roundId/moves', requireRole('admin'), (req: HttpRequest) => gameController.addMove(req))
-      .patch('/apiv2/internal/games/:gameId/rounds/:roundId/finish', requireRole('admin'), (req: HttpRequest) => gameController.finishRound(req))
-      .patch('/apiv2/internal/games/:id/finish', requireRole('admin'), (req: HttpRequest) => gameController.finishGame(req));
+      .post('/apiv2/internal/games/:id/rounds', ...adminOnly(), (req: HttpRequest) => gameController.addRound(req))
+      .post('/apiv2/internal/games/:gameId/rounds/:roundId/moves', ...adminOnly(), (req: HttpRequest) => gameController.addMove(req))
+      .patch('/apiv2/internal/games/:gameId/rounds/:roundId/finish', ...adminOnly(), (req: HttpRequest) => gameController.finishRound(req))
+      .patch('/apiv2/internal/games/:id/finish', ...adminOnly(), (req: HttpRequest) => gameController.finishGame(req));
   }
   return router;
 }

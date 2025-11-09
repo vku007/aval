@@ -103,6 +103,13 @@ resource "aws_cognito_user_pool_client" "web_client" {
   allowed_oauth_flows                  = ["code", "implicit"]
   allowed_oauth_scopes                 = ["email", "openid", "profile", "aws.cognito.signin.user.admin"]
 
+  # Explicit auth flows (required for guest user creation via API)
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_SRP_AUTH"
+  ]
+
   # Callback and logout URLs
   callback_urls = var.callback_urls
   logout_urls   = var.logout_urls
