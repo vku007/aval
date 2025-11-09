@@ -27,6 +27,7 @@ import { GameService } from './application/services/GameService.js';
 import { EntityController } from './presentation/controllers/EntityController.js';
 import { UserController } from './presentation/controllers/UserController.js';
 import { GameController } from './presentation/controllers/GameController.js';
+import { ExternalController } from './presentation/controllers/ExternalController.js';
 import { Router } from './presentation/routing/Router.js';
 import { corsMiddleware } from './presentation/middleware/cors.js';
 import { contentTypeMiddleware } from './presentation/middleware/contentType.js';
@@ -83,6 +84,7 @@ function initializeServices() {
 let entityController: EntityController<JsonEntity>;
 let userController: UserController;
 let gameController: GameController;
+let externalController: ExternalController;
 
 // Build error handler
 const handleError = errorHandler(logger, config.cors.allowedOrigin);
@@ -96,11 +98,15 @@ function createRouter() {
     entityController = new EntityController(entityService, logger);
     userController = new UserController(userService, logger);
     gameController = new GameController(gameService, logger);
+    externalController = new ExternalController(userService, logger);
     
     router = new Router()
       .use(corsMiddleware(config))
       .use(contentTypeMiddleware())
       .use(authMiddleware()) // Add JWT authentication middleware
+      
+      // External routes (authenticated users, any role)
+      .get('/apiv2/external/me', (req: HttpRequest) => externalController.getMe(req))
       
       // Admin-only routes (/internal/* endpoints)
       .get('/apiv2/internal/files', requireRole('admin'), (req: HttpRequest) => entityController.list(req))

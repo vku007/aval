@@ -9,6 +9,12 @@ export interface HttpRequest {
   params: Record<string, string>;
   body?: unknown;
   requestId: string;
+  user?: {
+    userId: string;
+    email?: string;
+    role?: string;
+    groups?: string[];
+  };
 }
 
 /**

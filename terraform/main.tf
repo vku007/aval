@@ -141,14 +141,21 @@ module "lambda_api2" {
   memory_size      = 128
   log_retention_days = 7
 
-  environment_variables = {
-    APP_TAG        = "vkp-api"
-    MAX_BODY_BYTES = tostring(var.max_body_bytes)
-    JSON_PREFIX    = var.json_prefix
-    ENVIRONMENT    = var.environment
-    BUCKET_NAME    = var.api_data_bucket_name
-    CORS_ORIGIN    = "https://${var.domain_name}"
-  }
+  environment_variables = merge(
+    {
+      APP_TAG        = "vkp-api"
+      MAX_BODY_BYTES = tostring(var.max_body_bytes)
+      JSON_PREFIX    = var.json_prefix
+      ENVIRONMENT    = var.environment
+      BUCKET_NAME    = var.api_data_bucket_name
+      CORS_ORIGIN    = "https://${var.domain_name}"
+    },
+    var.enable_cognito_auth ? {
+      USER_POOL_ID = module.cognito[0].user_pool_id
+      REGION       = var.aws_region
+      CLIENT_ID    = module.cognito[0].user_pool_client_id
+    } : {}
+  )
 
   s3_bucket_name = var.api_data_bucket_name
   s3_prefix      = var.json_prefix

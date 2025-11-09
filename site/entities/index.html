@@ -555,6 +555,14 @@
               window.location.href = loginUrl;
             }
           }
+          
+          // If forbidden, show access denied message
+          if (res.status === 403) {
+            alert('Access Denied: You do not have permission to access this resource. Admin role required for Entity Manager.');
+            window.location.href = '/';
+            throw new Error('Access denied - Admin role required');
+          }
+          
           throw new Error(data.detail || data.title || `HTTP ${res.status}`);
         }
         

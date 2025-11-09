@@ -39,7 +39,8 @@ function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
  */
 export interface AuthenticatedRequest extends HttpRequest {
   user?: {
-    sub: string;
+    userId: string;  // Primary user ID (from sub claim)
+    sub: string;     // Cognito sub claim (same as userId)
     email?: string;
     role: string;
     display_name: string;
@@ -97,10 +98,11 @@ export function authMiddleware() {
       // Extract user information from token
       const authRequest = request as AuthenticatedRequest;
       authRequest.user = {
+        userId: decoded.sub,  // Map 'sub' claim to 'userId'
         sub: decoded.sub,
         email: decoded.email || '',
-        role: decoded.role || 'guest',
-        display_name: decoded.display_name || 'Anonymous',
+        role: decoded['custom:role'] || decoded.role || 'guest',  // Check custom:role first
+        display_name: decoded['custom:display_name'] || decoded.display_name || 'Anonymous',
         groups: decoded['cognito:groups'] || [],
       };
 
@@ -131,10 +133,11 @@ export function optionalAuthMiddleware() {
         const decoded = await verifyToken(token);
         const authRequest = request as AuthenticatedRequest;
         authRequest.user = {
+          userId: decoded.sub,  // Map 'sub' claim to 'userId'
           sub: decoded.sub,
           email: decoded.email || '',
-          role: decoded.role || 'guest',
-          display_name: decoded.display_name || 'Anonymous',
+          role: decoded['custom:role'] || decoded.role || 'guest',  // Check custom:role first
+          display_name: decoded['custom:display_name'] || decoded.display_name || 'Anonymous',
           groups: decoded['cognito:groups'] || [],
         };
       } catch (error) {

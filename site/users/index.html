@@ -555,6 +555,14 @@
             if (confirm('Authentication required. Redirect to login?')) {
               window.location.href = loginUrl;
             }
+            throw new Error('Authentication required');
+          }
+          
+          // If forbidden, show access denied message
+          if (response.status === 403) {
+            alert('Access Denied: You do not have permission to access this resource. Admin role required for User Manager.');
+            window.location.href = '/';
+            throw new Error('Access denied - Admin role required');
           }
           
           const errorText = await response.text();

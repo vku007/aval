@@ -27,3 +27,4 @@ This is a production AWS infrastructure with managed resources:
 - Update documentation when changing APIs
 - Invalidate CloudFront cache after static site updates
 - Use ETag headers for all PUT/PATCH operations
+- put all plans into ./apiv2/plans folder
