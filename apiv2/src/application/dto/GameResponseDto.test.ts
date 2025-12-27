@@ -1,40 +1,47 @@
 import { describe, it, expect } from 'vitest';
 import { GameResponseDto, RoundResponseDto, MoveResponseDto } from './GameResponseDto.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
+import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
-import { Move } from '../../domain/value-object/Move.js';
+import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
+import { SubRound } from '../../domain/value-object/SubRound.js';
+import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 
 describe('GameResponseDto', () => {
   describe('fromGameEntity', () => {
     it('should create response DTO from game entity', () => {
-      const gameEntity = new GameEntity('game-1', 'tournament', ['user-1', 'user-2'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], false);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
       expect(responseDto.id).toBe('game-1');
-      expect(responseDto.type).toBe('tournament');
+      expect(responseDto.type).toBe(GameTypeLength.BO3);
       expect(responseDto.usersIds).toEqual(['user-1', 'user-2']);
       expect(responseDto.rounds).toEqual([]);
       expect(responseDto.isFinished).toBe(false);
     });
 
     it('should create response DTO with rounds and moves', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
-      const round = new Round('round-1', [move], true, Date.now());
-      const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [round], true);
+      const context = new MoveContext(MoveType.Stone, 10, 1);
+      const move = new Move('user-1', context, Date.now());
+      const startTime = Date.now();
+      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
+      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], true);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
       expect(responseDto.rounds).toHaveLength(1);
       expect(responseDto.rounds[0].id).toBe('round-1');
       expect(responseDto.rounds[0].moves).toHaveLength(1);
-      expect(responseDto.rounds[0].moves[0].id).toBe('move-1');
+      expect(responseDto.rounds[0].moves[0].userId).toBe('user-1');
+      expect(responseDto.rounds[0].isFinished).toBe(true);
       expect(responseDto.isFinished).toBe(true);
     });
 
     it('should include etag and metadata', () => {
       const metadata = { size: 100, lastModified: new Date().toISOString() };
-      const gameEntity = new GameEntity('game-1', 'tournament', ['user-1'], [], false, 'etag-123', metadata);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false, 'etag-123', metadata);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -45,24 +52,29 @@ describe('GameResponseDto', () => {
 
   describe('toJSON', () => {
     it('should convert to JSON', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
-      const round = new Round('round-1', [move], true, Date.now());
-      const gameEntity = new GameEntity('game-1', 'tournament', ['user-1', 'user-2'], [round], true);
+      const context = new MoveContext(MoveType.Stone, 10, 1);
+      const move = new Move('user-1', context, Date.now());
+      const startTime = Date.now();
+      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
+      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round], true);
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
       const json = responseDto.toJSON();
       
       expect(json).toEqual({
         id: 'game-1',
-        type: 'tournament',
+        type: GameTypeLength.BO3,
         usersIds: ['user-1', 'user-2'],
         rounds: [{
           id: 'round-1',
           moves: [{
-            id: 'move-1',
             userId: 'user-1',
-            value: 10,
-            valueDecorated: 'ten',
+            context: {
+              moveType: MoveType.Stone,
+              size: 10,
+              decorId: 1
+            },
             time: expect.any(Number)
           }],
           isFinished: true
@@ -78,22 +90,28 @@ describe('GameResponseDto', () => {
 describe('RoundResponseDto', () => {
   describe('fromRound', () => {
     it('should create response DTO from round', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
-      const round = new Round('round-1', [move], true, Date.now());
+      const context = new MoveContext(MoveType.Stone, 10, 1);
+      const move = new Move('user-1', context, Date.now());
+      const startTime = Date.now();
+      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
+      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
       
       const responseDto = RoundResponseDto.fromRound(round);
       
       expect(responseDto.id).toBe('round-1');
       expect(responseDto.moves).toHaveLength(1);
-      expect(responseDto.moves[0].id).toBe('move-1');
+      expect(responseDto.moves[0].userId).toBe('user-1');
       expect(responseDto.isFinished).toBe(true);
     });
   });
 
   describe('toJSON', () => {
     it('should convert to JSON', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
-      const round = new Round('round-1', [move], true, Date.now());
+      const context = new MoveContext(MoveType.Stone, 10, 1);
+      const move = new Move('user-1', context, Date.now());
+      const startTime = Date.now();
+      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
+      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
       const responseDto = RoundResponseDto.fromRound(round);
       
       const json = responseDto.toJSON();
@@ -101,10 +119,12 @@ describe('RoundResponseDto', () => {
       expect(json).toEqual({
         id: 'round-1',
         moves: [{
-          id: 'move-1',
           userId: 'user-1',
-          value: 10,
-          valueDecorated: 'ten',
+          context: {
+            moveType: MoveType.Stone,
+            size: 10,
+            decorId: 1
+          },
           time: expect.any(Number)
         }],
         isFinished: true
@@ -116,29 +136,33 @@ describe('RoundResponseDto', () => {
 describe('MoveResponseDto', () => {
   describe('fromMove', () => {
     it('should create response DTO from move', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
+      const context = new MoveContext(MoveType.Stone, 10, 1);
+      const move = new Move('user-1', context, Date.now());
       
       const responseDto = MoveResponseDto.fromMove(move);
       
-      expect(responseDto.id).toBe('move-1');
       expect(responseDto.userId).toBe('user-1');
-      expect(responseDto.value).toBe(10);
-      expect(responseDto.valueDecorated).toBe('ten');
+      expect(responseDto.context.moveType).toBe(MoveType.Stone);
+      expect(responseDto.context.size).toBe(10);
+      expect(responseDto.context.decorId).toBe(1);
     });
   });
 
   describe('toJSON', () => {
     it('should convert to JSON', () => {
-      const move = new Move('move-1', 'user-1', 10, 'ten', Date.now());
+      const context = new MoveContext(MoveType.Stone, 10, 1);
+      const move = new Move('user-1', context, Date.now());
       const responseDto = MoveResponseDto.fromMove(move);
       
       const json = responseDto.toJSON();
       
       expect(json).toEqual({
-        id: 'move-1',
         userId: 'user-1',
-        value: 10,
-        valueDecorated: 'ten',
+        context: {
+          moveType: MoveType.Stone,
+          size: 10,
+          decorId: 1
+        },
         time: expect.any(Number)
       });
     });

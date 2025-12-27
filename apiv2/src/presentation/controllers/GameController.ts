@@ -201,13 +201,34 @@ export class GameController {
     try {
       const roundData = request.body as any;
       const { Round } = await import('../../domain/value-object/Round.js');
-      const { Move } = await import('../../domain/value-object/Move.js');
+      const { RoundStatus } = await import('../../domain/value-object/RoundStatus.js');
+      const { SubRound } = await import('../../domain/value-object/SubRound.js');
+      const { Move, MoveContext, MoveType } = await import('../../domain/value-object/Move.js');
       
-      const moves = roundData.moves?.map((moveData: any) => 
-        new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now())
-      ) || [];
+      const moves = roundData.moves?.map((moveData: any) => {
+        const context = new MoveContext(
+          (moveData.context?.moveType || 'Stone') as any,
+          moveData.context?.size || 0,
+          moveData.context?.decorId || 0
+        );
+        return new Move(moveData.userId, context, moveData.time || Date.now());
+      }) || [];
       
-      const round = new Round(roundData.id, moves, roundData.isFinished || false, roundData.time || Date.now());
+      const startTime = roundData.startTime || Date.now();
+      const endTime = roundData.endTime || startTime;
+      // Wrap moves in a SubRound for compatibility with new Round structure
+      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const status = roundData.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
+      const winnerId = roundData.winnerId !== undefined ? String(roundData.winnerId) : undefined;
+      
+      const round = new Round(
+        roundData.id, 
+        [subRound], 
+        status, 
+        startTime,
+        winnerId,
+        roundData.endTime
+      );
       const gameDto = await this.gameService.addRoundToGame(gameId, round, ifMatch);
       const metadata = await this.gameService.getGameMetadata(gameId);
       
@@ -244,9 +265,14 @@ export class GameController {
 
     try {
       const moveData = request.body as any;
-      const { Move } = await import('../../domain/value-object/Move.js');
+      const { Move, MoveContext, MoveType } = await import('../../domain/value-object/Move.js');
       
-      const move = new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now());
+      const context = new MoveContext(
+        (moveData.context?.moveType || 'Stone') as any,
+        moveData.context?.size || 0,
+        moveData.context?.decorId || 0
+      );
+      const move = new Move(moveData.userId, context, moveData.time || Date.now());
       const gameDto = await this.gameService.addMoveToGameRound(gameId, roundId, move, ifMatch);
       const metadata = await this.gameService.getGameMetadata(gameId);
       

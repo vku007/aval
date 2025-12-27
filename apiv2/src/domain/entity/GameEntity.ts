@@ -1,13 +1,15 @@
 import { ValidationError } from '../../shared/errors/index.js';
 import { JsonEntity } from './JsonEntity.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
-import { Game } from './Game.js';
+import { Game, GameTypeLength } from './Game.js';
 import { Round } from '../value-object/Round.js';
-import { Move } from '../value-object/Move.js';
+import { RoundStatus } from '../value-object/RoundStatus.js';
+import { SubRound } from '../value-object/SubRound.js';
+import { Move, MoveContext, MoveType } from '../value-object/Move.js';
 
 // Define the data structure for better type safety
 interface GameData {
-  type: string;
+  type: GameTypeLength;
   usersIds: string[];
   rounds: RoundData[];
   isFinished: boolean;
@@ -15,16 +17,28 @@ interface GameData {
 
 interface RoundData {
   id: string;
+  subRounds: SubRoundData[];
+  status: string;
+  startTime: number;
+  winnerId?: string;
+  endTime?: number;
+}
+
+interface SubRoundData {
+  idNum: number;
   moves: MoveData[];
-  isFinished: boolean;
-  time: number;
+  startAt: number;
+  finishedAt: number;
+  updatedAt: number;
 }
 
 interface MoveData {
-  id: string;
   userId: string;
-  value: number;
-  valueDecorated: string;
+  context: {
+    moveType: string;
+    size: number;
+    decorId: number;
+  };
   time?: number;
 }
 
@@ -33,7 +47,7 @@ export class GameEntity {
 
   constructor(
     id: string,
-    type: string,
+    type: GameTypeLength,
     usersIds: string[],
     rounds: Round[],
     isFinished: boolean,
@@ -59,7 +73,7 @@ export class GameEntity {
     return this._backed.id;
   }
 
-  get type(): string {
+  get type(): GameTypeLength {
     return this.getGameData().type;
   }
 
@@ -107,7 +121,7 @@ export class GameEntity {
   // Factory method
   static create(
     id: string, 
-    type: string, 
+    type: GameTypeLength, 
     usersIds: string[], 
     rounds: Round[], 
     isFinished: boolean, 
@@ -196,29 +210,62 @@ export class GameEntity {
   private roundToData(round: Round): RoundData {
     return {
       id: round.id,
-      moves: round.moves.map(move => this.moveToData(move)),
-      isFinished: round.isFinished,
-      time: round.time
+      subRounds: round.subRounds.map(subRound => this.subRoundToData(subRound)),
+      status: round.status,
+      startTime: round.startTime,
+      winnerId: round.winnerId,
+      endTime: round.endTime
     };
   }
 
   private dataToRound(roundData: RoundData): Round {
-    const moves = roundData.moves.map(moveData => this.dataToMove(moveData));
-    return new Round(roundData.id, moves, roundData.isFinished, roundData.time);
+    const subRounds = roundData.subRounds.map(subRoundData => this.dataToSubRound(subRoundData));
+    return new Round(
+      roundData.id, 
+      subRounds, 
+      roundData.status as RoundStatus, 
+      roundData.startTime,
+      roundData.winnerId,
+      roundData.endTime
+    );
+  }
+
+  private subRoundToData(subRound: SubRound): SubRoundData {
+    return {
+      idNum: subRound.idNum,
+      moves: subRound.moves.map(move => this.moveToData(move)),
+      startAt: subRound.startAt,
+      finishedAt: subRound.finishedAt,
+      updatedAt: subRound.updatedAt
+    };
+  }
+
+  private dataToSubRound(subRoundData: SubRoundData): SubRound {
+    const moves = subRoundData.moves.map(moveData => this.dataToMove(moveData));
+    return new SubRound(
+      subRoundData.idNum,
+      moves,
+      subRoundData.startAt,
+      subRoundData.finishedAt,
+      subRoundData.updatedAt
+    );
   }
 
   private moveToData(move: Move): MoveData {
     return {
-      id: move.id,
       userId: move.userId,
-      value: move.value,
-      valueDecorated: move.valueDecorated,
+      context: move.context.toJSON() as { moveType: string; size: number; decorId: number },
       time: move.time
     };
   }
 
   private dataToMove(moveData: MoveData): Move {
-    return new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now());
+    const context = new MoveContext(
+      moveData.context.moveType as MoveType,
+      moveData.context.size,
+      moveData.context.decorId
+    );
+    return new Move(moveData.userId, context, moveData.time || Date.now());
   }
 
   // JSON serialization
@@ -245,6 +292,10 @@ export class GameEntity {
       throw new ValidationError('Game entity type is required and must be a string');
     }
 
+    if (!Object.values(GameTypeLength).includes(data.type as GameTypeLength)) {
+      throw new ValidationError(`Invalid game type: ${data.type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
+    }
+
     if (!Array.isArray(data.usersIds)) {
       throw new ValidationError('Game entity usersIds must be an array');
     }
@@ -258,7 +309,7 @@ export class GameEntity {
     }
 
     const rounds = data.rounds.map((roundData: any) => Round.fromJSON(roundData));
-    return new GameEntity(data.id, data.type, data.usersIds, rounds, data.isFinished);
+    return new GameEntity(data.id, data.type as GameTypeLength, data.usersIds, rounds, data.isFinished);
   }
 
   // Validation methods
@@ -279,24 +330,20 @@ export class GameEntity {
     }
   }
 
-  private validateGameData(type: string, usersIds: string[], rounds: Round[], isFinished: boolean): void {
+  private validateGameData(type: GameTypeLength, usersIds: string[], rounds: Round[], isFinished: boolean): void {
     this.validateType(type);
     this.validateUsersIds(usersIds);
     this.validateRounds(rounds);
     this.validateIsFinished(isFinished);
   }
 
-  private validateType(type: string): void {
-    if (!type || typeof type !== 'string') {
-      throw new ValidationError('Game type is required and must be a string');
+  private validateType(type: GameTypeLength): void {
+    if (!type) {
+      throw new ValidationError('Game type is required');
     }
 
-    if (type.trim().length === 0) {
-      throw new ValidationError('Game type cannot be empty');
-    }
-
-    if (type.length > 100) {
-      throw new ValidationError('Game type must be 100 characters or less');
+    if (!Object.values(GameTypeLength).includes(type)) {
+      throw new ValidationError(`Invalid game type: ${type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
     }
   }
 

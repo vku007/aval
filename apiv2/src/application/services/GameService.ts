@@ -1,6 +1,9 @@
 import { GameEntity } from '../../domain/entity/GameEntity.js';
+import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
-import { Move } from '../../domain/value-object/Move.js';
+import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
+import { SubRound } from '../../domain/value-object/SubRound.js';
+import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { CreateGameDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { GameResponseDto } from '../dto/GameResponseDto.js';
@@ -53,17 +56,36 @@ export class GameService {
     });
 
     // Convert DTO rounds to Round objects
+    // Note: Legacy DTOs have moves directly in rounds. We wrap them in a SubRound for compatibility.
     const rounds = dto.rounds.map(roundDto => {
-      const moves = roundDto.moves.map(moveDto => 
-        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated, moveDto.time || Date.now())
+      const moves = roundDto.moves.map(moveDto => {
+        const context = new MoveContext(
+          moveDto.context.moveType as MoveType,
+          moveDto.context.size,
+          moveDto.context.decorId
+        );
+        return new Move(moveDto.userId, context, moveDto.time || Date.now());
+      });
+      const startTime = roundDto.startTime || Date.now();
+      const endTime = roundDto.endTime || startTime;
+      // Create a single SubRound containing all moves (migration approach)
+      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const status = roundDto.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
+      const winnerId = roundDto.winnerId !== undefined ? String(roundDto.winnerId) : undefined;
+      return new Round(
+        roundDto.id, 
+        [subRound], 
+        status, 
+        startTime,
+        winnerId,
+        roundDto.endTime
       );
-      return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     });
 
     // Create domain entity (will validate)
     const gameEntity = new GameEntity(
       dto.id, 
-      dto.type, 
+      dto.type as GameTypeLength, 
       dto.usersIds, 
       rounds, 
       dto.isFinished
@@ -248,17 +270,36 @@ export class GameService {
   // Helper methods
   private mergeGameData(existingGame: GameEntity, dto: UpdateGameDto): GameEntity {
     // Convert DTO rounds to Round objects if provided
+    // Note: Legacy DTOs have moves directly in rounds. We wrap them in a SubRound for compatibility.
     const rounds = dto.rounds ? dto.rounds.map(roundDto => {
-      const moves = roundDto.moves.map(moveDto => 
-        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated, moveDto.time || Date.now())
+      const moves = roundDto.moves.map(moveDto => {
+        const context = new MoveContext(
+          moveDto.context.moveType as MoveType,
+          moveDto.context.size,
+          moveDto.context.decorId
+        );
+        return new Move(moveDto.userId, context, moveDto.time || Date.now());
+      });
+      const startTime = roundDto.startTime || Date.now();
+      const endTime = roundDto.endTime || startTime;
+      // Create a single SubRound containing all moves (migration approach)
+      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const status = roundDto.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
+      const winnerId = roundDto.winnerId !== undefined ? String(roundDto.winnerId) : undefined;
+      return new Round(
+        roundDto.id, 
+        [subRound], 
+        status, 
+        startTime,
+        winnerId,
+        roundDto.endTime
       );
-      return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     }) : existingGame.rounds;
 
     // Create new game entity with merged data
     return new GameEntity(
       existingGame.id,
-      dto.type ?? existingGame.type,
+      (dto.type as GameTypeLength | undefined) ?? existingGame.type,
       dto.usersIds ?? existingGame.usersIds,
       rounds,
       dto.isFinished ?? existingGame.isFinished,
@@ -274,17 +315,36 @@ export class GameService {
     }
 
     // Convert DTO rounds to Round objects
+    // Note: Legacy DTOs have moves directly in rounds. We wrap them in a SubRound for compatibility.
     const rounds = dto.rounds.map(roundDto => {
-      const moves = roundDto.moves.map(moveDto => 
-        new Move(moveDto.id, moveDto.userId, moveDto.value, moveDto.valueDecorated, moveDto.time || Date.now())
+      const moves = roundDto.moves.map(moveDto => {
+        const context = new MoveContext(
+          moveDto.context.moveType as MoveType,
+          moveDto.context.size,
+          moveDto.context.decorId
+        );
+        return new Move(moveDto.userId, context, moveDto.time || Date.now());
+      });
+      const startTime = roundDto.startTime || Date.now();
+      const endTime = roundDto.endTime || startTime;
+      // Create a single SubRound containing all moves (migration approach)
+      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const status = roundDto.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
+      const winnerId = roundDto.winnerId !== undefined ? String(roundDto.winnerId) : undefined;
+      return new Round(
+        roundDto.id, 
+        [subRound], 
+        status, 
+        startTime,
+        winnerId,
+        roundDto.endTime
       );
-      return new Round(roundDto.id, moves, roundDto.isFinished, roundDto.time);
     });
 
     // Create new game entity with replaced data
     return new GameEntity(
       existingGame.id,
-      dto.type,
+      dto.type as GameTypeLength,
       dto.usersIds,
       rounds,
       dto.isFinished,

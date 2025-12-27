@@ -1,7 +1,10 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
+import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
-import { Move } from '../../domain/value-object/Move.js';
+import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
+import { SubRound } from '../../domain/value-object/SubRound.js';
+import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 import { IGameRepository } from '../../application/services/GameService.js';
 import { NotFoundError, ConflictError, PreconditionFailedError, NotModifiedError } from '../../shared/errors/index.js';
@@ -13,7 +16,7 @@ export class S3GameRepository implements IGameRepository {
   constructor(
     private readonly s3Client: S3Client,
     private readonly config: AppConfig,
-    private readonly gameFactory: (id: string, type: string, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => GameEntity
+    private readonly gameFactory: (id: string, type: GameTypeLength, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => GameEntity
   ) {
     this.gamePrefix = `${config.s3.prefix}games/`;
   }
@@ -40,7 +43,7 @@ export class S3GameRepository implements IGameRepository {
 
       // Read the body
       const body = await this.streamToBuffer(response.Body);
-      const data = JSON.parse(body.toString()) as { type: string; usersIds: string[]; rounds: any[]; isFinished: boolean };
+      const data = JSON.parse(body.toString()) as { type: GameTypeLength; usersIds: string[]; rounds: any[]; isFinished: boolean };
 
       // Create metadata
       const metadata: EntityMetadata = {
@@ -50,11 +53,59 @@ export class S3GameRepository implements IGameRepository {
       };
 
       // Convert rounds data to Round objects
+      // Handle both old format (moves) and new format (subRounds)
       const rounds = data.rounds.map(roundData => {
-          const moves = roundData.moves.map((moveData: { id: string; userId: string; value: number; valueDecorated: string; time?: number }) => 
-          new Move(moveData.id, moveData.userId, moveData.value, moveData.valueDecorated, moveData.time || Date.now())
+        let subRounds: SubRound[];
+        let status: RoundStatus;
+        let winnerId: string | undefined;
+        
+        if (roundData.subRounds) {
+          // New format with subRounds
+          subRounds = roundData.subRounds.map((subRoundData: any) => {
+            const moves = subRoundData.moves.map((moveData: any) => {
+              const context = new MoveContext(
+                moveData.context?.moveType as MoveType || MoveType.Stone,
+                moveData.context?.size || 0,
+                moveData.context?.decorId || 0
+              );
+              return new Move(moveData.userId, context, moveData.time || Date.now());
+            });
+            return new SubRound(
+              subRoundData.idNum,
+              moves,
+              subRoundData.startAt,
+              subRoundData.finishedAt,
+              subRoundData.updatedAt
+            );
+          });
+          status = roundData.status as RoundStatus || RoundStatus.Pending;
+          winnerId = roundData.winnerId;
+        } else {
+          // Legacy format: wrap moves in a SubRound
+          const moves = roundData.moves?.map((moveData: any) => {
+            const context = new MoveContext(
+              moveData.context?.moveType as MoveType || MoveType.Stone,
+              moveData.context?.size || 0,
+              moveData.context?.decorId || 0
+            );
+            return new Move(moveData.userId, context, moveData.time || Date.now());
+          }) || [];
+          const startTime = roundData.startTime || roundData.time || Date.now();
+          const endTime = roundData.endTime || startTime;
+          subRounds = [new SubRound(1, moves, startTime, endTime, startTime)];
+          status = roundData.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
+          winnerId = roundData.winnerId !== undefined ? String(roundData.winnerId) : undefined;
+        }
+        
+        const startTime = roundData.startTime || roundData.time || Date.now();
+        return new Round(
+          roundData.id, 
+          subRounds, 
+          status, 
+          startTime,
+          winnerId,
+          roundData.endTime
         );
-        return new Round(roundData.id, moves, roundData.isFinished, roundData.time || Date.now());
       });
 
       return this.gameFactory(id, data.type, data.usersIds, rounds, data.isFinished, response.ETag, metadata);

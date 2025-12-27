@@ -1,17 +1,115 @@
 import { ValidationError } from "../../shared/errors/index.js";
 
+export enum MoveType {
+    Stone = 'Stone',
+    Paper = 'Paper',
+    Scissors = 'Scissors'
+}
+
+export class  MoveContext {
+    constructor(
+        public readonly moveType: MoveType,
+        public readonly size: number,
+        public readonly decorId: number
+    ) {
+        this.validateMoveType(moveType);
+        this.validateSize(size);
+        this.validateDecorId(decorId);
+    }
+
+    /**
+     * Convert to JSON representation
+     */
+    toJSON(): object {
+        return {
+            moveType: this.moveType,
+            size: this.size,
+            decorId: this.decorId
+        };
+    }
+
+    /**
+     * Create a new MoveContext from JSON data
+     */
+    static fromJSON(data: any): MoveContext {
+        if (!data || typeof data !== 'object') {
+            throw new ValidationError('Invalid move context data: must be an object');
+        }
+
+        if (!data.moveType || typeof data.moveType !== 'string') {
+            throw new ValidationError('MoveContext moveType is required and must be a string');
+        }
+
+        if (!Object.values(MoveType).includes(data.moveType as MoveType)) {
+            throw new ValidationError(`Invalid moveType: ${data.moveType}. Must be one of: ${Object.values(MoveType).join(', ')}`);
+        }
+
+        if (typeof data.size !== 'number') {
+            throw new ValidationError('MoveContext size must be a number');
+        }
+
+        if (typeof data.decorId !== 'number') {
+            throw new ValidationError('MoveContext decorId must be a number');
+        }
+
+        return new MoveContext(data.moveType as MoveType, data.size, data.decorId);
+    }
+
+    private validateMoveType(moveType: MoveType): void {
+        if (!moveType) {
+            throw new ValidationError('MoveContext moveType is required');
+        }
+
+        if (!Object.values(MoveType).includes(moveType)) {
+            throw new ValidationError(`Invalid moveType: ${moveType}. Must be one of: ${Object.values(MoveType).join(', ')}`);
+        }
+    }
+
+    private validateSize(size: number): void {
+        if (typeof size !== 'number') {
+            throw new ValidationError('MoveContext size must be a number');
+        }
+
+        if (!Number.isFinite(size)) {
+            throw new ValidationError('MoveContext size must be a finite number');
+        }
+
+        if (!Number.isInteger(size)) {
+            throw new ValidationError('MoveContext size must be an integer');
+        }
+
+        if (size < 0) {
+            throw new ValidationError('MoveContext size must be a non-negative integer');
+        }
+    }
+
+    private validateDecorId(decorId: number): void {
+        if (typeof decorId !== 'number') {
+            throw new ValidationError('MoveContext decorId must be a number');
+        }
+
+        if (!Number.isFinite(decorId)) {
+            throw new ValidationError('MoveContext decorId must be a finite number');
+        }
+
+        if (!Number.isInteger(decorId)) {
+            throw new ValidationError('MoveContext decorId must be an integer');
+        }
+
+        if (decorId < 0) {
+            throw new ValidationError('MoveContext decorId must be a non-negative integer');
+        }
+    }
+}
+
 export class Move {
     constructor(
-        public readonly id: string,
         public readonly userId: string,
-        public readonly value: number,
-        public readonly valueDecorated: string,
+        public readonly context: MoveContext,
         public readonly time: number
     ) {
-        this.validateId(id);
         this.validateUserId(userId);
-        this.validateValue(value);
-        this.validateValueDecorated(valueDecorated);
+        this.validateContext(context);
         this.validateTime(time);
     }
 
@@ -20,10 +118,8 @@ export class Move {
      */
     toJSON(): object {
         return {
-            id: this.id,
             userId: this.userId,
-            value: this.value,
-            valueDecorated: this.valueDecorated,
+            context: this.context.toJSON(),
             time: this.time
         };
     }
@@ -36,44 +132,20 @@ export class Move {
             throw new ValidationError('Invalid move data: must be an object');
         }
 
-        if (!data.id || typeof data.id !== 'string') {
-            throw new ValidationError('Move ID is required and must be a string');
-        }
-
         if (!data.userId || typeof data.userId !== 'string') {
             throw new ValidationError('Move userId is required and must be a string');
         }
 
-        if (typeof data.value !== 'number') {
-            throw new ValidationError('Move value must be a number');
-        }
-
-        if (typeof data.valueDecorated !== 'string') {
-            throw new ValidationError('Move valueDecorated must be a string');
+        if (!data.context) {
+            throw new ValidationError('Move context is required');
         }
 
         if (typeof data.time !== 'number') {
             throw new ValidationError('Move time must be a number');
         }
 
-        return new Move(data.id, data.userId, data.value, data.valueDecorated, data.time);
-    }
-
-    private validateId(id: string): void {
-        if (!id || typeof id !== 'string') {
-            throw new ValidationError('Move ID is required and must be a string');
-        }
-
-        if (id.trim().length === 0) {
-            throw new ValidationError('Move ID cannot be empty');
-        }
-
-        // ID validation pattern: alphanumeric, dots, hyphens, underscores, 1-128 chars
-        if (!/^[a-zA-Z0-9._-]{1,128}$/.test(id)) {
-            throw new ValidationError(
-                `Invalid move id: ${id}. Must match pattern ^[a-zA-Z0-9._-]{1,128}$`
-            );
-        }
+        const context = MoveContext.fromJSON(data.context);
+        return new Move(data.userId, context, data.time);
     }
 
     private validateUserId(userId: string): void {
@@ -93,19 +165,9 @@ export class Move {
         }
     }
 
-    private validateValue(value: number): void {
-        if (typeof value !== 'number') {
-            throw new ValidationError('Move value must be a number');
-        }
-
-        if (!Number.isFinite(value)) {
-            throw new ValidationError('Move value must be a finite number');
-        }
-    }
-
-    private validateValueDecorated(valueDecorated: string): void {
-        if (!valueDecorated || typeof valueDecorated !== 'string') {
-            throw new ValidationError('Move valueDecorated is required and must be a string');
+    private validateContext(context: MoveContext): void {
+        if (!context || !(context instanceof MoveContext)) {
+            throw new ValidationError('Move context is required and must be a MoveContext instance');
         }
     }
 

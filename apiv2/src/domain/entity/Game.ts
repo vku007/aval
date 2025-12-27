@@ -1,11 +1,22 @@
 import { Round } from "../value-object/Round.js";
+import { RoundStatus } from "../value-object/RoundStatus.js";
 import { Move } from "../value-object/Move.js";
 import { ValidationError } from "../../shared/errors/index.js";
+
+export enum GameTypeLength {
+    BO1 = 'BO1',
+    BO3 = 'BO3',
+    BO5 = 'BO5',
+    BO7 = 'BO7',
+    BO9 = 'BO9',
+    BO11 = 'BO11',
+    BO19 = 'BO19'
+}
 
 export class Game {
     constructor(
         public readonly id: string,
-        public readonly type: string, // how many rounds, for example
+        public readonly type: GameTypeLength,
         public readonly usersIds: string[],
         public readonly rounds: Round[],
         public readonly isFinished: boolean
@@ -45,24 +56,16 @@ export class Game {
 
     /**
      * Add a move to a specific round
-     * Returns a new Game instance (immutable)
+     * Note: This method is deprecated. Moves should be added to SubRounds within a Round.
+     * This method is kept for backwards compatibility but will throw an error.
      */
     addMoveToRound(roundId: string, move: Move): Game {
-        const roundIndex = this.rounds.findIndex(round => round.id === roundId);
-        if (roundIndex === -1) {
-            throw new ValidationError(`Round with ID '${roundId}' not found in game`);
-        }
-
-        const updatedRound = this.rounds[roundIndex].addMove(move);
-        const updatedRounds = [...this.rounds];
-        updatedRounds[roundIndex] = updatedRound;
-
-        return new Game(this.id, this.type, this.usersIds, updatedRounds, this.isFinished);
+        throw new ValidationError('addMoveToRound is no longer supported. Moves must be added to SubRounds within a Round.');
     }
 
     /**
      * Finish a specific round
-     * Returns a new Game instance (immutable)
+     * Returns a new Game instance (immutable) with the round modified in place
      */
     finishRound(roundId: string): Game {
         const roundIndex = this.rounds.findIndex(round => round.id === roundId);
@@ -70,9 +73,20 @@ export class Game {
             throw new ValidationError(`Round with ID '${roundId}' not found in game`);
         }
 
-        const updatedRound = this.rounds[roundIndex].finish();
+        // Create a copy of the rounds array and the round to modify
         const updatedRounds = [...this.rounds];
-        updatedRounds[roundIndex] = updatedRound;
+        const roundToModify = updatedRounds[roundIndex];
+        // Create a new Round instance with the same data to avoid mutating the original
+        const newRound = new Round(
+            roundToModify.id,
+            [...roundToModify.subRounds],
+            roundToModify.status,
+            roundToModify.startTime,
+            roundToModify.winnerId,
+            roundToModify.endTime
+        );
+        newRound.finish();
+        updatedRounds[roundIndex] = newRound;
 
         return new Game(this.id, this.type, this.usersIds, updatedRounds, this.isFinished);
     }
@@ -113,12 +127,14 @@ export class Game {
     }
 
     /**
-     * Get all moves from all rounds for a specific user
+     * Get all moves from all subRounds in all rounds for a specific user
      */
     getMovesForUser(userId: string): Move[] {
         const moves: Move[] = [];
         for (const round of this.rounds) {
-            moves.push(...round.moves.filter(move => move.userId === userId));
+            for (const subRound of round.subRounds) {
+                moves.push(...subRound.moves.filter(move => move.userId === userId));
+            }
         }
         return moves;
     }
@@ -152,6 +168,10 @@ export class Game {
             throw new ValidationError('Game type is required and must be a string');
         }
 
+        if (!Object.values(GameTypeLength).includes(data.type as GameTypeLength)) {
+            throw new ValidationError(`Invalid game type: ${data.type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
+        }
+
         if (!Array.isArray(data.usersIds)) {
             throw new ValidationError('Game usersIds must be an array');
         }
@@ -165,7 +185,7 @@ export class Game {
         }
 
         const rounds = data.rounds.map((roundData: any) => Round.fromJSON(roundData));
-        return new Game(data.id, data.type, data.usersIds, rounds, data.isFinished);
+        return new Game(data.id, data.type as GameTypeLength, data.usersIds, rounds, data.isFinished);
     }
 
     private validateId(id: string): void {
@@ -185,17 +205,13 @@ export class Game {
         }
     }
 
-    private validateType(type: string): void {
-        if (!type || typeof type !== 'string') {
-            throw new ValidationError('Game type is required and must be a string');
+    private validateType(type: GameTypeLength): void {
+        if (!type) {
+            throw new ValidationError('Game type is required');
         }
 
-        if (type.trim().length === 0) {
-            throw new ValidationError('Game type cannot be empty');
-        }
-
-        if (type.length > 100) {
-            throw new ValidationError('Game type must be 100 characters or less');
+        if (!Object.values(GameTypeLength).includes(type)) {
+            throw new ValidationError(`Invalid game type: ${type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
         }
     }
 

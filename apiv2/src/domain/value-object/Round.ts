@@ -1,64 +1,43 @@
-import { Move } from "./Move.js";
 import { ValidationError } from "../../shared/errors/index.js";
+import { RoundStatus } from "./RoundStatus.js";
+import { SubRound } from "./SubRound.js";
 
 export class Round {
     constructor(
         public readonly id: string,
-        public readonly moves: Move[],
-        public readonly isFinished: boolean,
-        public readonly time: number
+        public readonly subRounds: SubRound[],
+        public status: RoundStatus,
+        public readonly startTime: number,
+        public winnerId?: string,
+        public endTime?: number
     ) {
         this.validateId(id);
-        this.validateMoves(moves);
-        this.validateIsFinished(isFinished);
-        this.validateTime(time);
+        this.validateSubRounds(subRounds);
+        this.validateStatus(status);
+        this.validateStartTime(startTime);
+        if (winnerId !== undefined) {
+            this.validateWinnerId(winnerId);
+        }
+        if (endTime !== undefined) {
+            this.validateEndTime(endTime);
+        }
     }
 
     /**
-     * Add a move to this round
-     * Returns a new Round instance (immutable)
+     * Set the status of this round
+     * Modifies the status field in place
      */
-    addMove(move: Move): Round {
-        this.validateMove(move);
-        return new Round(this.id, [...this.moves, move], this.isFinished, this.time);
-    }
-
-    /**
-     * Set the finished status of this round
-     * Returns a new Round instance (immutable)
-     */
-    setFinished(finished: boolean): Round {
-        this.validateIsFinished(finished);
-        return new Round(this.id, this.moves, finished, this.time);
+    setStatus(status: RoundStatus): void {
+        this.validateStatus(status);
+        this.status = status;
     }
 
     /**
      * Finish this round
-     * Returns a new Round instance with isFinished = true
+     * Sets status to Finished
      */
-    finish(): Round {
-        return new Round(this.id, this.moves, true, this.time);
-    }
-
-    /**
-     * Check if round has any moves
-     */
-    hasMoves(): boolean {
-        return this.moves.length > 0;
-    }
-
-    /**
-     * Get the number of moves in this round
-     */
-    getMoveCount(): number {
-        return this.moves.length;
-    }
-
-    /**
-     * Get the last move in this round (if any)
-     */
-    getLastMove(): Move | undefined {
-        return this.moves.length > 0 ? this.moves[this.moves.length - 1] : undefined;
+    finish(): void {
+        this.status = RoundStatus.Finished;
     }
 
     /**
@@ -67,9 +46,11 @@ export class Round {
     toJSON(): object {
         return {
             id: this.id,
-            moves: this.moves.map(move => move.toJSON()),
-            isFinished: this.isFinished,
-            time: this.time
+            subRounds: this.subRounds.map(subRound => subRound.toJSON()),
+            status: this.status,
+            startTime: this.startTime,
+            winnerId: this.winnerId,
+            endTime: this.endTime
         };
     }
 
@@ -85,20 +66,31 @@ export class Round {
             throw new ValidationError('Round ID is required and must be a string');
         }
 
-        if (!Array.isArray(data.moves)) {
-            throw new ValidationError('Round moves must be an array');
+        if (!Array.isArray(data.subRounds)) {
+            throw new ValidationError('Round subRounds must be an array');
         }
 
-        if (typeof data.isFinished !== 'boolean') {
-            throw new ValidationError('Round isFinished must be a boolean');
+        if (!data.status || typeof data.status !== 'string') {
+            throw new ValidationError('Round status is required and must be a string');
         }
 
-        if (typeof data.time !== 'number') {
-            throw new ValidationError('Round time must be a number');
+        if (!Object.values(RoundStatus).includes(data.status as RoundStatus)) {
+            throw new ValidationError(`Invalid status: ${data.status}. Must be one of: ${Object.values(RoundStatus).join(', ')}`);
         }
 
-        const moves = data.moves.map((moveData: any) => Move.fromJSON(moveData));
-        return new Round(data.id, moves, data.isFinished, data.time);
+        if (typeof data.startTime !== 'number') {
+            throw new ValidationError('Round startTime is required and must be a number');
+        }
+
+        const subRounds = data.subRounds.map((subRoundData: any) => SubRound.fromJSON(subRoundData));
+        return new Round(
+            data.id, 
+            subRounds, 
+            data.status as RoundStatus, 
+            data.startTime,
+            data.winnerId,
+            data.endTime
+        );
     }
 
     private validateId(id: string): void {
@@ -118,50 +110,93 @@ export class Round {
         }
     }
 
-    private validateMoves(moves: Move[]): void {
-        if (!Array.isArray(moves)) {
-            throw new ValidationError('Round moves must be an array');
+    private validateSubRounds(subRounds: SubRound[]): void {
+        if (!Array.isArray(subRounds)) {
+            throw new ValidationError('Round subRounds must be an array');
         }
 
-        // Validate each move
-        moves.forEach((move, index) => {
-            if (!(move instanceof Move)) {
-                throw new ValidationError(`Move at index ${index} must be a Move instance`);
+        // Validate each sub-round
+        subRounds.forEach((subRound, index) => {
+            if (!(subRound instanceof SubRound)) {
+                throw new ValidationError(`SubRound at index ${index} must be a SubRound instance`);
             }
         });
     }
 
-    private validateIsFinished(isFinished: boolean): void {
-        if (typeof isFinished !== 'boolean') {
-            throw new ValidationError('Round isFinished must be a boolean');
+    private validateStatus(status: RoundStatus): void {
+        if (!status || !Object.values(RoundStatus).includes(status)) {
+            throw new ValidationError(`status must be one of: ${Object.values(RoundStatus).join(', ')}`);
         }
     }
 
-    private validateTime(time: number): void {
-        if (typeof time !== 'number') {
-            throw new ValidationError('Round time must be a number');
+    private validateStartTime(startTime: number): void {
+        if (typeof startTime !== 'number') {
+            throw new ValidationError('Round startTime must be a number');
         }
 
-        if (!Number.isInteger(time)) {
-            throw new ValidationError('Round time must be an integer');
+        if (!Number.isInteger(startTime)) {
+            throw new ValidationError('Round startTime must be an integer');
         }
 
-        if (time < 0) {
-            throw new ValidationError('Round time must be a positive number');
+        if (startTime < 0) {
+            throw new ValidationError('Round startTime must be a positive number');
         }
 
         // Check if it's a reasonable Unix timestamp (after 1970, before year 3000)
         const minTimestamp = 0; // January 1, 1970
         const maxTimestamp = 32503680000000; // January 1, 3000
         
-        if (time < minTimestamp || time > maxTimestamp) {
-            throw new ValidationError('Round time must be a valid Unix timestamp in milliseconds');
+        if (startTime < minTimestamp || startTime > maxTimestamp) {
+            throw new ValidationError('Round startTime must be a valid Unix timestamp in milliseconds');
         }
     }
 
-    private validateMove(move: Move): void {
-        if (!(move instanceof Move)) {
-            throw new ValidationError('Move must be a Move instance');
+    private validateWinnerId(winnerId: string): void {
+        if (!winnerId || typeof winnerId !== 'string') {
+            throw new ValidationError('Round winnerId must be a non-empty string');
+        }
+
+        if (winnerId.trim().length === 0) {
+            throw new ValidationError('Round winnerId cannot be empty');
+        }
+
+        // User ID validation pattern: alphanumeric, dots, hyphens, underscores, 1-128 chars
+        if (!/^[a-zA-Z0-9._-]{1,128}$/.test(winnerId)) {
+            throw new ValidationError(
+                `Invalid round winnerId: ${winnerId}. Must match pattern ^[a-zA-Z0-9._-]{1,128}$`
+            );
         }
     }
+
+    private validateEndTime(endTime: number): void {
+        if (typeof endTime !== 'number') {
+            throw new ValidationError('Round endTime must be a number');
+        }
+
+        if (!Number.isFinite(endTime)) {
+            throw new ValidationError('Round endTime must be a finite number');
+        }
+
+        if (!Number.isInteger(endTime)) {
+            throw new ValidationError('Round endTime must be an integer');
+        }
+
+        if (endTime < 0) {
+            throw new ValidationError('Round endTime must be a positive number');
+        }
+
+        // Check if it's a reasonable Unix timestamp (after 1970, before year 3000)
+        const minTimestamp = 0; // January 1, 1970
+        const maxTimestamp = 32503680000000; // January 1, 3000
+        
+        if (endTime < minTimestamp || endTime > maxTimestamp) {
+            throw new ValidationError('Round endTime must be a valid Unix timestamp in milliseconds');
+        }
+
+        // Validate that endTime is not before startTime
+        if (endTime < this.startTime) {
+            throw new ValidationError('Round endTime must be greater than or equal to startTime');
+        }
+    }
+
 }

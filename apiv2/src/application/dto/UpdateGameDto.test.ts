@@ -43,10 +43,12 @@ describe('UpdateGameDto', () => {
         rounds: [{
           id: 'round-1',
           moves: [{
-            id: 'move-1',
             userId: 'user-1',
-            value: 10,
-            valueDecorated: 'ten'
+            context: {
+              moveType: 'Stone',
+              size: 10,
+              decorId: 1
+            }
           }],
           isFinished: false
         }]
@@ -110,10 +112,12 @@ describe('UpdateGameDto', () => {
         rounds: [{
           id: 'round-1',
           moves: [{
-            id: 'move-1',
             userId: 'user-1',
-            value: Infinity,
-            valueDecorated: 'ten'
+            context: {
+              moveType: 'Stone',
+              size: -1, // Invalid: negative size
+              decorId: 1
+            }
           }],
           isFinished: false
         }]

@@ -1,4 +1,7 @@
 import { GameEntity } from '../../domain/entity/GameEntity.js';
+import { Round } from '../../domain/value-object/Round.js';
+import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
+import { Move } from '../../domain/value-object/Move.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 
 export class GameResponseDto {
@@ -44,11 +47,20 @@ export class RoundResponseDto {
     public readonly isFinished: boolean
   ) {}
 
-  static fromRound(round: import('../../domain/value-object/Round.js').Round): RoundResponseDto {
+  static fromRound(round: Round): RoundResponseDto {
+    // Collect all moves from all subRounds
+    const moves: Move[] = [];
+    for (const subRound of round.subRounds) {
+      moves.push(...subRound.moves);
+    }
+    
+    // Map status to isFinished for backward compatibility
+    const isFinished = round.status === RoundStatus.Finished;
+    
     return new RoundResponseDto(
       round.id,
-      round.moves.map(move => MoveResponseDto.fromMove(move)),
-      round.isFinished
+      moves.map(move => MoveResponseDto.fromMove(move)),
+      isFinished
     );
   }
 
@@ -63,29 +75,27 @@ export class RoundResponseDto {
 
 export class MoveResponseDto {
   constructor(
-    public readonly id: string,
     public readonly userId: string,
-    public readonly value: number,
-    public readonly valueDecorated: string,
+    public readonly context: {
+      moveType: string;
+      size: number;
+      decorId: number;
+    },
     public readonly time: number
   ) {}
 
-  static fromMove(move: import('../../domain/value-object/Move.js').Move): MoveResponseDto {
+  static fromMove(move: Move): MoveResponseDto {
     return new MoveResponseDto(
-      move.id,
       move.userId,
-      move.value,
-      move.valueDecorated,
+      move.context.toJSON() as { moveType: string; size: number; decorId: number },
       move.time
     );
   }
 
   toJSON(): object {
     return {
-      id: this.id,
       userId: this.userId,
-      value: this.value,
-      valueDecorated: this.valueDecorated,
+      context: this.context,
       time: this.time
     };
   }

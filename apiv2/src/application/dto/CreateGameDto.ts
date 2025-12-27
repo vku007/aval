@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ValidationError } from '../../shared/errors/index.js';
+import { GameTypeLength } from '../../domain/entity/Game.js';
 
 // Schema for creating a new game
 const CreateGameSchema = z.object({
@@ -8,9 +9,9 @@ const CreateGameSchema = z.object({
     .max(128, 'Game ID must be 128 characters or less')
     .regex(/^[a-zA-Z0-9._-]+$/, 'Game ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
   
-  type: z.string()
-    .min(1, 'Game type is required')
-    .max(100, 'Game type must be 100 characters or less'),
+  type: z.enum(['BO1', 'BO3', 'BO5', 'BO7', 'BO9', 'BO11', 'BO19'], {
+    errorMap: () => ({ message: `Game type must be one of: ${Object.values(GameTypeLength).join(', ')}` })
+  }),
   
   usersIds: z.array(z.string()
     .min(1, 'User ID cannot be empty')
@@ -28,21 +29,22 @@ const CreateGameSchema = z.object({
       .regex(/^[a-zA-Z0-9._-]+$/, 'Round ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
     
     moves: z.array(z.object({
-      id: z.string()
-        .min(1, 'Move ID is required')
-        .max(128, 'Move ID must be 128 characters or less')
-        .regex(/^[a-zA-Z0-9._-]+$/, 'Move ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
-      
       userId: z.string()
         .min(1, 'User ID is required')
         .max(128, 'User ID must be 128 characters or less')
         .regex(/^[a-zA-Z0-9._-]+$/, 'User ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
       
-      value: z.number()
-        .finite('Move value must be a finite number'),
-      
-      valueDecorated: z.string()
-        .min(1, 'Move valueDecorated is required'),
+      context: z.object({
+        moveType: z.enum(['Stone', 'Paper', 'Scissors'], {
+          errorMap: () => ({ message: 'Move type must be Stone, Paper, or Scissors' })
+        }),
+        size: z.number()
+          .int('Size must be an integer')
+          .nonnegative('Size must be non-negative'),
+        decorId: z.number()
+          .int('DecorId must be an integer')
+          .nonnegative('DecorId must be non-negative')
+      }),
       
       time: z.number()
         .int('Move time must be an integer (Unix timestamp in milliseconds)')
@@ -55,11 +57,22 @@ const CreateGameSchema = z.object({
     isFinished: z.boolean()
       .default(false),
     
-    time: z.number()
-      .int('Round time must be an integer (Unix timestamp in milliseconds)')
-      .min(0, 'Round time must be a valid Unix timestamp')
-      .max(4102444800000, 'Round time must be before year 2100')
-      .default(() => Date.now())
+    startTime: z.number()
+      .int('Round startTime must be an integer (Unix timestamp in milliseconds)')
+      .min(0, 'Round startTime must be a valid Unix timestamp')
+      .max(4102444800000, 'Round startTime must be before year 2100')
+      .default(() => Date.now()),
+    
+    winnerId: z.number()
+      .int('Round winnerId must be an integer')
+      .nonnegative('Round winnerId must be non-negative')
+      .optional(),
+    
+    endTime: z.number()
+      .int('Round endTime must be an integer (Unix timestamp in milliseconds)')
+      .min(0, 'Round endTime must be a valid Unix timestamp')
+      .max(4102444800000, 'Round endTime must be before year 2100')
+      .optional()
   }))
     .default([]),
   
@@ -104,14 +117,18 @@ export interface RoundDto {
   id: string;
   moves: MoveDto[];
   isFinished: boolean;
-  time: number;
+  startTime: number;
+  winnerId?: number;
+  endTime?: number;
 }
 
 export interface MoveDto {
-  id: string;
   userId: string;
-  value: number;
-  valueDecorated: string;
+  context: {
+    moveType: 'Stone' | 'Paper' | 'Scissors';
+    size: number;
+    decorId: number;
+  };
   time?: number;
 }
 
