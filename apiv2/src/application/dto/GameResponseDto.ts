@@ -21,7 +21,7 @@ export class GameResponseDto {
       gameEntity.type,
       gameEntity.usersIds,
       gameEntity.rounds.map(round => RoundResponseDto.fromRound(round)),
-      gameEntity.isFinished,
+      gameEntity.isFinished, // Backward compatibility - uses getter that converts status
       gameEntity.internalGetBackingStore().etag,
       gameEntity.metadata
     );

@@ -1,0 +1,386 @@
+/* 
+ * Aval Game - Casual iPhone Game Style
+ * Bright colors, rounded shapes, playful and clean
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Bright cheerful palette */
+  --bg-primary: #f0f4ff;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  
+  /* Fun accent colors */
+  --color-primary: #5B7FFF;      /* Friendly blue */
+  --color-secondary: #FF6B9D;    /* Playful pink */
+  --color-accent: #FFB347;       /* Warm orange */
+  --color-success: #4CD964;      /* Fresh green */
+  --color-warning: #FFCC00;      /* Sunny yellow */
+  --color-purple: #AF7AC5;       /* Soft purple */
+  
+  /* Text */
+  --text-primary: #2D3436;
+  --text-secondary: #636E72;
+  --text-light: #B2BEC3;
+  
+  /* Shadows */
+  --shadow-soft: 0 4px 15px rgba(91, 127, 255, 0.15);
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.08);
+  --shadow-button: 0 4px 0 rgba(0, 0, 0, 0.1);
+  
+  /* Sizing */
+  --header-height: 60px;
+  --footer-height: 40px;
+  --border-radius: 20px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Cheerful gradient background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(255, 179, 71, 0.2) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(91, 127, 255, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(255, 107, 157, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, #f0f4ff 0%, #e8f0ff 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating decorative shapes */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(circle, var(--color-warning) 3px, transparent 3px),
+    radial-gradient(circle, var(--color-primary) 2px, transparent 2px),
+    radial-gradient(circle, var(--color-secondary) 2px, transparent 2px);
+  background-size: 100px 100px, 80px 80px, 120px 120px;
+  background-position: 0 0, 40px 40px, 80px 20px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#game-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============ HEADER ============ */
+#game-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-soft);
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  margin: 0 10px;
+  position: relative;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  font-size: 28px;
+  color: var(--color-primary);
+  animation: bounce 2s ease-in-out infinite;
+}
+
+.logo-text {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 1px;
+}
+
+#user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#user-name {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  background: var(--bg-primary);
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+.btn-ghost {
+  background: var(--color-secondary);
+  border: none;
+  color: white;
+  padding: 8px 18px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+}
+
+.btn-ghost:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.15);
+}
+
+.btn-ghost:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* ============ MAIN GAME CONTAINER ============ */
+#game-container {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 20px;
+}
+
+#phaser-game {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+#phaser-game canvas {
+  border-radius: var(--border-radius);
+}
+
+/* ============ LOADING SCREEN ============ */
+#loading-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0ff 100%);
+  z-index: 100;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+#loading-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.loader {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+/* Bouncing dots loader */
+.loader-ring {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  animation: loader-bounce 0.6s ease-in-out infinite;
+}
+
+.loader-ring:nth-child(1) {
+  background: var(--color-primary);
+  left: 0;
+  animation-delay: 0s;
+}
+
+.loader-ring:nth-child(2) {
+  background: var(--color-secondary);
+  left: 40px;
+  animation-delay: 0.1s;
+}
+
+.loader-ring:nth-child(3) {
+  background: var(--color-accent);
+  left: 80px;
+  animation-delay: 0.2s;
+}
+
+.loading-text {
+  margin-top: 40px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+#loading-debug {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-top: 10px;
+}
+
+/* ============ FOOTER ============ */
+#game-footer {
+  height: var(--footer-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: var(--bg-secondary);
+  box-shadow: 0 -4px 15px rgba(91, 127, 255, 0.1);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  margin: 0 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.footer-left,
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-indicator.connected {
+  background: var(--color-success);
+}
+
+.status-indicator.error {
+  background: var(--color-secondary);
+}
+
+#fps-counter,
+#physics-bodies {
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  background: var(--bg-primary);
+  padding: 4px 10px;
+  border-radius: 10px;
+}
+
+/* ============ ANIMATIONS ============ */
+@keyframes bounce {
+  0%, 100% { 
+    transform: translateY(0);
+  }
+  50% { 
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes loader-bounce {
+  0%, 100% { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% { 
+    transform: translateY(-30px);
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+/* ============ UTILITY CLASSES ============ */
+.text-primary { color: var(--color-primary); }
+.text-secondary { color: var(--color-secondary); }
+.text-accent { color: var(--color-accent); }
+.text-success { color: var(--color-success); }
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 50px;
+    --footer-height: 35px;
+    --border-radius: 15px;
+  }
+  
+  #game-header,
+  #game-footer {
+    margin: 0 5px;
+    padding: 0 16px;
+  }
+  
+  .logo-text {
+    font-size: 20px;
+  }
+  
+  #user-name {
+    display: none;
+  }
+}

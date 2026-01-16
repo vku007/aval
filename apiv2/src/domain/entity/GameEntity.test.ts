@@ -6,11 +6,12 @@ import { RoundStatus } from '../value-object/RoundStatus.js';
 import { SubRound } from '../value-object/SubRound.js';
 import { Move, MoveContext, MoveType } from '../value-object/Move.js';
 import { ValidationError } from '../../shared/errors/index.js';
+import { GameStatus } from '../value-object/GameStatus.js';
 
 describe('GameEntity', () => {
   describe('constructor', () => {
     it('should create a game entity with valid data', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], GameStatus.Created);
       
       expect(gameEntity.id).toBe('game-1');
       expect(gameEntity.type).toBe(GameTypeLength.BO3);
@@ -21,11 +22,13 @@ describe('GameEntity', () => {
 
     it('should create a game entity with rounds', () => {
       const startTime = Date.now();
-      const subRound1 = new SubRound(1, [], startTime, startTime, startTime);
-      const subRound2 = new SubRound(1, [], startTime, startTime, startTime);
-      const round1 = new Round('round-1', [subRound1], RoundStatus.Pending, startTime);
-      const round2 = new Round('round-2', [subRound2], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], false);
+      const subRound1 = new SubRound(1, startTime, startTime, startTime);
+      const subRound2 = new SubRound(1, startTime, startTime, startTime);
+      const round1 = new Round('round-1', RoundStatus.Pending, startTime);
+      round1.subRounds = [subRound1];
+      const round2 = new Round('round-2', RoundStatus.Pending, startTime);
+      round2.subRounds = [subRound2];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], GameStatus.Created);
       
       expect(gameEntity.rounds).toHaveLength(2);
       expect(gameEntity.rounds[0].id).toBe('round-1');
@@ -34,43 +37,44 @@ describe('GameEntity', () => {
 
     it('should create a game entity with etag and metadata', () => {
       const metadata = { size: 100, lastModified: new Date().toISOString() };
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false, 'etag-123', metadata);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created, 'etag-123', metadata);
       
       expect(gameEntity.metadata).toEqual(metadata);
     });
 
     it('should throw ValidationError for invalid ID', () => {
-      expect(() => new GameEntity('', GameTypeLength.BO3, ['user-1'], [], false)).toThrow(ValidationError);
-      expect(() => new GameEntity('invalid id!', GameTypeLength.BO3, ['user-1'], [], false)).toThrow(ValidationError);
+      expect(() => new GameEntity('', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created)).toThrow(ValidationError);
+      expect(() => new GameEntity('invalid id!', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created)).toThrow(ValidationError);
     });
 
     it('should throw ValidationError for invalid type', () => {
-      expect(() => new GameEntity('game-1', '', ['user-1'], [], false)).toThrow(ValidationError);
-      expect(() => new GameEntity('game-1', 'a'.repeat(101), ['user-1'], [], false)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', '', ['user-1'], [], GameStatus.Created)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', 'a'.repeat(101), ['user-1'], [], GameStatus.Created)).toThrow(ValidationError);
     });
 
     it('should throw ValidationError for invalid usersIds', () => {
-      expect(() => new GameEntity('game-1', GameTypeLength.BO3, [], [], false)).toThrow(ValidationError);
-      expect(() => new GameEntity('game-1', GameTypeLength.BO3, 'not-array' as any, [], false)).toThrow(ValidationError);
-      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-1'], [], false)).toThrow(ValidationError);
-      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2', 'user-3', 'user-4', 'user-5', 'user-6', 'user-7', 'user-8', 'user-9', 'user-10', 'user-11'], [], false)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', GameTypeLength.BO3, [], [], GameStatus.Created)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', GameTypeLength.BO3, 'not-array' as any, [], GameStatus.Created)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-1'], [], GameStatus.Created)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2', 'user-3', 'user-4', 'user-5', 'user-6', 'user-7', 'user-8', 'user-9', 'user-10', 'user-11'], [], GameStatus.Created)).toThrow(ValidationError);
     });
 
     it('should throw ValidationError for invalid rounds', () => {
-      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], 'not-array' as any, false)).toThrow(ValidationError);
+      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], 'not-array' as any, GameStatus.Created)).toThrow(ValidationError);
     });
 
-    it('should throw ValidationError for invalid isFinished', () => {
-      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], 'not-a-boolean' as any)).toThrow(ValidationError);
+    it('should throw ValidationError for invalid status', () => {
+      expect(() => new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], 'not-a-status' as any)).toThrow(ValidationError);
     });
   });
 
   describe('immutable operations', () => {
     it('should add a round and return a new GameEntity instance', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
       
       const updatedGameEntity = gameEntity.addRound(round);
       
@@ -81,33 +85,34 @@ describe('GameEntity', () => {
       expect(gameEntity.rounds).toHaveLength(0); // Original unchanged
     });
 
-    it('should set finished status and return a new GameEntity instance', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+    it('should set status and return a new GameEntity instance', () => {
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       
-      const finishedGameEntity = gameEntity.setFinished(true);
+      const finishedGameEntity = gameEntity.setStatus(GameStatus.Finished);
       
       expect(finishedGameEntity).not.toBe(gameEntity); // Different instance
       expect(finishedGameEntity.id).toBe(gameEntity.id);
-      expect(finishedGameEntity.isFinished).toBe(true);
-      expect(gameEntity.isFinished).toBe(false); // Original unchanged
+      expect(finishedGameEntity.status).toBe(GameStatus.Finished);
+      expect(gameEntity.status).toBe(GameStatus.Created); // Original unchanged
     });
 
     it('should finish the game and return a new GameEntity instance', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       
       const finishedGameEntity = gameEntity.finish();
       
       expect(finishedGameEntity).not.toBe(gameEntity); // Different instance
       expect(finishedGameEntity.id).toBe(gameEntity.id);
-      expect(finishedGameEntity.isFinished).toBe(true);
-      expect(gameEntity.isFinished).toBe(false); // Original unchanged
+      expect(finishedGameEntity.status).toBe(GameStatus.Finished);
+      expect(gameEntity.status).toBe(GameStatus.Created); // Original unchanged
     });
 
     it('should throw error as addMoveToRound is no longer supported', () => {
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], false);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       
@@ -117,9 +122,10 @@ describe('GameEntity', () => {
 
     it('should finish a specific round', () => {
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Current, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], false);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Current, startTime);
+      round.subRounds = [subRound];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
       
       const updatedGameEntity = gameEntity.finishRound('round-1');
       
@@ -129,7 +135,7 @@ describe('GameEntity', () => {
     });
 
     it('should throw ValidationError for non-existent round', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       
@@ -140,11 +146,12 @@ describe('GameEntity', () => {
 
   describe('utility methods', () => {
     it('should check if game has rounds', () => {
-      const emptyGameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const emptyGameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
-      const gameEntityWithRounds = new GameEntity('game-2', GameTypeLength.BO3, ['user-1'], [round], false);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
+      const gameEntityWithRounds = new GameEntity('game-2', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
       
       expect(emptyGameEntity.hasRounds()).toBe(false);
       expect(gameEntityWithRounds.hasRounds()).toBe(true);
@@ -152,36 +159,42 @@ describe('GameEntity', () => {
 
     it('should get round count', () => {
       const startTime = Date.now();
-      const subRound1 = new SubRound(1, [], startTime, startTime, startTime);
-      const subRound2 = new SubRound(1, [], startTime, startTime, startTime);
-      const round1 = new Round('round-1', [subRound1], RoundStatus.Pending, startTime);
-      const round2 = new Round('round-2', [subRound2], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], false);
+      const subRound1 = new SubRound(1, startTime, startTime, startTime);
+      const subRound2 = new SubRound(1, startTime, startTime, startTime);
+      const round1 = new Round('round-1', RoundStatus.Pending, startTime);
+      round1.subRounds = [subRound1];
+      const round2 = new Round('round-2', RoundStatus.Pending, startTime);
+      round2.subRounds = [subRound2];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], GameStatus.Created);
       
       expect(gameEntity.getRoundCount()).toBe(2);
     });
 
     it('should get last round', () => {
       const startTime = Date.now();
-      const subRound1 = new SubRound(1, [], startTime, startTime, startTime);
-      const subRound2 = new SubRound(1, [], startTime, startTime, startTime);
-      const round1 = new Round('round-1', [subRound1], RoundStatus.Pending, startTime);
-      const round2 = new Round('round-2', [subRound2], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], false);
+      const subRound1 = new SubRound(1, startTime, startTime, startTime);
+      const subRound2 = new SubRound(1, startTime, startTime, startTime);
+      const round1 = new Round('round-1', RoundStatus.Pending, startTime);
+      round1.subRounds = [subRound1];
+      const round2 = new Round('round-2', RoundStatus.Pending, startTime);
+      round2.subRounds = [subRound2];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], GameStatus.Created);
       
       expect(gameEntity.getLastRound()?.id).toBe('round-2');
       
-      const emptyGameEntity = new GameEntity('game-2', GameTypeLength.BO3, ['user-1'], [], false);
+      const emptyGameEntity = new GameEntity('game-2', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       expect(emptyGameEntity.getLastRound()).toBeUndefined();
     });
 
     it('should get specific round by ID', () => {
       const startTime = Date.now();
-      const subRound1 = new SubRound(1, [], startTime, startTime, startTime);
-      const subRound2 = new SubRound(1, [], startTime, startTime, startTime);
-      const round1 = new Round('round-1', [subRound1], RoundStatus.Pending, startTime);
-      const round2 = new Round('round-2', [subRound2], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], false);
+      const subRound1 = new SubRound(1, startTime, startTime, startTime);
+      const subRound2 = new SubRound(1, startTime, startTime, startTime);
+      const round1 = new Round('round-1', RoundStatus.Pending, startTime);
+      round1.subRounds = [subRound1];
+      const round2 = new Round('round-2', RoundStatus.Pending, startTime);
+      round2.subRounds = [subRound2];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round1, round2], GameStatus.Created);
       
       expect(gameEntity.getRound('round-1')?.id).toBe('round-1');
       expect(gameEntity.getRound('round-2')?.id).toBe('round-2');
@@ -189,7 +202,7 @@ describe('GameEntity', () => {
     });
 
     it('should check if user is participating', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], GameStatus.Created);
       
       expect(gameEntity.hasUser('user-1')).toBe(true);
       expect(gameEntity.hasUser('user-2')).toBe(true);
@@ -205,11 +218,15 @@ describe('GameEntity', () => {
       const move3 = new Move('user-1', context3, Date.now());
       
       const startTime = Date.now();
-      const subRound1 = new SubRound(1, [move1, move2], startTime, startTime, startTime);
-      const subRound2 = new SubRound(1, [move3], startTime, startTime, startTime);
-      const round1 = new Round('round-1', [subRound1], RoundStatus.Pending, startTime);
-      const round2 = new Round('round-2', [subRound2], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round1, round2], false);
+      const subRound1 = new SubRound(1, startTime, startTime, startTime);
+      subRound1.moves = [move1, move2];
+      const subRound2 = new SubRound(1, startTime, startTime, startTime);
+      subRound2.moves = [move3];
+      const round1 = new Round('round-1', RoundStatus.Pending, startTime);
+      round1.subRounds = [subRound1];
+      const round2 = new Round('round-2', RoundStatus.Pending, startTime);
+      round2.subRounds = [subRound2];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round1, round2], GameStatus.Created);
       
       const user1Moves = gameEntity.getMovesForUser('user-1');
       const user2Moves = gameEntity.getMovesForUser('user-2');
@@ -228,7 +245,7 @@ describe('GameEntity', () => {
 
   describe('backing store pattern', () => {
     it('should provide access to backing store', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       const backingStore = gameEntity.internalGetBackingStore();
       
       expect(backingStore).toBeDefined();
@@ -237,7 +254,7 @@ describe('GameEntity', () => {
     });
 
     it('should create from backing store', () => {
-      const originalGameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const originalGameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       const backingStore = originalGameEntity.internalGetBackingStore();
       
       const recreatedGameEntity = originalGameEntity.internalCreateFromBackingStore(backingStore);
@@ -246,12 +263,12 @@ describe('GameEntity', () => {
       expect(recreatedGameEntity.type).toBe(originalGameEntity.type);
       expect(recreatedGameEntity.usersIds).toEqual(originalGameEntity.usersIds);
       expect(recreatedGameEntity.rounds).toEqual(originalGameEntity.rounds);
-      expect(recreatedGameEntity.isFinished).toBe(originalGameEntity.isFinished);
+      expect(recreatedGameEntity.status).toBe(originalGameEntity.status);
     });
 
     it('should preserve etag and metadata through backing store', () => {
       const metadata = { size: 100, lastModified: new Date().toISOString() };
-      const originalGameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false, 'etag-123', metadata);
+      const originalGameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created, 'etag-123', metadata);
       const backingStore = originalGameEntity.internalGetBackingStore();
       
       const recreatedGameEntity = originalGameEntity.internalCreateFromBackingStore(backingStore);
@@ -262,7 +279,7 @@ describe('GameEntity', () => {
 
   describe('factory method', () => {
     it('should create game entity using factory method', () => {
-      const gameEntity = GameEntity.create('game-1', GameTypeLength.BO3, ['user-1'], [], false);
+      const gameEntity = GameEntity.create('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
       
       expect(gameEntity.id).toBe('game-1');
       expect(gameEntity.type).toBe(GameTypeLength.BO3);
@@ -277,9 +294,11 @@ describe('GameEntity', () => {
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       const startTime = Date.now();
-      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round], true);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      subRound.moves = [move];
+      const round = new Round('round-1', RoundStatus.Finished, startTime);
+      round.subRounds = [subRound];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round], GameStatus.Finished);
       
       const json = gameEntity.toJSON();
       
@@ -302,12 +321,19 @@ describe('GameEntity', () => {
             }],
             startAt: startTime,
             finishedAt: startTime,
-            updatedAt: startTime
+            updatedAt: startTime,
+            status: 'init',
+            winnerId: undefined
           }],
           status: RoundStatus.Finished,
-          startTime: startTime
+          startTime: startTime,
+          endTime: undefined,
+          winnerId: undefined
         }],
-        isFinished: true
+        status: GameStatus.Finished,
+        isFinished: true, // Backward compatibility
+        createContext: undefined,
+        endTime: undefined
       });
     });
   });
@@ -359,21 +385,24 @@ describe('GameEntity', () => {
       expect(() => GameEntity.fromJSON({ id: 123 })).toThrow(ValidationError);
       expect(() => GameEntity.fromJSON({ id: 'game-1', type: GameTypeLength.BO3, usersIds: 'not-array' })).toThrow(ValidationError);
       expect(() => GameEntity.fromJSON({ id: 'game-1', type: GameTypeLength.BO3, usersIds: [], rounds: 'not-array' })).toThrow(ValidationError);
-      expect(() => GameEntity.fromJSON({ id: 'game-1', type: GameTypeLength.BO3, usersIds: [], rounds: [], isFinished: 'not-boolean' })).toThrow(ValidationError);
+      expect(() => GameEntity.fromJSON({ id: 'game-1', type: GameTypeLength.BO3, usersIds: [], rounds: [], status: 'not-a-status' })).toThrow(ValidationError);
     });
   });
 
   describe('immutability', () => {
     it('should not allow mutation of rounds array', () => {
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], false);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
       const rounds = gameEntity.rounds;
       
       // Attempting to mutate should not affect the original
-      const subRound2 = new SubRound(1, [], startTime, startTime, startTime);
-      rounds.push(new Round('round-2', [subRound2], RoundStatus.Pending, startTime));
+      const subRound2 = new SubRound(1, startTime, startTime, startTime);
+      const round2 = new Round('round-2', RoundStatus.Pending, startTime);
+      round2.subRounds = [subRound2];
+      rounds.push(round2);
       
       expect(gameEntity.rounds).toHaveLength(1);
       expect(rounds).toHaveLength(2); // Local copy was mutated

@@ -1,23 +1,26 @@
 import { RoundStatus } from '../../../domain/value-object/RoundStatus.js';
 import { ValidationError } from '../../../shared/errors/index.js';
-import { RoundContext } from './RoundContext.js';
+import { SubRoundState } from './SubRoundState.js';
 
 /**
- * RoundState represents the state of a round with status and timestamps.
+ * RoundState represents the presentation state of a round.
+ * This is a presentation object for the Round domain entity.
  */
 export class RoundState {
   constructor(
     public readonly status: RoundStatus,
     public readonly started: Date | null,
-    public readonly updated: Date | null,
+    public readonly finished: Date | null,
     public readonly roundId: string,
-    public readonly roundContext: RoundContext
+    public readonly winnerId?: string,
+    public readonly subRoundStates: SubRoundState[] = []
   ) {
     this.validateStatus(status);
     this.validateStarted(started);
-    this.validateUpdated(updated);
+    this.validateFinished(finished);
     this.validateRoundId(roundId);
-    this.validateRoundContext(roundContext);
+    this.validateWinnerId(winnerId);
+    this.validateSubRoundStates(subRoundStates);
   }
 
   /**
@@ -27,9 +30,10 @@ export class RoundState {
     return {
       status: this.status,
       started: this.started ? this.started.toISOString() : null,
-      updated: this.updated ? this.updated.toISOString() : null,
+      finished: this.finished ? this.finished.toISOString() : null,
       roundId: this.roundId,
-      roundContext: this.roundContext.toJSON()
+      winnerId: this.winnerId,
+      subRoundStates: this.subRoundStates.map(srs => srs.toJSON())
     };
   }
 
@@ -53,15 +57,20 @@ export class RoundState {
       throw new ValidationError('RoundState roundId is required and must be a string');
     }
 
-    if (!data.roundContext || typeof data.roundContext !== 'object') {
-      throw new ValidationError('RoundState roundContext is required and must be an object');
-    }
-
     const started = data.started ? new Date(data.started) : null;
-    const updated = data.updated ? new Date(data.updated) : null;
-    const roundContext = RoundContext.fromJSON(data.roundContext);
+    const finished = data.finished ? new Date(data.finished) : null;
+    const subRoundStates = Array.isArray(data.subRoundStates) 
+      ? data.subRoundStates.map((srsData: any) => SubRoundState.fromJSON(srsData))
+      : [];
 
-    return new RoundState(data.status as RoundStatus, started, updated, data.roundId, roundContext);
+    return new RoundState(
+      data.status as RoundStatus,
+      started,
+      finished,
+      data.roundId,
+      data.winnerId,
+      subRoundStates
+    );
   }
 
   private validateStatus(status: RoundStatus): void {
@@ -79,12 +88,12 @@ export class RoundState {
     }
   }
 
-  private validateUpdated(updated: Date | null): void {
-    if (updated !== null && !(updated instanceof Date)) {
-      throw new ValidationError('updated must be a Date object or null');
+  private validateFinished(finished: Date | null): void {
+    if (finished !== null && !(finished instanceof Date)) {
+      throw new ValidationError('finished must be a Date object or null');
     }
-    if (updated !== null && isNaN(updated.getTime())) {
-      throw new ValidationError('updated must be a valid Date');
+    if (finished !== null && isNaN(finished.getTime())) {
+      throw new ValidationError('finished must be a valid Date');
     }
   }
 
@@ -94,10 +103,22 @@ export class RoundState {
     }
   }
 
-  private validateRoundContext(roundContext: RoundContext): void {
-    if (!roundContext || !(roundContext instanceof RoundContext)) {
-      throw new ValidationError('roundContext is required and must be an instance of RoundContext');
+  private validateWinnerId(winnerId?: string): void {
+    if (winnerId !== undefined && winnerId !== null) {
+      if (typeof winnerId !== 'string' || winnerId.trim().length === 0) {
+        throw new ValidationError('winnerId must be a non-empty string if provided');
+      }
     }
   }
-}
 
+  private validateSubRoundStates(subRoundStates: SubRoundState[]): void {
+    if (!Array.isArray(subRoundStates)) {
+      throw new ValidationError('subRoundStates must be an array');
+    }
+    subRoundStates.forEach((subRoundState, index) => {
+      if (!(subRoundState instanceof SubRoundState)) {
+        throw new ValidationError(`subRoundStates[${index}] must be an instance of SubRoundState`);
+      }
+    });
+  }
+}

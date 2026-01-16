@@ -1,5 +1,6 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
+import { JsonEntity } from '../../domain/entity/JsonEntity.js';
 import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
@@ -43,72 +44,26 @@ export class S3GameRepository implements IGameRepository {
 
       // Read the body
       const body = await this.streamToBuffer(response.Body);
-      const data = JSON.parse(body.toString()) as { type: GameTypeLength; usersIds: string[]; rounds: any[]; isFinished: boolean };
+      const data = JSON.parse(body.toString());
 
       // Create metadata
       const metadata: EntityMetadata = {
-        etag: response.ETag,
+        etag: response.ETag?.replace(/"/g, ''),
         size: response.ContentLength,
         lastModified: response.LastModified?.toISOString()
       };
 
-      // Convert rounds data to Round objects
-      // Handle both old format (moves) and new format (subRounds)
-      const rounds = data.rounds.map(roundData => {
-        let subRounds: SubRound[];
-        let status: RoundStatus;
-        let winnerId: string | undefined;
-        
-        if (roundData.subRounds) {
-          // New format with subRounds
-          subRounds = roundData.subRounds.map((subRoundData: any) => {
-            const moves = subRoundData.moves.map((moveData: any) => {
-              const context = new MoveContext(
-                moveData.context?.moveType as MoveType || MoveType.Stone,
-                moveData.context?.size || 0,
-                moveData.context?.decorId || 0
-              );
-              return new Move(moveData.userId, context, moveData.time || Date.now());
-            });
-            return new SubRound(
-              subRoundData.idNum,
-              moves,
-              subRoundData.startAt,
-              subRoundData.finishedAt,
-              subRoundData.updatedAt
-            );
-          });
-          status = roundData.status as RoundStatus || RoundStatus.Pending;
-          winnerId = roundData.winnerId;
-        } else {
-          // Legacy format: wrap moves in a SubRound
-          const moves = roundData.moves?.map((moveData: any) => {
-            const context = new MoveContext(
-              moveData.context?.moveType as MoveType || MoveType.Stone,
-              moveData.context?.size || 0,
-              moveData.context?.decorId || 0
-            );
-            return new Move(moveData.userId, context, moveData.time || Date.now());
-          }) || [];
-          const startTime = roundData.startTime || roundData.time || Date.now();
-          const endTime = roundData.endTime || startTime;
-          subRounds = [new SubRound(1, moves, startTime, endTime, startTime)];
-          status = roundData.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
-          winnerId = roundData.winnerId !== undefined ? String(roundData.winnerId) : undefined;
-        }
-        
-        const startTime = roundData.startTime || roundData.time || Date.now();
-        return new Round(
-          roundData.id, 
-          subRounds, 
-          status, 
-          startTime,
-          winnerId,
-          roundData.endTime
-        );
-      });
+      // Add the id to the data (it's stored in the S3 key, not in the JSON body)
+      const dataWithId = { ...data, id };
 
-      return this.gameFactory(id, data.type, data.usersIds, rounds, data.isFinished, response.ETag, metadata);
+      // Use GameEntity.fromJSON to parse the data (handles createContext and endTime)
+      const gameEntity = GameEntity.fromJSON(dataWithId);
+      
+      // Create a new GameEntity with the correct etag and metadata
+      // We need to use internalCreateFromBackingStore to preserve the backing store data
+      const backingStore = gameEntity.internalGetBackingStore();
+      const backedWithMetadata = new JsonEntity(backingStore.id, backingStore.data, response.ETag?.replace(/"/g, ''), metadata);
+      return gameEntity.internalCreateFromBackingStore(backedWithMetadata);
     } catch (error: any) {
       if (error.name === 'NoSuchKey') {
         return null;

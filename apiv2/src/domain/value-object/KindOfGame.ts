@@ -5,6 +5,7 @@
  */
 export enum KindOfGame {
   Classic = 'classic',
-  Extended = 'extended'
+  Extended = 'extended',
+  PVE = "PVE"
 }
 

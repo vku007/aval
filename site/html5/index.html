@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aval Game - Box2D Physics</title>
+  
+  <!-- Fonts - Casual/Playful style -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Debug: Log script loading -->
+  <script>
+    console.log('[HTML] Head scripts starting to load...');
+    window.scriptLoadOrder = [];
+  </script>
+  
+  <!-- Phaser 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+  <script>
+    window.scriptLoadOrder.push('phaser');
+    console.log('[HTML] Phaser loaded:', typeof Phaser !== 'undefined' ? Phaser.VERSION : 'FAILED');
+  </script>
+  
+  <!-- Planck.js (Box2D) -->
+  <script src="https://unpkg.com/planck-js@0.3.28/dist/planck.min.js"></script>
+  <script>
+    window.scriptLoadOrder.push('planck');
+    console.log('[HTML] Planck.js loaded:', typeof planck !== 'undefined' ? 'OK' : 'FAILED');
+  </script>
+</head>
+<body>
+  <script>console.log('[HTML] Body starting...');</script>
+  
+  <div id="game-wrapper">
+    <header id="game-header">
+      <div class="logo">
+        <span class="logo-icon">🎮</span>
+        <span class="logo-text">AVAL</span>
+      </div>
+      <div id="user-info">
+        <span id="user-name">Loading...</span>
+        <button id="logout-btn" class="btn-ghost" style="display: none;">Logout</button>
+      </div>
+    </header>
+    
+    <main id="game-container">
+      <div id="loading-screen">
+        <div class="loader">
+          <div class="loader-ring"></div>
+          <div class="loader-ring"></div>
+          <div class="loader-ring"></div>
+        </div>
+        <p class="loading-text">Getting ready to play! 🎮</p>
+        <p id="loading-debug" style="font-size: 11px; color: #4a5f7a; margin-top: 20px;">Check console for details</p>
+      </div>
+      <div id="phaser-game"></div>
+    </main>
+    
+    <footer id="game-footer">
+      <div class="footer-left">
+        <span class="status-indicator"></span>
+        <span id="connection-status">Connecting...</span>
+      </div>
+      <div class="footer-right">
+        <span id="fps-counter">FPS: --</span>
+        <span id="physics-bodies">Bodies: --</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Game Scripts - Order matters! -->
+  <script>console.log('[HTML] Loading game scripts...');</script>
+  
+  <script src="js/api.js"></script>
+  <script>
+    window.scriptLoadOrder.push('api');
+    console.log('[HTML] api.js loaded:', typeof gameAPI !== 'undefined' ? 'OK' : 'FAILED');
+  </script>
+  
+  <script src="js/physics.js"></script>
+  <script>
+    window.scriptLoadOrder.push('physics');
+    console.log('[HTML] physics.js loaded:', typeof PhysicsWorld !== 'undefined' ? 'OK' : 'FAILED');
+  </script>
+  
+  <script src="js/scenes/BootScene.js"></script>
+  <script>
+    window.scriptLoadOrder.push('BootScene');
+    console.log('[HTML] BootScene.js loaded:', typeof BootScene !== 'undefined' ? 'OK' : 'FAILED');
+  </script>
+  
+  <script src="js/scenes/MenuScene.js"></script>
+  <script>
+    window.scriptLoadOrder.push('MenuScene');
+    console.log('[HTML] MenuScene.js loaded:', typeof MenuScene !== 'undefined' ? 'OK' : 'FAILED');
+  </script>
+  
+  <script src="js/game.js"></script>
+  <script>
+    window.scriptLoadOrder.push('game');
+    console.log('[HTML] game.js loaded');
+    console.log('[HTML] All scripts loaded. Order:', window.scriptLoadOrder.join(' -> '));
+    
+    // Update loading debug text
+    const loadingDebug = document.getElementById('loading-debug');
+    if (loadingDebug) {
+      loadingDebug.textContent = 'Scripts loaded: ' + window.scriptLoadOrder.length + '/6';
+    }
+  </script>
+</body>
+</html>

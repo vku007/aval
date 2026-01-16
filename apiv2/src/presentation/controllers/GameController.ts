@@ -217,18 +217,20 @@ export class GameController {
       const startTime = roundData.startTime || Date.now();
       const endTime = roundData.endTime || startTime;
       // Wrap moves in a SubRound for compatibility with new Round structure
-      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const finishedAt = roundData.isFinished ? endTime : null;
+      const subRound = new SubRound(1, startTime, finishedAt, startTime);
+      subRound.moves = moves;
       const status = roundData.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
       const winnerId = roundData.winnerId !== undefined ? String(roundData.winnerId) : undefined;
       
       const round = new Round(
         roundData.id, 
-        [subRound], 
         status, 
         startTime,
         winnerId,
         roundData.endTime
       );
+      round.subRounds = [subRound];
       const gameDto = await this.gameService.addRoundToGame(gameId, round, ifMatch);
       const metadata = await this.gameService.getGameMetadata(gameId);
       

@@ -1,22 +1,33 @@
 import { Move } from './Move.js';
 import { ValidationError } from '../../shared/errors/index.js';
+import { SubRoundStatus } from './SubRoundStatus.js';
 
 /**
  * SubRound represents a sub-round with moves and timestamps.
+ * SubRound could be draw 
  */
 export class SubRound {
+    public moves: Move[];
+    public status: SubRoundStatus;
+    public winnerId?: string;
+
     constructor(
         public readonly idNum: number,
-        public readonly moves: Move[],
-        public readonly startAt: number,
-        public readonly finishedAt: number,
-        public readonly updatedAt: number
+        public startAt: number,
+        public finishedAt: number | null,
+        public updatedAt: number
     ) {
+        // Initialize moves to empty array
+        this.moves = [];
+        // Initialize status to Init
+        this.status = SubRoundStatus.Init;
+        
         this.validateIdNum(idNum);
-        this.validateMoves(moves);
+        this.validateMoves(this.moves);
         this.validateStartAt(startAt);
         this.validateFinishedAt(finishedAt);
         this.validateUpdatedAt(updatedAt);
+        this.validateStatus(this.status);
     }
 
     /**
@@ -28,7 +39,9 @@ export class SubRound {
             moves: this.moves.map(move => move.toJSON()),
             startAt: this.startAt,
             finishedAt: this.finishedAt,
-            updatedAt: this.updatedAt
+            updatedAt: this.updatedAt,
+            status: this.status,
+            winnerId: this.winnerId
         };
     }
 
@@ -52,22 +65,33 @@ export class SubRound {
             throw new ValidationError('SubRound startAt is required and must be a number');
         }
 
-        if (typeof data.finishedAt !== 'number') {
-            throw new ValidationError('SubRound finishedAt is required and must be a number');
+        if (data.finishedAt !== null && data.finishedAt !== undefined && typeof data.finishedAt !== 'number') {
+            throw new ValidationError('SubRound finishedAt must be a number or null');
         }
 
         if (typeof data.updatedAt !== 'number') {
             throw new ValidationError('SubRound updatedAt is required and must be a number');
         }
 
+        if (data.status !== undefined && data.status !== null) {
+            if (typeof data.status !== 'string' || !Object.values(SubRoundStatus).includes(data.status as SubRoundStatus)) {
+                throw new ValidationError(`SubRound status must be a valid SubRoundStatus enum value`);
+            }
+        }
+
         const moves = data.moves.map((moveData: any) => Move.fromJSON(moveData));
-        return new SubRound(
+        const subRound = new SubRound(
             data.idNum,
-            moves,
             data.startAt,
-            data.finishedAt,
+            data.finishedAt ?? null,
             data.updatedAt
         );
+        subRound.moves = moves;
+        subRound.status = data.status !== undefined ? (data.status as SubRoundStatus) : SubRoundStatus.Init;
+        if (data.winnerId !== undefined && data.winnerId !== null) {
+            subRound.winnerId = data.winnerId;
+        }
+        return subRound;
     }
 
     private validateIdNum(idNum: number): void {
@@ -119,9 +143,13 @@ export class SubRound {
         }
     }
 
-    private validateFinishedAt(finishedAt: number): void {
+    private validateFinishedAt(finishedAt: number | null): void {
+        if (finishedAt === null || finishedAt === undefined) {
+            return; // null is allowed
+        }
+
         if (typeof finishedAt !== 'number') {
-            throw new ValidationError('SubRound finishedAt must be a number');
+            throw new ValidationError('SubRound finishedAt must be a number or null');
         }
 
         if (!Number.isInteger(finishedAt)) {
@@ -160,6 +188,12 @@ export class SubRound {
         
         if (updatedAt < minTimestamp || updatedAt > maxTimestamp) {
             throw new ValidationError('SubRound updatedAt must be a valid Unix timestamp in milliseconds');
+        }
+    }
+
+    private validateStatus(status: SubRoundStatus): void {
+        if (!status || !Object.values(SubRoundStatus).includes(status)) {
+            throw new ValidationError(`status must be one of: ${Object.values(SubRoundStatus).join(', ')}`);
         }
     }
 }

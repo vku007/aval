@@ -5,14 +5,20 @@ import { Game, GameTypeLength } from './Game.js';
 import { Round } from '../value-object/Round.js';
 import { RoundStatus } from '../value-object/RoundStatus.js';
 import { SubRound } from '../value-object/SubRound.js';
+import { SubRoundStatus } from '../value-object/SubRoundStatus.js';
 import { Move, MoveContext, MoveType } from '../value-object/Move.js';
+import { GameStatus } from '../value-object/GameStatus.js';
+import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
 
 // Define the data structure for better type safety
 interface GameData {
   type: GameTypeLength;
   usersIds: string[];
   rounds: RoundData[];
-  isFinished: boolean;
+  status: GameStatus;
+  isFinished?: boolean; // Backward compatibility
+  createContext?: any; // Store as JSON object
+  endTime?: number;
 }
 
 interface RoundData {
@@ -28,8 +34,10 @@ interface SubRoundData {
   idNum: number;
   moves: MoveData[];
   startAt: number;
-  finishedAt: number;
+  finishedAt: number | null;
   updatedAt: number;
+  status?: string;
+  winnerId?: string;
 }
 
 interface MoveData {
@@ -50,19 +58,24 @@ export class GameEntity {
     type: GameTypeLength,
     usersIds: string[],
     rounds: Round[],
-    isFinished: boolean,
+    status: GameStatus,
     etag?: string,
-    metadata?: EntityMetadata
+    metadata?: EntityMetadata,
+    createContext?: GameCreateContext,
+    endTime?: number
   ) {
     this.validateId(id);
-    this.validateGameData(type, usersIds, rounds, isFinished);
+    this.validateGameData(type, usersIds, rounds, status);
     
     // Convert Game objects to data structure
     const gameData: GameData = {
       type,
       usersIds: [...usersIds], // Create copy to avoid mutation
       rounds: rounds.map(round => this.roundToData(round)),
-      isFinished
+      status,
+      isFinished: status === GameStatus.Finished, // Backward compatibility
+      createContext: createContext ? createContext.toJSON() : undefined,
+      endTime
     };
     
     this._backed = new JsonEntity(id, gameData as unknown as JsonValue, etag, metadata);
@@ -85,8 +98,31 @@ export class GameEntity {
     return this.getGameData().rounds.map(roundData => this.dataToRound(roundData));
   }
 
+  get status(): GameStatus {
+    const gameData = this.getGameData();
+    // Support both status (new) and isFinished (old) for backward compatibility
+    if (gameData.status) {
+      return gameData.status;
+    }
+    // Fallback to isFinished for backward compatibility
+    return gameData.isFinished ? GameStatus.Finished : GameStatus.Created;
+  }
+
   get isFinished(): boolean {
-    return this.getGameData().isFinished;
+    // Backward compatibility getter
+    return this.status === GameStatus.Finished;
+  }
+
+  get createContext(): GameCreateContext | undefined {
+    const gameData = this.getGameData();
+    if (!gameData.createContext) {
+      return undefined;
+    }
+    return GameCreateContext.fromJSON(gameData.createContext);
+  }
+
+  get endTime(): number | undefined {
+    return this.getGameData().endTime;
   }
 
   // Read-only access to entity metadata (etag, size, lastModified)
@@ -107,14 +143,19 @@ export class GameEntity {
   internalCreateFromBackingStore(backed: JsonEntity): GameEntity {
     const gameData = backed.data as unknown as GameData;
     const rounds = gameData.rounds.map(roundData => this.dataToRound(roundData));
+    // Support both status (new) and isFinished (old) for backward compatibility
+    const status = gameData.status || (gameData.isFinished ? GameStatus.Finished : GameStatus.Created);
+    const createContext = gameData.createContext ? GameCreateContext.fromJSON(gameData.createContext) : undefined;
     return new GameEntity(
       backed.id, 
       gameData.type, 
       gameData.usersIds, 
       rounds, 
-      gameData.isFinished, 
+      status, 
       backed.etag, 
-      backed.metadata
+      backed.metadata,
+      createContext,
+      gameData.endTime
     );
   }
 
@@ -124,30 +165,36 @@ export class GameEntity {
     type: GameTypeLength, 
     usersIds: string[], 
     rounds: Round[], 
-    isFinished: boolean, 
+    status: GameStatus, 
     etag?: string, 
     metadata?: EntityMetadata
   ): GameEntity {
-    return new GameEntity(id, type, usersIds, rounds, isFinished, etag, metadata);
+    return new GameEntity(id, type, usersIds, rounds, status, etag, metadata);
   }
 
   // Immutable operations that delegate to Game class
   addRound(round: Round): GameEntity {
     const game = this.toGame();
-    const updatedGame = game.addRound(round);
-    return this.fromGame(updatedGame);
+    game.addRound(round);
+    return this.fromGame(game);
+  }
+
+  setStatus(status: GameStatus): GameEntity {
+    const game = this.toGame();
+    game.setStatus(status);
+    return this.fromGame(game);
   }
 
   setFinished(finished: boolean): GameEntity {
-    const game = this.toGame();
-    const updatedGame = game.setFinished(finished);
-    return this.fromGame(updatedGame);
+    // Backward compatibility method
+    const status = finished ? GameStatus.Finished : GameStatus.Created;
+    return this.setStatus(status);
   }
 
   finish(): GameEntity {
     const game = this.toGame();
-    const updatedGame = game.finish();
-    return this.fromGame(updatedGame);
+    game.finish();
+    return this.fromGame(game);
   }
 
   addMoveToRound(roundId: string, move: Move): GameEntity {
@@ -188,10 +235,22 @@ export class GameEntity {
   }
 
   // Conversion methods between GameEntity and Game
-  private toGame(): Game {
+  /**
+   * Converts this GameEntity to a Game domain object.
+   * @returns Game domain object with all properties
+   */
+  public toGame(): Game {
     const gameData = this.getGameData();
     const rounds = gameData.rounds.map(roundData => this.dataToRound(roundData));
-    return new Game(this.id, gameData.type, gameData.usersIds, rounds, gameData.isFinished);
+    // Support both status (new) and isFinished (old) for backward compatibility
+    const status = gameData.status || (gameData.isFinished ? GameStatus.Finished : GameStatus.Created);
+    const createContext = gameData.createContext ? GameCreateContext.fromJSON(gameData.createContext) : undefined;
+    const game = new Game(this.id, gameData.type, gameData.usersIds, status, createContext);
+    game.rounds = rounds;
+    if (gameData.endTime !== undefined) {
+      game.endTime = gameData.endTime;
+    }
+    return game;
   }
 
   private fromGame(game: Game): GameEntity {
@@ -200,9 +259,11 @@ export class GameEntity {
       game.type,
       game.usersIds,
       game.rounds,
-      game.isFinished,
+      game.status,
       this._backed.etag,
-      this._backed.metadata
+      this._backed.metadata,
+      game.createContext,
+      game.endTime
     );
   }
 
@@ -220,14 +281,15 @@ export class GameEntity {
 
   private dataToRound(roundData: RoundData): Round {
     const subRounds = roundData.subRounds.map(subRoundData => this.dataToSubRound(subRoundData));
-    return new Round(
+    const round = new Round(
       roundData.id, 
-      subRounds, 
       roundData.status as RoundStatus, 
       roundData.startTime,
       roundData.winnerId,
       roundData.endTime
     );
+    round.subRounds = subRounds;
+    return round;
   }
 
   private subRoundToData(subRound: SubRound): SubRoundData {
@@ -236,19 +298,30 @@ export class GameEntity {
       moves: subRound.moves.map(move => this.moveToData(move)),
       startAt: subRound.startAt,
       finishedAt: subRound.finishedAt,
-      updatedAt: subRound.updatedAt
+      updatedAt: subRound.updatedAt,
+      status: subRound.status,
+      winnerId: subRound.winnerId
     };
   }
 
   private dataToSubRound(subRoundData: SubRoundData): SubRound {
     const moves = subRoundData.moves.map(moveData => this.dataToMove(moveData));
-    return new SubRound(
+    const subRound = new SubRound(
       subRoundData.idNum,
-      moves,
       subRoundData.startAt,
       subRoundData.finishedAt,
       subRoundData.updatedAt
     );
+    subRound.moves = moves;
+    // Restore status if present in data
+    if (subRoundData.status !== undefined) {
+      subRound.status = subRoundData.status as SubRoundStatus;
+    }
+    // Restore winnerId if present in data
+    if (subRoundData.winnerId !== undefined) {
+      subRound.winnerId = subRoundData.winnerId;
+    }
+    return subRound;
   }
 
   private moveToData(move: Move): MoveData {
@@ -270,12 +343,16 @@ export class GameEntity {
 
   // JSON serialization
   toJSON(): object {
+    const gameData = this.getGameData();
     return {
       id: this.id,
       type: this.type,
       usersIds: this.usersIds,
       rounds: this.rounds.map(round => round.toJSON()),
-      isFinished: this.isFinished
+      status: this.status,
+      isFinished: this.isFinished, // Backward compatibility
+      createContext: gameData.createContext,
+      endTime: gameData.endTime
     };
   }
 
@@ -304,12 +381,24 @@ export class GameEntity {
       throw new ValidationError('Game entity rounds must be an array');
     }
 
-    if (typeof data.isFinished !== 'boolean') {
-      throw new ValidationError('Game entity isFinished must be a boolean');
+    // Support both status (new) and isFinished (old) for backward compatibility
+    let status: GameStatus;
+    if (data.status && typeof data.status === 'string') {
+      if (!Object.values(GameStatus).includes(data.status as GameStatus)) {
+        throw new ValidationError(`Invalid game status: ${data.status}. Must be one of: ${Object.values(GameStatus).join(', ')}`);
+      }
+      status = data.status as GameStatus;
+    } else if (typeof data.isFinished === 'boolean') {
+      // Backward compatibility: convert isFinished to status
+      status = data.isFinished ? GameStatus.Finished : GameStatus.Created;
+    } else {
+      throw new ValidationError('Game entity status is required (or isFinished for backward compatibility)');
     }
 
     const rounds = data.rounds.map((roundData: any) => Round.fromJSON(roundData));
-    return new GameEntity(data.id, data.type as GameTypeLength, data.usersIds, rounds, data.isFinished);
+    const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
+    const endTime = data.endTime !== undefined && data.endTime !== null ? data.endTime : undefined;
+    return new GameEntity(data.id, data.type as GameTypeLength, data.usersIds, rounds, status, undefined, undefined, createContext, endTime);
   }
 
   // Validation methods
@@ -330,11 +419,11 @@ export class GameEntity {
     }
   }
 
-  private validateGameData(type: GameTypeLength, usersIds: string[], rounds: Round[], isFinished: boolean): void {
+  private validateGameData(type: GameTypeLength, usersIds: string[], rounds: Round[], status: GameStatus): void {
     this.validateType(type);
     this.validateUsersIds(usersIds);
     this.validateRounds(rounds);
-    this.validateIsFinished(isFinished);
+    this.validateStatus(status);
   }
 
   private validateType(type: GameTypeLength): void {
@@ -393,9 +482,9 @@ export class GameEntity {
     });
   }
 
-  private validateIsFinished(isFinished: boolean): void {
-    if (typeof isFinished !== 'boolean') {
-      throw new ValidationError('Game isFinished must be a boolean');
+  private validateStatus(status: GameStatus): void {
+    if (!status || !Object.values(GameStatus).includes(status)) {
+      throw new ValidationError(`status must be one of: ${Object.values(GameStatus).join(', ')}`);
     }
   }
 }

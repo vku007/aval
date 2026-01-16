@@ -14,7 +14,8 @@ This project provides a production-ready AWS infrastructure with:
 
 ### Live Endpoints
 
-- **Website**: https://vkp-consulting.fr
+- **Website (Company Homepage)**: https://vkp-consulting.fr
+- **Website (VKP API Management Portal)**: https://vkp-consulting.fr/aval
 - **CloudFront**: https://d1kcdf4orzsjcw.cloudfront.net
 - **API Gateway**: https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com
 
@@ -54,7 +55,9 @@ vkp/aval/
 │   └── commands/         # AWS CLI deployment scripts
 │
 └── site/                  # Static website content
-    ├── index.html        # Homepage
+    ├── index.html        # Company homepage (root)
+    ├── aval/             # VKP API Management portal (served at /aval)
+    ├── assets/           # Static assets (SVGs, images)
     ├── users/            # User management interface
     ├── games/            # Game management interface
     ├── entities/         # Entity management interface
@@ -566,6 +569,7 @@ MIT License - See LICENSE file for details.
 ---
 
 **Last Updated**: October 2024  
+**Website**: Root homepage + `/aval` portal updated January 2026  
 **Terraform Version**: 1.13.4  
 **AWS Region**: eu-north-1  
 **Node Version**: 20.x

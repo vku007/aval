@@ -1,0 +1,150 @@
+/**
+ * MenuScene
+ * Candy style menu with Game, Inventory, Start Game, and Exit buttons
+ */
+class MenuScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MenuScene' });
+        console.log('[MenuScene] Constructor called');
+    }
+
+    create() {
+        console.log('[MenuScene] create() started');
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // Get user from registry
+        const user = this.registry.get('currentUser');
+        console.log('[MenuScene] User from registry:', user);
+        const displayName = user?.name || 'Not Logged In';
+        console.log('[MenuScene] Display name:', displayName);
+        
+        // User panel (upper left corner)
+        this.playerText = this.add.text(20, 20, `Player: ${displayName}`, {
+            font: '24px monospace',
+            fill: '#000000'
+        }).setOrigin(0, 0);
+        console.log('[MenuScene] Player text created at (20, 20):', this.playerText);
+        
+        // Store reference for updates
+        this.currentDisplayName = displayName;
+
+        // Debug info
+        this.add.text(width / 2, 50, 'MENU SCENE', {
+            font: '48px monospace',
+            fill: '#000000'
+        }).setOrigin(0.5);
+        
+        this.add.text(width / 2, 100, `Canvas: ${width}x${height}`, {
+            font: '20px monospace',
+            fill: '#666666'
+        }).setOrigin(0.5);
+
+        // Create the buttons
+        const buttonYStart = height / 2 - 100;
+        const buttonSpacing = 100;
+
+        this.createMenuButton(width / 2, buttonYStart, 'LOGIN', () => this.onGameClick(width / 2, buttonYStart));
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing, 'REGISTER', () => this.onRegisterClick());
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 2, 'INVENTORY', () => console.log('Inventory Clicked'));
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 3, 'START GAME', () => console.log('Start Game Clicked'));
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 4, 'EXIT', () => console.log('Exit Clicked'));
+    }
+
+    /**
+     * Handle LOGIN button click - show in-canvas login modal
+     */
+    onGameClick(x, y) {
+        console.log('Login button clicked');
+        
+        // Launch login modal scene as overlay
+        this.scene.launch('LoginModalScene', {
+            onLoginSuccess: (user) => this.updatePlayerPanel(user)
+        });
+    }
+
+    onRegisterClick() {
+        console.log('[MenuScene] onRegisterClick() called');
+        
+        // Check if user is already a regular user
+        // Guest users have the name "Guest User"
+        const user = this.registry.get('currentUser');
+        console.log('[MenuScene] Current user:', user);
+        console.log('[MenuScene] User name:', user?.name);
+        console.log('[MenuScene] Is guest?', user?.name === 'Guest User');
+        
+        if (user && user.name !== 'Guest User') {
+            // Already a regular user
+            console.log('[MenuScene] User is already registered, not showing modal');
+            // Could show a message or do nothing
+            return;
+        }
+        
+        console.log('[MenuScene] Launching RegisterModalScene...');
+        // Launch register modal scene as overlay
+        this.scene.launch('RegisterModalScene', {
+            onRegisterSuccess: (user) => this.updatePlayerPanel(user)
+        });
+        console.log('[MenuScene] RegisterModalScene launch command sent');
+    }
+
+    updatePlayerPanel(user) {
+        // Update the player text
+        if (this.playerText && user?.name) {
+            this.playerText.setText(`Player: ${user.name}`);
+            this.currentDisplayName = user.name;
+            this.registry.set('currentUser', user);
+            console.log('[MenuScene] Player panel updated to:', user.name);
+        }
+    }
+
+    /**
+     * Create debug wireframe button
+     */
+    createMenuButton(x, y, label, callback) {
+        const btn = this.add.container(x, y);
+        
+        const btnWidth = 350;
+        const btnHeight = 31;
+
+        // Wireframe rectangle
+        const bg = this.add.graphics();
+        bg.lineStyle(2, 0x000000, 1);
+        bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+        
+        // Button label
+        const text = this.add.text(0, 0, label, {
+            font: '32px monospace',
+            fill: '#000000'
+        }).setOrigin(0.5);
+        
+        // Size label
+        const sizeLabel = this.add.text(btnWidth/2 - 5, -btnHeight/2 + 5, `${btnWidth}x${btnHeight}`, {
+            font: '12px monospace',
+            fill: '#666666'
+        }).setOrigin(1, 0);
+        
+        btn.add([bg, text, sizeLabel]);
+        
+        // Interactivity
+        const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+        btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
+        
+        btn.on('pointerover', () => {
+            bg.clear();
+            bg.lineStyle(3, 0x000000, 1);
+            bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+        });
+        
+        btn.on('pointerout', () => {
+            bg.clear();
+            bg.lineStyle(2, 0x000000, 1);
+            bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+        });
+        
+        btn.on('pointerdown', () => {
+            callback();
+        });
+    }
+}
+

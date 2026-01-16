@@ -70,7 +70,9 @@ terraform/modules/
 ## 🌐 Static Website
 
 ### Content
-- **[site/index.html](site/index.html)** - Homepage
+- **[site/index.html](site/index.html)** - Company homepage (root: `vkp-consulting.fr/`)
+- **[site/aval/index.html](site/aval/index.html)** - VKP API Management portal (path: `vkp-consulting.fr/aval`)
+- **[site/assets/architecture-bg.svg](site/assets/architecture-bg.svg)** - Hero background watermark (SVG)
 - **[site/users/README.md](site/users/README.md)** - User interface documentation
 
 ### Error Pages
@@ -142,6 +144,10 @@ site/errors/
 
 ## 🔄 Document Update History
 
+### January 3, 2026 - Website Homepage Refresh
+- ✅ Root homepage updated to a company/consulting landing page (`site/index.html`)
+- ✅ Existing API management landing moved under `/aval` (`site/aval/index.html`)
+
 ### October 24, 2025 - Terraform Integration
 - ✅ Created main [README.md](README.md) with complete project overview
 - ✅ Created [INFRASTRUCTURE_OVERVIEW.md](INFRASTRUCTURE_OVERVIEW.md) with detailed architecture
@@ -157,5 +163,5 @@ site/errors/
 ---
 
 **Maintained By**: VKP Consulting Team  
-**Last Updated**: October 24, 2025  
+**Last Updated**: January 3, 2026  
 **Version**: 2.0 (with Terraform)

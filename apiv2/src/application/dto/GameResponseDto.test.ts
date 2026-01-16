@@ -6,11 +6,12 @@ import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
+import { GameStatus } from '../../domain/value-object/GameStatus.js';
 
 describe('GameResponseDto', () => {
   describe('fromGameEntity', () => {
     it('should create response DTO from game entity', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], false);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], GameStatus.Created);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -25,9 +26,11 @@ describe('GameResponseDto', () => {
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       const startTime = Date.now();
-      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], true);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      subRound.moves = [move];
+      const round = new Round('round-1', RoundStatus.Finished, startTime);
+      round.subRounds = [subRound];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Finished);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -41,7 +44,7 @@ describe('GameResponseDto', () => {
 
     it('should include etag and metadata', () => {
       const metadata = { size: 100, lastModified: new Date().toISOString() };
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false, 'etag-123', metadata);
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created, 'etag-123', metadata);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -55,9 +58,11 @@ describe('GameResponseDto', () => {
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       const startTime = Date.now();
-      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round], true);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      subRound.moves = [move];
+      const round = new Round('round-1', RoundStatus.Finished, startTime);
+      round.subRounds = [subRound];
+      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round], GameStatus.Finished);
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
       const json = responseDto.toJSON();
@@ -93,8 +98,10 @@ describe('RoundResponseDto', () => {
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       const startTime = Date.now();
-      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      subRound.moves = [move];
+      const round = new Round('round-1', RoundStatus.Finished, startTime);
+      round.subRounds = [subRound];
       
       const responseDto = RoundResponseDto.fromRound(round);
       
@@ -110,8 +117,10 @@ describe('RoundResponseDto', () => {
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       const startTime = Date.now();
-      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Finished, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      subRound.moves = [move];
+      const round = new Round('round-1', RoundStatus.Finished, startTime);
+      round.subRounds = [subRound];
       const responseDto = RoundResponseDto.fromRound(round);
       
       const json = responseDto.toJSON();

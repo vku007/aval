@@ -9,6 +9,7 @@ import { JsonEntity } from './domain/entity/JsonEntity.js';
 import { User } from './domain/entity/User.js';
 import { GameEntity } from './domain/entity/GameEntity.js';
 import { Round } from './domain/value-object/Round.js';
+import { GameStatus } from './domain/value-object/GameStatus.js';
 import type { JsonValue, EntityMetadata } from './shared/types/common.js';
 
 // Infrastructure
@@ -22,6 +23,7 @@ import type { HttpRequest } from './infrastructure/http/HttpTypes.js';
 import { EntityService } from './application/services/EntityService.js';
 import { UserService } from './application/services/UserService.js';
 import { GameService } from './application/services/GameService.js';
+import { GameProcessorService } from './application/services/GameProcessorService.js';
 
 // Presentation
 import { EntityController } from './presentation/controllers/EntityController.js';
@@ -57,8 +59,10 @@ const userFactory = (id: string, name: string, externalId: number, etag?: string
   User.create(id, name, externalId, etag, metadata);
 
 // Game factory for GameEntity
-const gameFactory = (id: string, type: string, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) =>
-  GameEntity.create(id, type, usersIds, rounds, isFinished, etag, metadata);
+const gameFactory = (id: string, type: string, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => {
+  const status = isFinished ? GameStatus.Finished : GameStatus.Created;
+  return GameEntity.create(id, type, usersIds, rounds, status, etag, metadata);
+};
 
 // Infrastructure layer - S3Client created inside handler for testability
 let s3Client: S3Client;
@@ -87,6 +91,7 @@ let userController: UserController;
 let gameController: GameController;
 let externalController: ExternalController;
 let authController: AuthController;
+let gameProcessorService: GameProcessorService;
 
 // Build error handler
 const handleError = errorHandler(logger, config.cors.allowedOrigin);
@@ -97,11 +102,12 @@ let router: Router;
 function createRouter() {
   if (!router) {
     initializeServices();
+    gameProcessorService = new GameProcessorService(gameRepository);
     entityController = new EntityController(entityService, logger);
     userController = new UserController(userService, logger);
     gameController = new GameController(gameService, logger);
-    externalController = new ExternalController(userService, logger);
-    authController = new AuthController(logger);
+    externalController = new ExternalController(userService, logger, gameProcessorService);
+    authController = new AuthController(logger, userService);
     
     // Helper to combine auth + role middleware
     const adminOnly = () => [authMiddleware(), requireRole('admin')];
@@ -113,9 +119,15 @@ function createRouter() {
       
       // Public routes (no authentication required)
       .post('/apiv2/public/create-guest', (req: HttpRequest) => authController.createGuestUser(req))
+      .post('/apiv2/public/login', (req: HttpRequest) => authController.login(req))
       
       // External routes (authenticated users, any role)
       .get('/apiv2/external/me', ...authenticated(), (req: HttpRequest) => externalController.getMe(req))
+      .post('/apiv2/external/promote', ...authenticated(), (req: HttpRequest) => authController.promoteGuestToRegular(req))
+      .post('/apiv2/external/games', ...authenticated(), (req: HttpRequest) => externalController.createGame(req))
+      .get('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.getGame(req))
+      .put('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.updateGame(req))
+      .patch('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.updateGame(req))
       
       // Admin-only routes (/internal/* endpoints)
       .get('/apiv2/internal/files', ...adminOnly(), (req: HttpRequest) => entityController.list(req))

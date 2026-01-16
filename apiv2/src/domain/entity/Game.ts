@@ -2,6 +2,8 @@ import { Round } from "../value-object/Round.js";
 import { RoundStatus } from "../value-object/RoundStatus.js";
 import { Move } from "../value-object/Move.js";
 import { ValidationError } from "../../shared/errors/index.js";
+import { GameCreateContext } from "../../application/dto/processor/GameCreateContext.js";
+import { GameStatus } from "../value-object/GameStatus.js";
 
 export enum GameTypeLength {
     BO1 = 'BO1',
@@ -14,44 +16,54 @@ export enum GameTypeLength {
 }
 
 export class Game {
+    public rounds: Round[];
+    public endTime?: number;
+
     constructor(
         public readonly id: string,
         public readonly type: GameTypeLength,
         public readonly usersIds: string[],
-        public readonly rounds: Round[],
-        public readonly isFinished: boolean
+        public status: GameStatus,
+        // TODO: This could be changed to a specific domain value object class in the future
+        // Currently using GameCreateContext from application layer for convenience
+        public readonly createContext?: GameCreateContext
     ) {
+        // Initialize rounds to empty array
+        this.rounds = [];
+        
         this.validateId(id);
         this.validateType(type);
         this.validateUsersIds(usersIds);
-        this.validateRounds(rounds);
-        this.validateIsFinished(isFinished);
+        this.validateStatus(status);
+        if (createContext !== undefined) {
+            this.validateCreateContext(createContext);
+        }
     }
 
     /**
      * Add a round to this game
-     * Returns a new Game instance (immutable)
+     * Modifies the rounds array in place (mutable)
      */
-    addRound(round: Round): Game {
+    addRound(round: Round): void {
         this.validateRound(round);
-        return new Game(this.id, this.type, this.usersIds, [...this.rounds, round], this.isFinished);
+        this.rounds.push(round);
     }
 
     /**
-     * Set the finished status of this game
-     * Returns a new Game instance (immutable)
+     * Set the status of this game
+     * Modifies the status field in place (mutable)
      */
-    setFinished(finished: boolean): Game {
-        this.validateIsFinished(finished);
-        return new Game(this.id, this.type, this.usersIds, this.rounds, finished);
+    setStatus(status: GameStatus): void {
+        this.validateStatus(status);
+        this.status = status;
     }
 
     /**
      * Finish this game
-     * Returns a new Game instance with isFinished = true
+     * Sets status to Finished
      */
-    finish(): Game {
-        return new Game(this.id, this.type, this.usersIds, this.rounds, true);
+    finish(): void {
+        this.status = GameStatus.Finished;
     }
 
     /**
@@ -79,16 +91,18 @@ export class Game {
         // Create a new Round instance with the same data to avoid mutating the original
         const newRound = new Round(
             roundToModify.id,
-            [...roundToModify.subRounds],
             roundToModify.status,
             roundToModify.startTime,
             roundToModify.winnerId,
             roundToModify.endTime
         );
+        newRound.subRounds = [...roundToModify.subRounds];
         newRound.finish();
         updatedRounds[roundIndex] = newRound;
 
-        return new Game(this.id, this.type, this.usersIds, updatedRounds, this.isFinished);
+        const updatedGame = new Game(this.id, this.type, this.usersIds, this.status, this.createContext);
+        updatedGame.rounds = updatedRounds;
+        return updatedGame;
     }
 
     /**
@@ -148,7 +162,10 @@ export class Game {
             type: this.type,
             usersIds: [...this.usersIds],
             rounds: this.rounds.map(round => round.toJSON()),
-            isFinished: this.isFinished
+            status: this.status,
+            isFinished: this.status === GameStatus.Finished, // Backward compatibility
+            endTime: this.endTime,
+            createContext: this.createContext?.toJSON()
         };
     }
 
@@ -180,12 +197,31 @@ export class Game {
             throw new ValidationError('Game rounds must be an array');
         }
 
-        if (typeof data.isFinished !== 'boolean') {
-            throw new ValidationError('Game isFinished must be a boolean');
+        // Support both status (new) and isFinished (old) for backward compatibility
+        let status: GameStatus;
+        if (data.status && typeof data.status === 'string') {
+            if (!Object.values(GameStatus).includes(data.status as GameStatus)) {
+                throw new ValidationError(`Invalid game status: ${data.status}. Must be one of: ${Object.values(GameStatus).join(', ')}`);
+            }
+            status = data.status as GameStatus;
+        } else if (typeof data.isFinished === 'boolean') {
+            // Backward compatibility: convert isFinished to status
+            status = data.isFinished ? GameStatus.Finished : GameStatus.Created;
+        } else {
+            throw new ValidationError('Game status is required (or isFinished for backward compatibility)');
         }
 
         const rounds = data.rounds.map((roundData: any) => Round.fromJSON(roundData));
-        return new Game(data.id, data.type as GameTypeLength, data.usersIds, rounds, data.isFinished);
+        const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
+        const game = new Game(data.id, data.type as GameTypeLength, data.usersIds, status, createContext);
+        game.rounds = rounds;
+        if (data.endTime !== undefined && data.endTime !== null) {
+            if (typeof data.endTime !== 'number') {
+                throw new ValidationError('Game endTime must be a number');
+            }
+            game.endTime = data.endTime;
+        }
+        return game;
     }
 
     private validateId(id: string): void {
@@ -261,15 +297,21 @@ export class Game {
         });
     }
 
-    private validateIsFinished(isFinished: boolean): void {
-        if (typeof isFinished !== 'boolean') {
-            throw new ValidationError('Game isFinished must be a boolean');
+    private validateStatus(status: GameStatus): void {
+        if (!status || !Object.values(GameStatus).includes(status)) {
+            throw new ValidationError(`status must be one of: ${Object.values(GameStatus).join(', ')}`);
         }
     }
 
     private validateRound(round: Round): void {
         if (!(round instanceof Round)) {
             throw new ValidationError('Round must be a Round instance');
+        }
+    }
+
+    private validateCreateContext(createContext: GameCreateContext): void {
+        if (!createContext || !(createContext instanceof GameCreateContext)) {
+            throw new ValidationError('createContext must be an instance of GameCreateContext');
         }
     }
 }

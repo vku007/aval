@@ -4,11 +4,13 @@ import type { UserService } from '../../application/services/UserService.js';
 import type { Logger } from '../../shared/logging/Logger.js';
 import type { HttpRequest } from '../../infrastructure/http/HttpTypes.js';
 import { NotFoundError } from '../../shared/errors/index.js';
+import type { GameProcessorService } from '../../application/services/GameProcessorService.js';
 
 describe('ExternalController', () => {
   let controller: ExternalController;
   let mockUserService: UserService;
   let mockLogger: Logger;
+  let mockGameProcessorService: GameProcessorService;
 
   beforeEach(() => {
     mockUserService = {
@@ -23,7 +25,13 @@ describe('ExternalController', () => {
       clearContext: vi.fn(),
     } as any;
 
-    controller = new ExternalController(mockUserService, mockLogger);
+    mockGameProcessorService = {
+      createGame: vi.fn(),
+      getGame: vi.fn(),
+      updateGame: vi.fn(),
+    } as any;
+
+    controller = new ExternalController(mockUserService, mockLogger, mockGameProcessorService);
   });
 
   describe('getMe', () => {

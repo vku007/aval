@@ -4,6 +4,7 @@ import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
+import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { CreateGameDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { GameResponseDto } from '../dto/GameResponseDto.js';
@@ -69,26 +70,31 @@ export class GameService {
       const startTime = roundDto.startTime || Date.now();
       const endTime = roundDto.endTime || startTime;
       // Create a single SubRound containing all moves (migration approach)
-      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const finishedAt = roundDto.isFinished ? endTime : null;
+      const subRound = new SubRound(1, startTime, finishedAt, startTime);
+      subRound.moves = moves;
       const status = roundDto.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
       const winnerId = roundDto.winnerId !== undefined ? String(roundDto.winnerId) : undefined;
-      return new Round(
+      const round = new Round(
         roundDto.id, 
-        [subRound], 
         status, 
         startTime,
         winnerId,
         roundDto.endTime
       );
+      round.subRounds = [subRound];
+      return round;
     });
 
     // Create domain entity (will validate)
+    // Convert isFinished (old) to status (new) for backward compatibility
+    const status = dto.isFinished ? GameStatus.Finished : GameStatus.Created;
     const gameEntity = new GameEntity(
       dto.id, 
       dto.type as GameTypeLength, 
       dto.usersIds, 
       rounds, 
-      dto.isFinished
+      status
     );
 
     // Save with If-None-Match: * (create only)
@@ -184,8 +190,8 @@ export class GameService {
       if (!gameEntity) {
         throw new NotFoundError(`Game with id ${gameId} not found`);
       }
-      const updatedGame = gameEntity.addRound(round);
-      const saved = await this.repository.save(updatedGame, { ifMatch });
+      const updatedGameEntity = gameEntity.addRound(round);
+      const saved = await this.repository.save(updatedGameEntity, { ifMatch });
       
       this.logger.info('Added round to game', { gameId, roundId: round.id, etag: saved.internalGetBackingStore().etag });
       return GameResponseDto.fromGameEntity(saved);
@@ -201,7 +207,7 @@ export class GameService {
     move: Move, 
     ifMatch?: string
   ): Promise<GameResponseDto> {
-    this.logger.info('Adding move to game round', { gameId, roundId, moveId: move.id, ifMatch });
+    this.logger.info('Adding move to game round', { gameId, roundId, userId: move.userId, ifMatch });
 
     try {
       const gameEntity = await this.repository.findById(gameId);
@@ -214,7 +220,7 @@ export class GameService {
       this.logger.info('Added move to game round', { 
         gameId, 
         roundId, 
-        moveId: move.id, 
+        userId: move.userId, 
         etag: saved.internalGetBackingStore().etag 
       });
       return GameResponseDto.fromGameEntity(saved);
@@ -222,7 +228,7 @@ export class GameService {
       this.logger.error('Failed to add move to game round', { 
         gameId, 
         roundId, 
-        moveId: move.id, 
+        userId: move.userId, 
         error: error.message 
       });
       throw error;
@@ -283,26 +289,33 @@ export class GameService {
       const startTime = roundDto.startTime || Date.now();
       const endTime = roundDto.endTime || startTime;
       // Create a single SubRound containing all moves (migration approach)
-      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const finishedAt = roundDto.isFinished ? endTime : null;
+      const subRound = new SubRound(1, startTime, finishedAt, startTime);
+      subRound.moves = moves;
       const status = roundDto.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
       const winnerId = roundDto.winnerId !== undefined ? String(roundDto.winnerId) : undefined;
-      return new Round(
+      const round = new Round(
         roundDto.id, 
-        [subRound], 
         status, 
         startTime,
         winnerId,
         roundDto.endTime
       );
+      round.subRounds = [subRound];
+      return round;
     }) : existingGame.rounds;
 
     // Create new game entity with merged data
+    // Convert isFinished (old) to status (new) for backward compatibility
+    const status = dto.isFinished !== undefined 
+      ? (dto.isFinished ? GameStatus.Finished : GameStatus.Created) 
+      : existingGame.status;
     return new GameEntity(
       existingGame.id,
       (dto.type as GameTypeLength | undefined) ?? existingGame.type,
       dto.usersIds ?? existingGame.usersIds,
       rounds,
-      dto.isFinished ?? existingGame.isFinished,
+      status,
       existingGame.internalGetBackingStore().etag,
       existingGame.metadata
     );
@@ -310,6 +323,7 @@ export class GameService {
 
   private replaceGameData(existingGame: GameEntity, dto: UpdateGameDto): GameEntity {
     // For replace strategy, all fields are required
+    // Convert isFinished (old) to status (new) for backward compatibility
     if (!dto.type || !dto.usersIds || !dto.rounds || dto.isFinished === undefined) {
       throw new ValidationError('Replace strategy requires all fields: type, usersIds, rounds, isFinished');
     }
@@ -328,26 +342,31 @@ export class GameService {
       const startTime = roundDto.startTime || Date.now();
       const endTime = roundDto.endTime || startTime;
       // Create a single SubRound containing all moves (migration approach)
-      const subRound = new SubRound(1, moves, startTime, endTime, startTime);
+      const finishedAt = roundDto.isFinished ? endTime : null;
+      const subRound = new SubRound(1, startTime, finishedAt, startTime);
+      subRound.moves = moves;
       const status = roundDto.isFinished ? RoundStatus.Finished : RoundStatus.Pending;
       const winnerId = roundDto.winnerId !== undefined ? String(roundDto.winnerId) : undefined;
-      return new Round(
+      const round = new Round(
         roundDto.id, 
-        [subRound], 
         status, 
         startTime,
         winnerId,
         roundDto.endTime
       );
+      round.subRounds = [subRound];
+      return round;
     });
 
     // Create new game entity with replaced data
+    // Convert isFinished (old) to status (new) for backward compatibility
+    const status = dto.isFinished ? GameStatus.Finished : GameStatus.Created;
     return new GameEntity(
       existingGame.id,
       dto.type as GameTypeLength,
       dto.usersIds,
       rounds,
-      dto.isFinished,
+      status,
       existingGame.internalGetBackingStore().etag,
       existingGame.metadata
     );

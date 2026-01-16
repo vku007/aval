@@ -3,16 +3,19 @@ import { RoundStatus } from "./RoundStatus.js";
 import { SubRound } from "./SubRound.js";
 
 export class Round {
+    public subRounds: SubRound[];
+
     constructor(
         public readonly id: string,
-        public readonly subRounds: SubRound[],
         public status: RoundStatus,
         public readonly startTime: number,
         public winnerId?: string,
         public endTime?: number
     ) {
+        // Initialize subRounds to empty array
+        this.subRounds = [];
+        
         this.validateId(id);
-        this.validateSubRounds(subRounds);
         this.validateStatus(status);
         this.validateStartTime(startTime);
         if (winnerId !== undefined) {
@@ -38,6 +41,13 @@ export class Round {
      */
     finish(): void {
         this.status = RoundStatus.Finished;
+    }
+
+    /**
+     * Get the last subRound in this round (if any)
+     */
+    getLastSubRound(): SubRound | undefined {
+        return this.subRounds.length > 0 ? this.subRounds[this.subRounds.length - 1] : undefined;
     }
 
     /**
@@ -83,14 +93,15 @@ export class Round {
         }
 
         const subRounds = data.subRounds.map((subRoundData: any) => SubRound.fromJSON(subRoundData));
-        return new Round(
+        const round = new Round(
             data.id, 
-            subRounds, 
             data.status as RoundStatus, 
             data.startTime,
             data.winnerId,
             data.endTime
         );
+        round.subRounds = subRounds;
+        return round;
     }
 
     private validateId(id: string): void {

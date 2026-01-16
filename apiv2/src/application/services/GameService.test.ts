@@ -124,8 +124,10 @@ describe('GameService', () => {
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
       const startTime = Date.now();
-      const subRound = new SubRound(1, [move], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      subRound.moves = [move];
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
       const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], false);
       mockRepository.save.mockResolvedValueOnce(gameEntity);
 
@@ -266,8 +268,9 @@ describe('GameService', () => {
     it('should add round to game', async () => {
       const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], false);
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);
       mockRepository.save.mockResolvedValueOnce(existingGame);
@@ -283,8 +286,9 @@ describe('GameService', () => {
 
     it('should throw error as addMoveToGameRound is no longer supported', async () => {
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
-      const round = new Round('round-1', [subRound], RoundStatus.Pending, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
+      const round = new Round('round-1', RoundStatus.Pending, startTime);
+      round.subRounds = [subRound];
       const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], false);
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
@@ -298,7 +302,7 @@ describe('GameService', () => {
 
     it('should finish game round', async () => {
       const startTime = Date.now();
-      const subRound = new SubRound(1, [], startTime, startTime, startTime);
+      const subRound = new SubRound(1, startTime, startTime, startTime);
       const round = new Round('round-1', [subRound], RoundStatus.Current, startTime);
       const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], false);
 

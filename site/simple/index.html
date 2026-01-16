@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Auth Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      padding: 0;
+      line-height: 1.6;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    .split-container {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+    }
+
+    .split-panel {
+      overflow-y: auto;
+      padding: 20px;
+      background: white;
+    }
+
+    .split-panel-left {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .split-panel-right {
+      flex: 1;
+      min-width: 300px;
+      border-left: 1px solid #ddd;
+    }
+
+    .split-panel-output {
+      flex: 1;
+      min-width: 300px;
+      border-left: 1px solid #ddd;
+    }
+
+    .splitter {
+      width: 4px;
+      background: #ddd;
+      cursor: col-resize;
+      user-select: none;
+      position: relative;
+    }
+
+    .splitter:hover {
+      background: #007bff;
+    }
+
+    .splitter.active {
+      background: #007bff;
+    }
+
+    .container {
+      max-width: 100%;
+      background: transparent;
+      padding: 0;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+      color: #333;
+      font-size: 24px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      flex: 1;
+    }
+
+    .btn-login {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-login:hover {
+      background: #0056b3;
+    }
+
+    .btn-logout {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-logout:hover {
+      background: #c82333;
+    }
+
+    .btn-guest {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-guest:hover {
+      background: #218838;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .info-panel {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 20px;
+      background: #f9f9f9;
+      min-height: 100px;
+      margin-bottom: 20px;
+    }
+
+    .info-panel h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .btn-create-game {
+      background: #6f42c1;
+      color: white;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .btn-create-game:hover {
+      background: #5a32a3;
+    }
+
+    .btn-find-game {
+      background: #17a2b8;
+      color: white;
+    }
+
+    .btn-find-game:hover {
+      background: #138496;
+    }
+
+    .btn-surrender {
+      background: #ff6b6b;
+      color: white;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .btn-surrender:hover {
+      background: #ee5a5a;
+    }
+
+    .btn-stone {
+      background: #fd7e14;
+      color: white;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .btn-stone:hover {
+      background: #e8650e;
+    }
+
+    .btn-paper {
+      background: #20c997;
+      color: white;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .btn-paper:hover {
+      background: #1aa179;
+    }
+
+    .btn-scissors {
+      background: #6610f2;
+      color: white;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .btn-scissors:hover {
+      background: #520dc2;
+    }
+
+    .game-input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .game-input-group input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .game-input-group button {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .info-panel .status {
+      color: #666;
+      font-style: italic;
+    }
+
+    .info-panel .error {
+      color: #dc3545;
+      padding: 10px;
+      background: #f8d7da;
+      border-radius: 4px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .info-panel pre {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+
+    .log-entry {
+      padding: 8px;
+      margin-bottom: 8px;
+      border-left: 3px solid #007bff;
+      background: #f8f9fa;
+      border-radius: 2px;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .log-entry.success {
+      border-left-color: #28a745;
+      background: #d4edda;
+    }
+
+    .log-entry.error {
+      border-left-color: #dc3545;
+      background: #f8d7da;
+    }
+
+    .log-entry.info {
+      border-left-color: #17a2b8;
+      background: #d1ecf1;
+    }
+
+    .log-timestamp {
+      color: #666;
+      font-size: 11px;
+      margin-right: 8px;
+    }
+
+    .log-message {
+      color: #333;
+    }
+
+    #action-log-content {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .output-panel {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      height: calc(100vh - 40px);
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .output-entry {
+      margin-bottom: 4px;
+      padding: 2px 0;
+    }
+
+    .output-timestamp {
+      color: #858585;
+      margin-right: 8px;
+    }
+
+    .output-success {
+      color: #4ec9b0;
+    }
+
+    .output-error {
+      color: #f48771;
+    }
+
+    .output-info {
+      color: #9cdcfe;
+    }
+  </style>
+</head>
+<body>
+  <div class="split-container">
+    <!-- Left Panel -->
+    <div class="split-panel split-panel-left">
+      <div class="container">
+        <h1>Simple Auth Test</h1>
+
+        <div class="buttons">
+          <button id="login-btn" class="btn-login" onclick="login()">Login</button>
+          <button id="guest-btn" class="btn-guest" onclick="loginAsGuest()">Login as Guest</button>
+          <button id="logout-btn" class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="info-panel">
+          <h2>User Info</h2>
+          <div id="info-content">
+            <div class="status">Click "Login" to authenticate, then user info will appear here.</div>
+          </div>
+        </div>
+
+        <div class="info-panel">
+          <h2>Create Game</h2>
+          <button id="create-game-btn" class="btn-create-game" onclick="createNewGame()">Create New Game</button>
+          <div id="game-response-content">
+            <div class="status">Click "Create New Game" to create a game. Response will appear here.</div>
+          </div>
+        </div>
+
+        <div class="info-panel">
+          <h2>Get Game</h2>
+          <div class="game-input-group">
+            <input type="text" id="game-id-input" placeholder="Enter Game ID (e.g., game-1234567890-abc123)" />
+            <button id="find-game-btn" class="btn-find-game" onclick="findGame()">Find</button>
+          </div>
+          <div id="get-game-response-content">
+            <div class="status">Enter a Game ID and click "Find" to retrieve game information.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Splitter 1 -->
+    <div class="splitter" id="splitter1"></div>
+
+    <!-- Right Panel -->
+    <div class="split-panel split-panel-right">
+      <div class="container">
+        <h1>Actions</h1>
+
+        <div class="info-panel">
+          <h2>Actions</h2>
+          <button id="surrender-btn" class="btn-surrender" onclick="surrenderGame()">Surrender</button>
+          <button id="stone-btn" class="btn-stone" onclick="makeMove('Stone')">Stone</button>
+          <button id="paper-btn" class="btn-paper" onclick="makeMove('Paper')">Paper</button>
+          <button id="scissors-btn" class="btn-scissors" onclick="makeMove('Scissors')">Scissors</button>
+        </div>
+
+        <div class="info-panel">
+          <h2>Action Log</h2>
+          <div id="action-log-content">
+            <div class="status">Action log will appear here...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Splitter 2 -->
+    <div class="splitter" id="splitter2"></div>
+
+    <!-- Output Panel -->
+    <div class="split-panel split-panel-output">
+      <div class="container">
+        <h1 style="color: #d4d4d4;">Output</h1>
+        <div class="output-panel" id="output-panel-content">
+          <div class="output-entry output-info">Output panel ready...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://vkp-consulting.fr';
+    const COGNITO_DOMAIN = 'vkp-auth.auth.eu-north-1.amazoncognito.com';
+    const CLIENT_ID = '77e2cmbthjul60ui7guh514u50';
+    
+    // Store current user ID
+    let currentUserId = null;
+
+    // Action log functionality
+    function addLogEntry(message, type = 'info') {
+      const logContent = document.getElementById('action-log-content');
+      const timestamp = new Date().toLocaleTimeString();
+      
+      // Remove status message if it exists
+      const statusDiv = logContent.querySelector('.status');
+      if (statusDiv) {
+        statusDiv.remove();
+      }
+      
+      const logEntry = document.createElement('div');
+      logEntry.className = `log-entry ${type}`;
+      logEntry.innerHTML = `
+        <span class="log-timestamp">[${timestamp}]</span>
+        <span class="log-message">${message}</span>
+      `;
+      
+      // Add to top of log
+      logContent.insertBefore(logEntry, logContent.firstChild);
+      
+      // Keep only last 50 entries
+      while (logContent.children.length > 50) {
+        logContent.removeChild(logContent.lastChild);
+      }
+
+      // Also add to output panel
+      addOutputEntry(message, type);
+    }
+
+    // Output panel functionality
+    function addOutputEntry(message, type = 'info') {
+      const outputContent = document.getElementById('output-panel-content');
+      const timestamp = new Date().toLocaleTimeString();
+      
+      // Remove initial message if it exists
+      const initialEntry = outputContent.querySelector('.output-entry.output-info');
+      if (initialEntry && initialEntry.textContent.includes('ready')) {
+        initialEntry.remove();
+      }
+      
+      const outputEntry = document.createElement('div');
+      outputEntry.className = `output-entry output-${type}`;
+      outputEntry.innerHTML = `<span class="output-timestamp">[${timestamp}]</span>${message}`;
+      
+      // Add to top of output
+      outputContent.insertBefore(outputEntry, outputContent.firstChild);
+      
+      // Keep only last 200 entries
+      while (outputContent.children.length > 200) {
+        outputContent.removeChild(outputContent.lastChild);
+      }
+    }
+
+    // Function to add full response output
+    function addOutputResponse(action, responseData, error = null) {
+      const timestamp = new Date().toLocaleTimeString();
+      const outputContent = document.getElementById('output-panel-content');
+      
+      const outputEntry = document.createElement('div');
+      outputEntry.className = 'output-entry';
+      
+      if (error) {
+        outputEntry.className += ' output-error';
+        outputEntry.innerHTML = `<span class="output-timestamp">[${timestamp}]</span>${action}: ERROR\n${JSON.stringify(error, null, 2)}`;
+      } else {
+        outputEntry.className += ' output-success';
+        outputEntry.innerHTML = `<span class="output-timestamp">[${timestamp}]</span>${action}: SUCCESS\n${JSON.stringify(responseData, null, 2)}`;
+      }
+      
+      // Add to top of output
+      outputContent.insertBefore(outputEntry, outputContent.firstChild);
+      
+      // Keep only last 200 entries
+      while (outputContent.children.length > 200) {
+        outputContent.removeChild(outputContent.lastChild);
+      }
+    }
+
+    // Splitter functionality
+    (function() {
+      const splitter1 = document.getElementById('splitter1');
+      const splitter2 = document.getElementById('splitter2');
+      const leftPanel = document.querySelector('.split-panel-left');
+      const rightPanel = document.querySelector('.split-panel-right');
+      const outputPanel = document.querySelector('.split-panel-output');
+      let activeSplitter = null;
+      let isResizing = false;
+
+      function setupSplitter(splitter, leftElement, rightElement) {
+        splitter.addEventListener('mousedown', (e) => {
+          isResizing = true;
+          activeSplitter = splitter;
+          splitter.classList.add('active');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+        });
+      }
+
+      setupSplitter(splitter1, leftPanel, rightPanel);
+      setupSplitter(splitter2, rightPanel, outputPanel);
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing || !activeSplitter) return;
+
+        const containerRect = activeSplitter.parentElement.getBoundingClientRect();
+        const mouseX = e.clientX - containerRect.left;
+        const totalWidth = containerRect.width;
+
+        if (activeSplitter === splitter1) {
+          // Resizing between left and right panels
+          const newLeftWidth = (mouseX / totalWidth) * 100;
+          const remainingWidth = 100 - newLeftWidth;
+          const rightWidth = remainingWidth / 2;
+          const outputWidth = remainingWidth / 2;
+
+          if (newLeftWidth > 20 && rightWidth > 20 && outputWidth > 20) {
+            leftPanel.style.flex = `0 0 ${newLeftWidth}%`;
+            rightPanel.style.flex = `0 0 ${rightWidth}%`;
+            outputPanel.style.flex = `0 0 ${outputWidth}%`;
+          }
+        } else if (activeSplitter === splitter2) {
+          // Resizing between right and output panels
+          const leftWidth = parseFloat(leftPanel.style.flex) || 33.33;
+          const splitPoint = (mouseX / totalWidth) * 100;
+          const rightWidth = splitPoint - leftWidth;
+          const outputWidth = 100 - splitPoint;
+
+          if (leftWidth > 20 && rightWidth > 20 && outputWidth > 20) {
+            rightPanel.style.flex = `0 0 ${rightWidth}%`;
+            outputPanel.style.flex = `0 0 ${outputWidth}%`;
+          }
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isResizing && activeSplitter) {
+          isResizing = false;
+          activeSplitter.classList.remove('active');
+          activeSplitter = null;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+    })();
+
+    // Helper to get cookie value
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    }
+
+    // Helper to format error details for display
+    function formatError(error) {
+      let details = error.message || 'Unknown error';
+      
+      // If error has additional properties, include them
+      if (error.response) {
+        // Fetch API error response
+        const status = error.response.status;
+        const statusText = error.response.statusText;
+        details += `\nStatus: ${status} ${statusText}`;
+      }
+      
+      // Include error object details if available
+      if (error.detail) {
+        details += `\nDetail: ${error.detail}`;
+      }
+      if (error.code) {
+        details += `\nCode: ${error.code}`;
+      }
+      if (error.field) {
+        details += `\nField: ${error.field}`;
+      }
+      
+      // If it's a ValidationError or similar, show full error object
+      if (error.title || error.type) {
+        details += `\n\nFull error details:\n${JSON.stringify(error, null, 2)}`;
+      }
+      
+      return details;
+    }
+
+    // Login function
+    function login() {
+      const loginUrl = `https://${COGNITO_DOMAIN}/login?` +
+        `client_id=${CLIENT_ID}&` +
+        `response_type=code&` +
+        `scope=email+openid+profile&` +
+        `redirect_uri=${encodeURIComponent(API_BASE + '/callback.html')}`;
+      
+      window.location.href = loginUrl;
+    }
+
+    // Login as guest function
+    async function loginAsGuest() {
+      const guestBtn = document.getElementById('guest-btn');
+      const infoContent = document.getElementById('info-content');
+
+      try {
+        // Disable button and show loading
+        guestBtn.disabled = true;
+        infoContent.innerHTML = '<div class="loading">Creating guest session...</div>';
+
+        // Call API to create guest user
+        const response = await fetch(`${API_BASE}/apiv2/public/create-guest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const error = new Error(errorData.detail || 'Failed to create guest session');
+          error.response = response;
+          error.detail = errorData.detail;
+          error.code = errorData.code;
+          error.field = errorData.field;
+          error.title = errorData.title;
+          error.type = errorData.type;
+          throw error;
+        }
+
+        const data = await response.json();
+        
+        // Store tokens in cookies
+        storeTokens(data.tokens);
+
+        // Reload user info
+        await loadUserInfo();
+
+      } catch (error) {
+        console.error('Failed to create guest user:', error);
+        const errorDetails = formatError(error);
+        infoContent.innerHTML = `<div class="error">Error: ${errorDetails}</div>`;
+        guestBtn.disabled = false;
+      }
+    }
+
+    // Store tokens in cookies
+    function storeTokens(tokens) {
+      const expiresIn = tokens.expiresIn || 3600; // Default 1 hour
+      const expiresDate = new Date(Date.now() + expiresIn * 1000);
+
+      // Store ID token (used for authentication)
+      document.cookie = `idToken=${tokens.idToken}; path=/; expires=${expiresDate.toUTCString()}; secure; samesite=strict`;
+      
+      // Store access token (used for API calls)
+      document.cookie = `accessToken=${tokens.accessToken}; path=/; expires=${expiresDate.toUTCString()}; secure; samesite=strict`;
+      
+      // Store refresh token (used to get new tokens)
+      if (tokens.refreshToken) {
+        const refreshExpiresDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        document.cookie = `refreshToken=${tokens.refreshToken}; path=/; expires=${refreshExpiresDate.toUTCString()}; secure; samesite=strict`;
+      }
+    }
+
+    // Logout function
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        // Clear all auth cookies
+        document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        
+        // Redirect to Cognito logout (redirects to home page after logout)
+        const logoutUrl = `https://${COGNITO_DOMAIN}/logout?` +
+          `client_id=${CLIENT_ID}&` +
+          `logout_uri=${encodeURIComponent(API_BASE + '/')}`;
+        window.location.href = logoutUrl;
+      }
+    }
+
+    // Load user info from API
+    async function loadUserInfo() {
+      const infoContent = document.getElementById('info-content');
+      const idToken = getCookie('idToken');
+      
+      if (!idToken) {
+        infoContent.innerHTML = '<div class="status">Not authenticated. Click "Login" to authenticate.</div>';
+        return;
+      }
+
+      infoContent.innerHTML = '<div class="loading">Loading user info...</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/apiv2/external/me`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          infoContent.innerHTML = '<div class="error">Session expired. Please login again.</div>';
+          // Clear cookies
+          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const error = new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+          error.response = response;
+          error.detail = errorData.detail;
+          error.code = errorData.code;
+          error.field = errorData.field;
+          error.title = errorData.title;
+          error.type = errorData.type;
+          throw error;
+        }
+
+        const userData = await response.json();
+        
+        // Store user ID for use in move actions
+        currentUserId = userData.id || userData.userId || null;
+        
+        // Display user info
+        infoContent.innerHTML = `
+          <pre>${JSON.stringify(userData, null, 2)}</pre>
+        `;
+
+      } catch (error) {
+        console.error('Failed to load user info:', error);
+        const errorDetails = formatError(error);
+        infoContent.innerHTML = `<div class="error">Error: ${errorDetails}</div>`;
+      }
+    }
+
+    // Create new game function
+    async function createNewGame() {
+      const createGameBtn = document.getElementById('create-game-btn');
+      const gameResponseContent = document.getElementById('game-response-content');
+      const idToken = getCookie('idToken');
+
+      if (!idToken) {
+        gameResponseContent.innerHTML = '<div class="error">Please login first to create a game.</div>';
+        return;
+      }
+
+      try {
+        // Disable button and show loading
+        createGameBtn.disabled = true;
+        gameResponseContent.innerHTML = '<div class="loading">Creating game...</div>';
+
+        // Create game request body with default values
+        const gameData = {
+          gameType: 'PVE',
+          rounds: 'BO3',
+          kind: 'classic',
+          level: {
+            name: 'Level1'
+          },
+          episode: {
+            name: 'Episode1'
+          }
+        };
+
+        // Call API to create game
+        const response = await fetch(`${API_BASE}/apiv2/external/games`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(gameData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        
+        // Display response
+        gameResponseContent.innerHTML = `
+          <pre>${JSON.stringify(responseData, null, 2)}</pre>
+        `;
+
+        // Log to action log
+        if (responseData.gameId) {
+          addLogEntry(`Game created successfully: ${responseData.gameId}`, 'success');
+        }
+
+        // Add full response to output panel
+        addOutputResponse('CREATE_GAME', responseData);
+
+      } catch (error) {
+        console.error('Failed to create game:', error);
+        const errorDetails = formatError(error);
+        gameResponseContent.innerHTML = `<div class="error">Error: ${errorDetails}</div>`;
+        addLogEntry(`Error creating game: ${errorDetails}`, 'error');
+        addOutputResponse('CREATE_GAME', null, { message: errorDetails, error: error.message });
+      } finally {
+        createGameBtn.disabled = false;
+      }
+    }
+
+    // Find game function
+    async function findGame() {
+      const findGameBtn = document.getElementById('find-game-btn');
+      const gameIdInput = document.getElementById('game-id-input');
+      const getGameResponseContent = document.getElementById('get-game-response-content');
+      const idToken = getCookie('idToken');
+
+      if (!idToken) {
+        getGameResponseContent.innerHTML = '<div class="error">Please login first to get game information.</div>';
+        return;
+      }
+
+      const gameId = gameIdInput.value.trim();
+      if (!gameId) {
+        getGameResponseContent.innerHTML = '<div class="error">Please enter a Game ID.</div>';
+        return;
+      }
+
+      try {
+        // Disable button and show loading
+        findGameBtn.disabled = true;
+        getGameResponseContent.innerHTML = '<div class="loading">Loading game...</div>';
+
+        // Call API to get game
+        const response = await fetch(`${API_BASE}/apiv2/external/games/${encodeURIComponent(gameId)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          getGameResponseContent.innerHTML = '<div class="error">Session expired. Please login again.</div>';
+          // Clear cookies
+          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        
+        // Display response
+        getGameResponseContent.innerHTML = `
+          <pre>${JSON.stringify(responseData, null, 2)}</pre>
+        `;
+
+        // Log to action log
+        addLogEntry(`Retrieved game: ${gameId}`, 'info');
+        if (responseData.payload?.gameContext?.status) {
+          addLogEntry(`Game status: ${responseData.payload.gameContext.status}`, 'info');
+        }
+
+        // Add full response to output panel
+        addOutputResponse('GET_GAME', responseData);
+
+      } catch (error) {
+        console.error('Failed to get game:', error);
+        const errorDetails = formatError(error);
+        getGameResponseContent.innerHTML = `<div class="error">Error: ${errorDetails}</div>`;
+        addLogEntry(`Error retrieving game: ${errorDetails}`, 'error');
+        addOutputResponse('GET_GAME', null, { message: errorDetails, error: error.message });
+      } finally {
+        findGameBtn.disabled = false;
+      }
+    }
+
+    // Surrender game function
+    async function surrenderGame() {
+      const surrenderBtn = document.getElementById('surrender-btn');
+      const gameIdInput = document.getElementById('game-id-input');
+      const idToken = getCookie('idToken');
+
+      if (!idToken) {
+        addLogEntry('Error: Please login first to surrender a game.', 'error');
+        return;
+      }
+
+      const gameId = gameIdInput.value.trim();
+      if (!gameId) {
+        addLogEntry('Error: Please enter a Game ID in the left panel first.', 'error');
+        return;
+      }
+
+      try {
+        // Disable button and log action
+        surrenderBtn.disabled = true;
+        addLogEntry(`Surrendering game: ${gameId}...`, 'info');
+
+        // Create surrender action
+        const actionData = {
+          type: 'Surrender',
+          context: {}
+        };
+
+        // Call API to update game (surrender)
+        const response = await fetch(`${API_BASE}/apiv2/external/games/${encodeURIComponent(gameId)}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(actionData)
+        });
+
+        if (response.status === 401) {
+          addLogEntry('Error: Session expired. Please login again.', 'error');
+          // Clear cookies
+          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        addLogEntry(`Successfully surrendered game: ${gameId}`, 'success');
+        addLogEntry(`Game status: ${responseData.payload?.gameContext?.status || 'unknown'}`, 'info');
+
+        // Add full response to output panel
+        addOutputResponse('SURRENDER', responseData);
+
+      } catch (error) {
+        console.error('Failed to surrender game:', error);
+        const errorDetails = formatError(error);
+        addLogEntry(`Error surrendering game: ${errorDetails}`, 'error');
+        addOutputResponse('SURRENDER', null, { message: errorDetails, error: error.message });
+      } finally {
+        surrenderBtn.disabled = false;
+      }
+    }
+
+    // Make move function
+    async function makeMove(moveType) {
+      const moveButtons = {
+        'Stone': document.getElementById('stone-btn'),
+        'Paper': document.getElementById('paper-btn'),
+        'Scissors': document.getElementById('scissors-btn')
+      };
+      const moveBtn = moveButtons[moveType];
+      const gameIdInput = document.getElementById('game-id-input');
+      const idToken = getCookie('idToken');
+
+      if (!idToken) {
+        addLogEntry('Error: Please login first to make a move.', 'error');
+        return;
+      }
+
+      // Get userId if not already stored
+      if (!currentUserId) {
+        try {
+          const userResponse = await fetch(`${API_BASE}/apiv2/external/me`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${idToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            currentUserId = userData.id || userData.userId || null;
+          }
+        } catch (error) {
+          console.error('Failed to get user ID:', error);
+        }
+      }
+
+      if (!currentUserId) {
+        addLogEntry('Error: Unable to get user ID. Please try logging in again.', 'error');
+        return;
+      }
+
+      const gameId = gameIdInput.value.trim();
+      if (!gameId) {
+        addLogEntry('Error: Please enter a Game ID in the left panel first.', 'error');
+        return;
+      }
+
+      try {
+        // Disable all move buttons and log action
+        Object.values(moveButtons).forEach(btn => btn.disabled = true);
+        addLogEntry(`Making move: ${moveType} for game: ${gameId}...`, 'info');
+
+        // Create move action
+        const actionData = {
+          type: 'Move',
+          context: {
+            move: {
+              userId: currentUserId,
+              context: {
+                moveType: moveType,
+                size: 0,
+                decorId: 0
+              },
+              time: Date.now()
+            }
+          }
+        };
+
+        // Call API to update game (make move)
+        const response = await fetch(`${API_BASE}/apiv2/external/games/${encodeURIComponent(gameId)}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(actionData)
+        });
+
+        if (response.status === 401) {
+          addLogEntry('Error: Session expired. Please login again.', 'error');
+          // Clear cookies
+          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        addLogEntry(`Successfully made move: ${moveType}`, 'success');
+        
+        // Log game status if available
+        if (responseData.payload?.gameContext?.status) {
+          addLogEntry(`Game status: ${responseData.payload.gameContext.status}`, 'info');
+        }
+
+        // Add full response to output panel
+        addOutputResponse(`MOVE_${moveType}`, responseData);
+
+      } catch (error) {
+        console.error('Failed to make move:', error);
+        const errorDetails = formatError(error);
+        addLogEntry(`Error making move (${moveType}): ${errorDetails}`, 'error');
+        addOutputResponse(`MOVE_${moveType}`, null, { message: errorDetails, error: error.message });
+      } finally {
+        // Re-enable all move buttons
+        Object.values(moveButtons).forEach(btn => btn.disabled = false);
+      }
+    }
+
+    // Check authentication status on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserInfo();
+      // Allow Enter key to trigger find game
+      document.getElementById('game-id-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          findGame();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VKP API Management</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #f3f4f6;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+      text-align: center;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      color: white;
+      padding: 3rem 2rem;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    header p {
+      opacity: 0.9;
+      font-size: 1.1rem;
+    }
+
+    .content {
+      padding: 3rem 2rem;
+    }
+
+    .managers {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .manager-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 2rem;
+      transition: all 0.3s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .manager-card:hover {
+      border-color: #1e3a8a;
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .manager-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .manager-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-bottom: 0.5rem;
+    }
+
+    .manager-description {
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    .api-info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .api-info h3 {
+      color: #1e3a8a;
+      margin-bottom: 1rem;
+    }
+
+    .api-endpoints {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      text-align: left;
+    }
+
+    .endpoint-group {
+      background: white;
+      border-radius: 6px;
+      padding: 1rem;
+    }
+
+    .endpoint-group h4 {
+      color: #1e3a8a;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .endpoint-list {
+      list-style: none;
+    }
+
+    .endpoint-list li {
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 0.25rem;
+    }
+
+    .endpoint-list li:before {
+      content: '•';
+      color: #1e3a8a;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🚀 VKP API Management</h1>
+      <p>Manage your entities and users through our RESTful API</p>
+    </header>
+
+    <div class="content">
+      <div class="managers">
+        <a href="../entities/index.html" class="manager-card">
+          <div class="manager-icon">📦</div>
+          <div class="manager-title">Entity Manager</div>
+          <div class="manager-description">
+            Manage JSON entities with full CRUD operations. Create, read, update, and delete structured data with ETag support for concurrency control.
+          </div>
+        </a>
+
+        <a href="../users/index.html" class="manager-card">
+          <div class="manager-icon">👥</div>
+          <div class="manager-title">User Manager</div>
+          <div class="manager-description">
+            Manage User entities with domain-driven design. Handle user profiles with structured data including name, external ID, and metadata.
+          </div>
+        </a>
+
+        <a href="../games/index.html" class="manager-card">
+          <div class="manager-icon">🎮</div>
+          <div class="manager-title">Game Manager</div>
+          <div class="manager-description">
+            Manage Game entities with complex game logic. Create tournaments, manage rounds, track moves, and handle game state with full lifecycle management.
+          </div>
+        </a>
+
+        <a href="../profile.html" class="manager-card">
+          <div class="manager-icon">👤</div>
+          <div class="manager-title">My Profile</div>
+          <div class="manager-description">
+            View your user profile information retrieved from the VKP API. See your user ID, name, and other details in a clean interface.
+          </div>
+        </a>
+
+        <a href="../errors/index.html" class="manager-card">
+          <div class="manager-icon">⚠️</div>
+          <div class="manager-title">Error Pages</div>
+          <div class="manager-description">
+            View custom error pages for different HTTP status codes. Each page features unique styling and helpful messaging for better user experience.
+          </div>
+        </a>
+
+        <a href="../login.html" class="manager-card">
+          <div class="manager-icon">🔐</div>
+          <div class="manager-title">Login</div>
+          <div class="manager-description">
+            Sign in with your account or continue as a guest to access the VKP platform. Choose the authentication method that works best for you.
+          </div>
+        </a>
+      </div>
+
+      <div class="api-info">
+        <h3>📡 API Endpoints</h3>
+        <div class="api-endpoints">
+          <div class="endpoint-group">
+            <h4>JSON Entities</h4>
+            <ul class="endpoint-list">
+              <li>GET /apiv2/internal/files</li>
+              <li>GET /apiv2/internal/files/{id}</li>
+              <li>POST /apiv2/internal/files</li>
+              <li>PUT /apiv2/internal/files/{id}</li>
+              <li>PATCH /apiv2/internal/files/{id}</li>
+              <li>DELETE /apiv2/internal/files/{id}</li>
+            </ul>
+          </div>
+          <div class="endpoint-group">
+            <h4>User Entities</h4>
+            <ul class="endpoint-list">
+              <li>GET /apiv2/internal/users</li>
+              <li>GET /apiv2/internal/users/{id}</li>
+              <li>POST /apiv2/internal/users</li>
+              <li>PUT /apiv2/internal/users/{id}</li>
+              <li>PATCH /apiv2/internal/users/{id}</li>
+              <li>DELETE /apiv2/internal/users/{id}</li>
+            </ul>
+          </div>
+          <div class="endpoint-group">
+            <h4>Metadata</h4>
+            <ul class="endpoint-list">
+              <li>GET /apiv2/internal/files/{id}/meta</li>
+              <li>GET /apiv2/internal/users/{id}/meta</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
