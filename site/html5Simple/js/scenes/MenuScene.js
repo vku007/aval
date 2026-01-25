@@ -41,14 +41,19 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Create the buttons
-        const buttonYStart = height / 2 - 100;
-        const buttonSpacing = 100;
+        // Calculate spacing to fit all 6 buttons
+        const buttonHeight = 31;
+        const totalButtons = 6;
+        const buttonSpacing = 70; // Reduced spacing to fit all buttons
+        const totalHeight = (totalButtons - 1) * buttonSpacing + buttonHeight;
+        const buttonYStart = (height - totalHeight) / 2 + 100; // Start below the title
 
         this.createMenuButton(width / 2, buttonYStart, 'LOGIN', () => this.onGameClick(width / 2, buttonYStart));
         this.createMenuButton(width / 2, buttonYStart + buttonSpacing, 'REGISTER', () => this.onRegisterClick());
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 2, 'INVENTORY', () => console.log('Inventory Clicked'));
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 3, 'START GAME', () => console.log('Start Game Clicked'));
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 4, 'EXIT', () => console.log('Exit Clicked'));
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 2, 'LOGOUT', () => this.onLogoutClick());
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 3, 'INVENTORY', () => console.log('Inventory Clicked'));
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 4, 'START GAME', () => this.onStartGameClick());
+        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 5, 'EXIT', () => console.log('Exit Clicked'));
     }
 
     /**
@@ -86,6 +91,65 @@ class MenuScene extends Phaser.Scene {
             onRegisterSuccess: (user) => this.updatePlayerPanel(user)
         });
         console.log('[MenuScene] RegisterModalScene launch command sent');
+    }
+
+    onLogoutClick() {
+        console.log('[MenuScene] Logout button clicked');
+        
+        // Clear the token from localStorage
+        localStorage.removeItem('idToken');
+        console.log('[MenuScene] Token cleared from localStorage');
+        
+        // Clear the current user from registry
+        this.registry.set('currentUser', null);
+        
+        // Reload the page to start fresh as a new guest user
+        console.log('[MenuScene] Reloading page...');
+        window.location.reload();
+    }
+
+    async onStartGameClick() {
+        console.log('[MenuScene] Start Game button clicked');
+        
+        try {
+            // Check if gameClient is available
+            if (typeof gameClient === 'undefined') {
+                console.error('[MenuScene] gameClient not available');
+                alert('Game client not initialized');
+                return;
+            }
+            
+            console.log('[MenuScene] Creating new game...');
+            
+            // Create game with parameters (matching backend GameCreateContext)
+            const gameContext = {
+                gameType: 'PVE',
+                rounds: 'BO3',
+                kind: 'classic',
+                level: {
+                    name: 'Level1'
+                },
+                episode: {
+                    name: 'Episode1'
+                }
+            };
+            
+            const response = await gameClient.createGame(gameContext);
+            console.log('[MenuScene] Game created:', response);
+            
+            if (response.gameId) {
+                // Pass gameId to SimpleGameScene
+                console.log('[MenuScene] Starting SimpleGameScene with gameId:', response.gameId);
+                this.scene.start('SimpleGameScene', { gameId: response.gameId });
+            } else {
+                console.error('[MenuScene] No gameId in response');
+                alert('Failed to create game: No game ID returned');
+            }
+            
+        } catch (error) {
+            console.error('[MenuScene] Failed to create game:', error);
+            alert(`Failed to create game: ${error.message}`);
+        }
     }
 
     updatePlayerPanel(user) {

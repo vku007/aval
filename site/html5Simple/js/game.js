@@ -3,7 +3,7 @@
  * Sharp, bright, candy style
  */
 
-console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, LoginModalScene, RegisterModalScene]);
+console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, LoginModalScene, RegisterModalScene, SimpleGameScene, ErrorModalScene]);
 
 const config = {
     type: Phaser.AUTO,
@@ -15,7 +15,7 @@ const config = {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [BootScene, MenuScene, LoginModalScene, RegisterModalScene]
+    scene: [BootScene, MenuScene, LoginModalScene, RegisterModalScene, SimpleGameScene, ErrorModalScene]
 };
 
 console.log('[game.js] Creating Phaser.Game with config:', config);
