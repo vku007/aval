@@ -6,26 +6,26 @@ describe('UpdateGameDto', () => {
   describe('validation', () => {
     it('should validate valid update data', () => {
       const validData = {
-        type: 'tournament',
+        type: 'BO3',
         usersIds: ['user-1', 'user-2'],
         isFinished: true
       };
 
       const result = UpdateGameDtoValidator.validate(validData);
 
-      expect(result.type).toBe('tournament');
+      expect(result.type).toBe('BO3');
       expect(result.usersIds).toEqual(['user-1', 'user-2']);
       expect(result.isFinished).toBe(true);
     });
 
     it('should validate partial update data', () => {
       const partialData = {
-        type: 'tournament'
+        type: 'BO3'
       };
 
       const result = UpdateGameDtoValidator.validate(partialData);
 
-      expect(result.type).toBe('tournament');
+      expect(result.type).toBe('BO3');
       expect(result.usersIds).toBeUndefined();
       expect(result.isFinished).toBeUndefined();
     });
@@ -128,12 +128,12 @@ describe('UpdateGameDto', () => {
   describe('validatePartial', () => {
     it('should validate partial data', () => {
       const partialData = {
-        type: 'tournament'
+        type: 'BO3'
       };
 
       const result = UpdateGameDtoValidator.validatePartial(partialData);
 
-      expect(result.type).toBe('tournament');
+      expect(result.type).toBe('BO3');
     });
 
     it('should throw ValidationError for invalid partial data', () => {

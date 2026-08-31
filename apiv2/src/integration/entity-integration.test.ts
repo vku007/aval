@@ -16,6 +16,9 @@ describe('EntityController Integration Tests', () => {
     vi.clearAllMocks();
     // Reset mock implementation to ensure clean state
     MockedS3Client.mockImplementation(() => ({ send: mockSend }) as any);
+    process.env.SKIP_AUTH = 'true';
+    process.env.BUCKET_NAME = process.env.BUCKET_NAME || 'test-bucket';
+    process.env.JSON_PREFIX = process.env.JSON_PREFIX || 'json/';
   });
 
   const createEvent = (
@@ -23,7 +26,8 @@ describe('EntityController Integration Tests', () => {
     path: string,
     body?: any,
     headers: Record<string, string> = {},
-    queryStringParameters: Record<string, string> = {}
+    queryStringParameters: Record<string, string> = {},
+    pathParameters: Record<string, string> = {}
   ): APIGatewayProxyEventV2 => ({
     version: '2.0',
     routeKey: '$default',
@@ -53,9 +57,9 @@ describe('EntityController Integration Tests', () => {
       time: '12/Mar/2020:19:03:58 +0000',
       timeEpoch: 1583348638390
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body !== undefined && typeof body !== 'string' ? JSON.stringify(body) : (typeof body === 'string' ? body : undefined),
     isBase64Encoded: false,
-    pathParameters: {},
+    pathParameters,
     queryStringParameters,
     stageVariables: {},
     cookies: []
@@ -208,7 +212,7 @@ describe('EntityController Integration Tests', () => {
     });
 
     it('should handle malformed JSON', async () => {
-      const event = createEvent('POST', '/apiv2/files', 'invalid json');
+      const event = createEvent('POST', '/apiv2/internal/files', 'invalid json');
       const result = await handler(event);
 
       expect((result as any).statusCode).toBe(400);
@@ -223,7 +227,7 @@ describe('EntityController Integration Tests', () => {
       mockSend.mockResolvedValueOnce({ $metadata: { httpStatusCode: 404 } }); // Head - not found
       mockSend.mockResolvedValueOnce({ ETag: '"create-etag"', VersionId: 'v1' }); // Put
 
-      const createEventRequest = createEvent('POST', '/apiv2/files', {
+      const createEventRequest = createEvent('POST', '/apiv2/internal/files', {
         id: 'lifecycle-test',
         data: { step: 'created' }
       });
@@ -240,9 +244,9 @@ describe('EntityController Integration Tests', () => {
       });
       mockSend.mockResolvedValueOnce({ $metadata: { httpStatusCode: 204 } }); // Delete
 
-      const deleteEvent = createEvent('DELETE', '/apiv2/files/lifecycle-test', undefined, {
+      const deleteEvent = createEvent('DELETE', '/apiv2/internal/files/lifecycle-test', undefined, {
         'if-match': '"create-etag"'
-      });
+      }, {}, { id: 'lifecycle-test' });
       const deleteResult = await handler(deleteEvent);
 
       expect((deleteResult as any).statusCode).toBe(204);

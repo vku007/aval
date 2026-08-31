@@ -15,10 +15,18 @@ import { Logger } from '../../shared/logging/Logger.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 
 /**
- * Utility class for simple game operations.
+ * Processor for simple game operations.
  */
-export class SimpleGameUtils {
-  private static readonly logger = new Logger();
+export class SimpleGameProcessor {
+  private readonly logger: Logger;
+
+  constructor(
+    private readonly resolver: SimpleGameResolver,
+    logger?: Logger
+  ) {
+    this.logger = logger ?? new Logger();
+  }
+
   /**
    * Processes an action on a game and returns the updated game.
    * If the action type is Surrender, adds surrendering rounds until the winner achieves victory,
@@ -28,7 +36,7 @@ export class SimpleGameUtils {
    * @param userId - The user identifier performing the action
    * @returns The updated game
    */
-  static processAction(game: Game, action: Action, userId: string): Game {
+  processAction(game: Game, action: Action, userId: string): Game {
     // Validate game state - cannot process actions on finished or broken games
     if (game.status === GameStatus.Finished || game.status === GameStatus.Broken) {
       throw new Error(`Cannot process action: game is ${game.status}`);
@@ -146,7 +154,7 @@ export class SimpleGameUtils {
    * @param userId - The user identifier who is surrendering
    * @returns The created Round instance
    */
-  static addSurrendedRound(game: Game, userId: string): Round {
+  addSurrendedRound(game: Game, userId: string): Round {
     // Find the winner - the user from game.usersIds who is not the surrendering userId
     const winnerId = game.usersIds.find(id => id !== userId);
     if (!winnerId) {
@@ -174,7 +182,7 @@ export class SimpleGameUtils {
    * @param game - The game to add the round to
    * @returns The created Round instance
    */
-  static addRound(game: Game): Round {
+  addRound(game: Game): Round {
     const startTime = Date.now();
     // Generate round ID based on its position in the rounds array (1-indexed)
     const roundNumber = game.rounds.length + 1;
@@ -196,17 +204,17 @@ export class SimpleGameUtils {
    * @param game - The game to check for victory
    * @returns true if any user has achieved victory, false otherwise
    */
-  static isVictoryAchieved(game: Game): boolean {
+  isVictoryAchieved(game: Game): boolean {
     return this.whoIsWinner(game) !== null;
   }
 
   /**
    * Determines the winner of the game by counting wins in finished rounds.
    * Victory is achieved when a user has won Math.trunc(totalRounds/2)+1 or more rounds.
-   * @param game - The game to check for winner
+   * @param game - The game to check winner
    * @returns The winner's userId if victory is achieved, null otherwise
    */
-  static whoIsWinner(game: Game): string | null {
+  whoIsWinner(game: Game): string | null {
     // Get the total number of rounds from game's createContext
     const roundsLength = game.createContext?.rounds;
     if (!roundsLength) {
@@ -247,9 +255,13 @@ export class SimpleGameUtils {
    * Modifies the game in place.
    * @param game - The game to mark as finished
    */
-  static endingGame(game: Game): void {
+  endingGame(game: Game): void {
     game.status = GameStatus.Finished;
     game.endTime = Date.now();
+    this.resolver.addGameOutcome(game.outcome, game.usersIds[0], this.whoIsWinner(game) === game.usersIds[0]);
+    this.resolver.addGameOutcome(game.outcome, game.usersIds[1], this.whoIsWinner(game) === game.usersIds[1]);
+
+    // todo update users by outcome
   }
 
   /**
@@ -258,7 +270,7 @@ export class SimpleGameUtils {
    * Modifies the game in place.
    * @param game - The game to initialize
    */
-  static initGameFromContext(game: Game): void {
+  initGameFromContext(game: Game): void {
     // Validate that game has createContext
     if (!game.createContext) {
       this.logger.warn('Cannot initialize game: missing createContext', {
@@ -299,7 +311,7 @@ export class SimpleGameUtils {
    * Modifies the game in place.
    * @param game - The game to perform the NPC action on
    */
-  static doNpcAction(game: Game): void {
+  doNpcAction(game: Game): void {
     this.logger.debug('Attempting NPC action', { gameId: game.id, gameStatus: game.status });
 
     // Validate game state - cannot process actions on finished or broken games
@@ -445,7 +457,7 @@ export class SimpleGameUtils {
    * @param move - The move to add
    * @param userId - The user identifier performing the move (for validation)
    */
-  static addMoveToSubRound(game: Game, round: Round, subRound: SubRound, move: Move, userId: string): void {
+  addMoveToSubRound(game: Game, round: Round, subRound: SubRound, move: Move, userId: string): void {
     // Validate that the move's userId matches the provided userId
     if (move.userId !== userId) {
       throw new Error(`Move userId (${move.userId}) does not match action userId (${userId})`);
@@ -473,11 +485,10 @@ export class SimpleGameUtils {
     // Only calculate result when we have 2 moves (both players have moved)
     if (subRound.status === SubRoundStatus.WaitPlayer && subRound.moves.length >= 2) {
       // here we should compare moves and calculates winner/draw
-      SimpleGameResolver.calculateSubRoundResult(subRound);
+      this.resolver.calculateSubRoundResult(subRound, game.outcome);
       subRound.status = SubRoundStatus.Done;
       subRound.finishedAt = currentTime;
     }
 
   }
 }
-

@@ -18,7 +18,15 @@ https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com
 
 ## Authentication
 
-Currently, no authentication is required. All endpoints are publicly accessible.
+Cognito ID token in `Authorization: Bearer <token>`. Layers: [AUTH.md](../AUTH.md).
+
+| Prefix | API Gateway JWT | Lambda |
+|--------|-----------------|--------|
+| `/apiv2/public/*` | off | none |
+| `/apiv2/external/*` | on | any authenticated role |
+| `/apiv2/internal/*` | on | `admin` (`requireRole`) |
+
+Missing/invalid token on protected routes: **401** (Gateway or RFC 7807). Wrong role: **403**. Simple API `/api/*` has no Cognito.
 
 ## Content Types
 
@@ -37,21 +45,76 @@ The API supports CORS with the following configuration:
 
 ## API Endpoints Summary
 
-| Resource | Endpoint | Methods | Description |
-|----------|----------|---------|-------------|
-| **Files** | `/apiv2/internal/files` | GET, POST | List/Create JSON files |
-| **File** | `/apiv2/internal/files/{id}` | GET, PUT, PATCH, DELETE | Manage specific file |
-| **File Meta** | `/apiv2/internal/files/{id}/meta` | GET | Get file metadata |
-| **Users** | `/apiv2/internal/users` | GET, POST | List/Create users |
-| **User** | `/apiv2/internal/users/{id}` | GET, PUT, PATCH, DELETE | Manage specific user |
-| **User Meta** | `/apiv2/internal/users/{id}/meta` | GET | Get user metadata |
-| **Games** | `/apiv2/internal/games` | GET, POST | List/Create games |
-| **Game** | `/apiv2/internal/games/{id}` | GET, PUT, PATCH, DELETE | Manage specific game |
-| **Game Meta** | `/apiv2/internal/games/{id}/meta` | GET | Get game metadata |
-| **Game Rounds** | `/apiv2/internal/games/{id}/rounds` | POST | Add round to game |
-| **Round Moves** | `/apiv2/internal/games/{gameId}/rounds/{roundId}/moves` | POST | Add move to round |
-| **Finish Round** | `/apiv2/internal/games/{gameId}/rounds/{roundId}/finish` | PATCH | Mark round as finished |
-| **Finish Game** | `/apiv2/internal/games/{id}/finish` | PATCH | Mark game as finished |
+| Resource | Endpoint | Methods | Who |
+|----------|----------|---------|-----|
+| Create guest | `/apiv2/public/create-guest` | POST | open |
+| Login | `/apiv2/public/login` | POST | open |
+| Current user | `/apiv2/external/me` | GET | any JWT |
+| Promote guest | `/apiv2/external/promote` | POST | JWT guest |
+| Player games | `/apiv2/external/games`, `/apiv2/external/games/{gameId}` | POST, GET, PUT, PATCH | any JWT |
+| **Files** | `/apiv2/internal/files` | GET, POST | admin |
+| **File** | `/apiv2/internal/files/{id}` | GET, PUT, PATCH, DELETE | admin |
+| **File Meta** | `/apiv2/internal/files/{id}/meta` | GET | admin |
+| **Users** | `/apiv2/internal/users` | GET, POST | admin |
+| **User** | `/apiv2/internal/users/{id}` | GET, PUT, PATCH, DELETE | admin |
+| **User Meta** | `/apiv2/internal/users/{id}/meta` | GET | admin |
+| **Games** | `/apiv2/internal/games` | GET, POST | admin |
+| **Game** | `/apiv2/internal/games/{id}` | GET, PUT, PATCH, DELETE | admin |
+| **Game Meta** | `/apiv2/internal/games/{id}/meta` | GET | admin |
+| **Game Rounds** | `/apiv2/internal/games/{id}/rounds` | POST | admin |
+| **Round Moves** | `/apiv2/internal/games/{gameId}/rounds/{roundId}/moves` | POST | admin |
+| **Finish Round** | `/apiv2/internal/games/{gameId}/rounds/{roundId}/finish` | PATCH | admin |
+| **Finish Game** | `/apiv2/internal/games/{id}/finish` | PATCH | admin |
+
+There are no `/apiv2/files` or `/apiv2/games` routes (those 401 at the JWT authorizer).
+
+---
+
+## Public API (`/apiv2/public`)
+
+No JWT. CORS + JSON body.
+
+### Create guest
+
+**POST** `/apiv2/public/create-guest`
+
+Empty body. Cognito `AdminCreateUser` with a `@vkp.local` email, then `USER_PASSWORD_AUTH`. Returns `guestEmail` and `tokens` (`idToken`, `accessToken`, `refreshToken`, `expiresIn`).
+
+### Login
+
+**POST** `/apiv2/public/login`
+
+```json
+{ "email": "user@example.com", "password": "..." }
+```
+
+Returns the same `tokens` object. Bad credentials: `401` `INVALID_CREDENTIALS`.
+
+---
+
+## External API (`/apiv2/external`)
+
+JWT, any role. Header: `Authorization: Bearer <idToken>`.
+
+### Current user
+
+**GET** `/apiv2/external/me` — user profile for the token `sub` (creates the User entity if missing).
+
+### Promote guest
+
+**POST** `/apiv2/external/promote`
+
+```json
+{ "email": "real@example.com", "password": "...", "displayName": "Optional" }
+```
+
+Caller must be a guest (`@vkp.local` or group `guest`).
+
+### Player games
+
+**POST** `/apiv2/external/games` — create a game for the authenticated user (processor payload, not the admin Game CRUD body).
+
+**GET / PUT / PATCH** `/apiv2/external/games/{gameId}` — read/update that game.
 
 ---
 
@@ -1708,4 +1771,4 @@ For API support and questions, please refer to the project documentation or cont
 
 ---
 
-*Last updated: November 1, 2025*
+*Last updated: August 2026*

@@ -8,6 +8,7 @@ This project provides a production-ready AWS infrastructure with:
 
 - **Static Website Hosting**: S3 + CloudFront for `vkp-consulting.fr`
 - **REST APIs**: Two Lambda-based microservices for file and game management
+- **Authentication**: Amazon Cognito (User Pool `vkp-auth`, API Gateway JWT + Lambda roles)
 - **CDN & HTTPS**: CloudFront distribution with custom domain and SSL
 - **DNS Management**: Route53 for domain routing
 - **Infrastructure as Code**: Complete Terraform setup for reproducible deployments
@@ -18,6 +19,7 @@ This project provides a production-ready AWS infrastructure with:
 - **Website (VKP API Management Portal)**: https://vkp-consulting.fr/aval
 - **CloudFront**: https://d1kcdf4orzsjcw.cloudfront.net
 - **API Gateway**: https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com
+- **Cognito Hosted UI**: https://vkp-auth.auth.eu-north-1.amazoncognito.com
 
 ## 📁 Project Structure
 
@@ -25,43 +27,29 @@ This project provides a production-ready AWS infrastructure with:
 vkp/aval/
 ├── terraform/              # Infrastructure as Code (Terraform)
 │   ├── modules/           # Reusable Terraform modules
-│   │   ├── s3-bucket/    # S3 bucket configuration
-│   │   ├── lambda-function/  # Lambda function setup
-│   │   ├── apigateway-http/  # API Gateway HTTP API
-│   │   ├── cloudfront/   # CloudFront distribution
-│   │   └── route53/      # DNS records management
-│   ├── scripts/          # Deployment and management scripts
-│   ├── main.tf           # Main Terraform configuration
-│   ├── variables.tf      # Input variables
-│   ├── outputs.tf        # Output values
-│   └── README.md         # Terraform documentation
+│   │   ├── s3-bucket/
+│   │   ├── lambda-function/
+│   │   ├── apigateway-http/
+│   │   ├── cognito/       # User Pool, groups, JWT, Lambda triggers
+│   │   ├── cloudfront/
+│   │   └── route53/
+│   ├── scripts/          # plan.sh, apply.sh, setup-backend.sh
+│   ├── main.tf
+│   └── README.md
 │
 ├── apiv2/                 # REST API v2 (Advanced)
-│   ├── src/              # TypeScript source code
-│   │   ├── domain/       # Domain entities (User, Game, File)
-│   │   ├── application/  # Business logic and DTOs
-│   │   ├── infrastructure/  # S3 repositories, AWS SDK
-│   │   ├── presentation/ # Controllers and routing
-│   │   └── shared/       # Utilities and error handling
-│   ├── dist/             # Compiled JavaScript
-│   ├── lambda.zip        # Deployment package
-│   ├── buildAndDeploy.sh # Build and deploy script
-│   └── README.md         # API documentation
+│   ├── src/              # Domain / application / infrastructure / presentation
+│   ├── buildAndDeploy.sh
+│   └── README.md
 │
-├── lambda/                # REST API v1 (Simple)
-│   ├── src/              # TypeScript source code
-│   ├── dist/             # Compiled JavaScript
-│   ├── lambda.zip        # Deployment package
-│   └── commands/         # AWS CLI deployment scripts
+├── lambda/                # REST API v1 (simple) + Cognito triggers
+│   ├── src/               # vkp-simple-service handler
+│   ├── cognito-triggers/  # User Pool Lambda triggers
+│   └── README.md
 │
-└── site/                  # Static website content
-    ├── index.html        # Company homepage (root)
-    ├── aval/             # VKP API Management portal (served at /aval)
-    ├── assets/           # Static assets (SVGs, images)
-    ├── users/            # User management interface
-    ├── games/            # Game management interface
-    ├── entities/         # Entity management interface
-    └── errors/           # Custom error pages (404, 500, etc.)
+├── scripts/               # Cognito user helpers and integration tests
+├── site/                  # Static website (see site/README.md)
+└── obsolete/              # Historical docs (not current)
 ```
 
 ## 🚀 Quick Start
@@ -111,18 +99,16 @@ npm test
 ./buildAndDeploy.sh
 ```
 
-#### API v1 (Simple - Basic File Operations)
+#### API v1 (Simple)
 
 ```bash
 cd lambda
-
-# Install dependencies
-npm install
-
-# Build and deploy
-./commands/build.sh
-./commands/update.sh
+npm ci && npm test && npm run build && npm run zip
+cd ../terraform
+terraform apply -target=module.lambda_simple.aws_lambda_function.main
 ```
+
+See [`lambda/README.md`](lambda/README.md).
 
 ### 3. Deploy Static Website
 
@@ -148,32 +134,20 @@ aws cloudfront create-invalidation \
                   │
 ┌─────────────────▼───────────────────────────────────┐
 │                CloudFront CDN                        │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Origin 1: S3 Static Site (vkp-consulting.fr) │  │
-│  │  Origin 2: API Gateway (wmrksdxxml)           │  │
-│  └──────────────────────────────────────────────┘  │
+│  Origin 1: S3 Static Site  |  Origin 2: API Gateway │
 └──────────┬───────────────────────┬──────────────────┘
            │                       │
 ┌──────────▼──────────┐   ┌───────▼─────────────────┐
 │   S3 Static Site    │   │   API Gateway HTTP API   │
 │ vkp-consulting.fr   │   │     wmrksdxxml          │
-│                     │   │  ┌────────────────────┐ │
-│ - HTML/CSS/JS       │   │  │ Routes:            │ │
-│ - Error pages       │   │  │ /api/*  → λ simple │ │
-│ - User interface    │   │  │ /apiv2/* → λ api2  │ │
-└─────────────────────┘   │  └────────────────────┘ │
-                          └──────┬──────────┬────────┘
+│                     │   │  JWT on /apiv2 (not /public) │
+│ - HTML/CSS/JS       │   │  /api/*  → λ simple     │
+│ - Error pages       │   │  /apiv2/* → λ api2      │
+└─────────────────────┘   └──────┬──────────┬────────┘
                                  │          │
                      ┌───────────▼──┐   ┌──▼──────────────┐
                      │ Lambda Simple│   │  Lambda API v2  │
-                     │ vkp-simple-  │   │  vkp-api2-      │
-                     │ service      │   │  service        │
-                     │              │   │                 │
-                     │ - Basic CRUD │   │ - File mgmt     │
-                     │ - JSON files │   │ - User mgmt     │
-                     │              │   │ - Game mgmt     │
-                     │              │   │ - ETag control  │
-                     │              │   │ - Validation    │
+                     │              │   │  + auth middleware│
                      └──────┬───────┘   └────┬────────────┘
                             │                │
                             └────────┬───────┘
@@ -181,18 +155,19 @@ aws cloudfront create-invalidation \
                           ┌──────────▼──────────────┐
                           │   S3 Data Bucket        │
                           │   data-1-088455116440   │
-                          │                         │
-                          │ - JSON documents        │
-                          │ - User entities         │
-                          │ - Game entities         │
                           └─────────────────────────┘
+
+Cognito User Pool (vkp-auth / eu-north-1_OxGtXG08i)
+  groups: admin, user, guest
+  triggers: pre-signup, post-confirmation, pre-token-generation
 ```
 
 ### Request Flow
 
 1. **Static Content**: `vkp-consulting.fr` → CloudFront → S3 Static Bucket
-2. **API Requests**: `vkp-consulting.fr/api/*` → CloudFront → API Gateway → Lambda → S3 Data
-3. **Direct API**: API Gateway URL → Lambda → S3 Data
+2. **Login**: Hosted UI → Cognito → `callback.html` with JWT
+3. **API Requests**: `vkp-consulting.fr/apiv2/*` → CloudFront → API Gateway (JWT except `/public`) → Lambda (roles) → S3 Data
+4. **Direct API**: API Gateway URL → Lambda → S3 Data
 
 ## 🔧 Infrastructure Management
 
@@ -233,10 +208,19 @@ cd apiv2
 npm run build
 ./buildAndDeploy.sh
 
-# Or use Terraform
+# Or use Terraform (preferred)
 cd ../terraform
 terraform apply -target=module.lambda_api2.aws_lambda_function.main
 ```
+
+#### Cognito users
+
+```bash
+./scripts/list-cognito-users.sh
+./scripts/create-test-user.sh admin test-admin@vkp-test.local "Test Admin" TestAdmin123!
+```
+
+See [scripts/README.md](scripts/README.md) and [scripts/INTEGRATION_TEST_QUICKSTART.md](scripts/INTEGRATION_TEST_QUICKSTART.md).
 
 #### Update Static Website
 
@@ -271,60 +255,53 @@ Complete REST API with file, user, and game management.
 
 **Base URL**: `https://vkp-consulting.fr/apiv2` or `https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/apiv2`
 
-**Quick Reference**:
+JWT on `/apiv2` except `/apiv2/public/*`. Admin CRUD is under `/apiv2/internal/*`.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/files` | GET | List all files |
-| `/files` | POST | Create file |
-| `/files/{id}` | GET/PUT/PATCH/DELETE | Manage file |
-| `/users` | GET/POST | User management |
-| `/users/{id}` | GET/PUT/PATCH/DELETE | User operations |
-| `/games` | GET/POST | Game management |
-| `/games/{id}` | GET/PUT/PATCH/DELETE | Game operations |
-| `/games/{id}/rounds` | POST | Add game round |
-| `/games/{gid}/rounds/{rid}/moves` | POST | Add move |
+| Prefix | Who | Purpose |
+|--------|-----|---------|
+| `/apiv2/public` | open | create-guest, login |
+| `/apiv2/external` | any JWT | me, promote, player games |
+| `/apiv2/internal` | admin JWT | files / users / games CRUD |
 
-**Full Documentation**: See [`apiv2/README.md`](apiv2/README.md) and [`apiv2/COMPLETE_API_DOCUMENTATION.md`](apiv2/COMPLETE_API_DOCUMENTATION.md)
+**Full documentation**: [`apiv2/README.md`](apiv2/README.md), [`apiv2/API_DOCUMENTATION.md`](apiv2/API_DOCUMENTATION.md), [`AUTH.md`](AUTH.md).
 
 ### API v1 (Simple) - `/api/*`
 
-Basic JSON file CRUD operations.
+Hello/echo demo on `vkp-simple-service`. No Cognito, no S3 CRUD.
 
 **Base URL**: `https://vkp-consulting.fr/api` or `https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com/api`
 
-**Endpoints**:
-- `GET /api/files` - List files
-- `POST /api/files` - Create file
-- `GET /api/files/{name}` - Get file
-- `PUT /api/files/{name}` - Update file
-- `DELETE /api/files/{name}` - Delete file
+- `GET /api` (or `/api/*`) — `{ ok, message, time }`
+- `POST /api` — echoes JSON body
+- `OPTIONS` — CORS preflight
+
+See [`lambda/README.md`](lambda/README.md).
 
 ## 🧪 Testing
 
 ### Unit & Integration Tests
 
 ```bash
-# API v2 tests
 cd apiv2
-npm test                    # Run all tests
-npm run test:coverage       # With coverage report
+npm test
 
-# Manual API testing
-./test-game-api.sh         # Comprehensive game API test
-./test-user-integration.sh # User API test
+# Live Cognito checks (from repo root)
+./scripts/test-guest-user.sh
+./scripts/test-entity-endpoints.sh "$ID_TOKEN" admin
 ```
+
+See [`apiv2/TESTING_GUIDE.md`](apiv2/TESTING_GUIDE.md) and [`scripts/README.md`](scripts/README.md).
 
 ### Load Testing
 
 ```bash
 # Using Apache Bench
-ab -n 1000 -c 10 https://vkp-consulting.fr/apiv2/files
+ab -n 1000 -c 10 https://vkp-consulting.fr/apiv2/public/login
 
 # Using curl in loop
 for i in {1..100}; do
   curl -w "%{time_total}\n" -o /dev/null -s \
-    https://vkp-consulting.fr/apiv2/files
+    https://vkp-consulting.fr/apiv2/public/login
 done
 ```
 
@@ -333,6 +310,7 @@ done
 ### Current Setup
 
 - ✅ **HTTPS Only**: CloudFront enforces HTTPS
+- ✅ **Cognito JWT**: API Gateway authorizer on `/apiv2` (not `/apiv2/public`); Lambda `requireRole` for `admin` / `user` / `guest`
 - ✅ **CORS**: Configured for `vkp-consulting.fr`
 - ✅ **S3 Access**: Bucket policies restrict access
 - ✅ **IAM Roles**: Least privilege for Lambda functions
@@ -403,7 +381,8 @@ Estimated monthly costs (assuming moderate usage):
 - **CloudFront**: ~$5-50/month (depends on traffic)
 - **S3**: ~$1-5/month (depends on storage)
 - **Route53**: ~$0.50/month (hosted zone)
-- **Total**: ~$15-85/month
+- **Cognito**: ~$0-5/month (MAU; free tier covers typical usage)
+- **Total**: ~$15-90/month
 
 ### Cost Optimization
 
@@ -490,12 +469,14 @@ jobs:
 
 ## 📖 Additional Documentation
 
-- **Terraform Setup**: [`terraform/README.md`](terraform/README.md)
-- **Terraform Quick Start**: [`terraform/QUICK_START.md`](terraform/QUICK_START.md)
-- **API v2 Documentation**: [`apiv2/COMPLETE_API_DOCUMENTATION.md`](apiv2/COMPLETE_API_DOCUMENTATION.md)
-- **Testing Guide**: [`apiv2/TESTING_GUIDE.md`](apiv2/TESTING_GUIDE.md)
-- **Infrastructure Data**: [`terraform/INFRASTRUCTURE_DATA.md`](terraform/INFRASTRUCTURE_DATA.md)
-- **Migration Checklist**: [`terraform/MIGRATION_CHECKLIST.md`](terraform/MIGRATION_CHECKLIST.md)
+See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for the full map.
+
+- **Auth**: [`AUTH.md`](AUTH.md) — Cognito, API Gateway JWT, Lambda roles
+- **Terraform**: [`terraform/README.md`](terraform/README.md), [`terraform/QUICK_START.md`](terraform/QUICK_START.md)
+- **API v2**: [`apiv2/README.md`](apiv2/README.md), [`apiv2/API_DOCUMENTATION.md`](apiv2/API_DOCUMENTATION.md)
+- **Site**: [`site/README.md`](site/README.md)
+- **Testing**: [`apiv2/TESTING_GUIDE.md`](apiv2/TESTING_GUIDE.md), [`scripts/INTEGRATION_TEST_QUICKSTART.md`](scripts/INTEGRATION_TEST_QUICKSTART.md)
+- **Resource IDs**: [`terraform/INFRASTRUCTURE_DATA.md`](terraform/INFRASTRUCTURE_DATA.md)
 
 ## 🤝 Contributing
 
@@ -534,8 +515,7 @@ aws cloudfront create-invalidation \
 **Issue**: Lambda timeout errors
 ```bash
 # Solution: Increase timeout in Terraform
-# Edit terraform/modules/lambda-function/main.tf
-# Change timeout from 30 to 60 seconds
+# Edit terraform/main.tf (module.lambda_api2 timeout, currently 3 seconds)
 ```
 
 **Issue**: CORS errors
@@ -562,14 +542,13 @@ MIT License - See LICENSE file for details.
 ## 🔗 Links
 
 - **Website**: https://vkp-consulting.fr
-- **API Documentation**: [Complete API Docs](apiv2/COMPLETE_API_DOCUMENTATION.md)
+- **API Documentation**: [API Docs](apiv2/API_DOCUMENTATION.md)
+- **Auth**: [AUTH.md](AUTH.md)
 - **Terraform Guide**: [Infrastructure Guide](terraform/README.md)
-- **OpenAPI Spec**: [OpenAPI YAML](apiv2/COMPLETE_OPENAPI.yaml)
 
 ---
 
-**Last Updated**: October 2024  
-**Website**: Root homepage + `/aval` portal updated January 2026  
+**Last Updated**: August 2026  
 **Terraform Version**: 1.13.4  
 **AWS Region**: eu-north-1  
 **Node Version**: 20.x

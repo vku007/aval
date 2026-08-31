@@ -11,7 +11,9 @@ import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { Game, GameTypeLength } from '../../domain/entity/Game.js';
 import { Action } from '../../domain/value-object/Action.js';
 import { Logger } from '../../shared/logging/Logger.js';
-import { SimpleGameUtils } from '../utils/SimpleGameUtils.js';
+import { SimpleGameProcessor } from '../utils/SimpleGameProcessor.js';
+import { SimpleGameResolver } from '../utils/SimpleGameResolver.js';
+import { SimpleGameOutcomeResolver } from '../utils/SimpleGameOutcomeResolver.js';
 import type { IGameRepository } from './GameService.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { NotFoundError } from '../../shared/errors/index.js';
@@ -24,10 +26,14 @@ import { SubRoundState } from '../dto/processor/SubRoundState.js';
 export class GameProcessorService {
   private readonly logger: Logger;
   private readonly gameRepository?: IGameRepository;
+  private readonly simpleGameProcessor: SimpleGameProcessor;
 
   constructor(gameRepository?: IGameRepository) {
     this.logger = new Logger();
     this.gameRepository = gameRepository;
+    this.simpleGameProcessor = new SimpleGameProcessor(
+      new SimpleGameResolver(new SimpleGameOutcomeResolver())
+    );
   }
 
   /**
@@ -75,7 +81,8 @@ export class GameProcessorService {
             undefined, // etag
             undefined, // metadata
             game.createContext, // createContext
-            game.endTime // endTime
+            game.endTime, // endTime
+            game.outcome.toJSON() // outcome
           );
           await this.gameRepository.save(gameEntity, { ifNoneMatch: '*' });
           this.logger.info('Game saved to repository', { gameId, userId: request.userId });
@@ -208,7 +215,7 @@ export class GameProcessorService {
       }
 
       // Process action and get updated game
-      const updatedGame = SimpleGameUtils.processAction(testGame, action, userId);
+      const updatedGame = this.simpleGameProcessor.processAction(testGame, action, userId);
 
       const initGameContext = updatedGame.createContext 
         ? InitGameContext.fromGameCreateContext(updatedGame.createContext)
@@ -275,14 +282,15 @@ export class GameProcessorService {
       const game = gameEntity.toGame();
 
       // Process action and get updated game
-      const updatedGame = SimpleGameUtils.processAction(game, action, userId);
+      const updatedGame = this.simpleGameProcessor.processAction(game, action, userId);
 
-      // check if game is finished
-      if (SimpleGameUtils.isVictoryAchieved(updatedGame)) {
-        SimpleGameUtils.endingGame(updatedGame);
+      // check if game is finished 
+      // todo check for end of game is already done in processAction
+      if (this.simpleGameProcessor.isVictoryAchieved(updatedGame)) {
+        this.simpleGameProcessor.endingGame(updatedGame);
       } else {
         // if we in pve, lets make a move for pve player
-        SimpleGameUtils.doNpcAction(updatedGame);
+        this.simpleGameProcessor.doNpcAction(updatedGame);
       }
 
       // Convert updated Game back to GameEntity and save
@@ -295,7 +303,8 @@ export class GameProcessorService {
         gameEntity.internalGetBackingStore().etag, // Preserve etag for optimistic locking
         gameEntity.metadata,
         updatedGame.createContext,
-        updatedGame.endTime
+        updatedGame.endTime,
+        updatedGame.outcome.toJSON() // outcome
       );
 
       // Save updated game to repository

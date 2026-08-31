@@ -5,6 +5,15 @@ resource "aws_cloudfront_origin_access_control" "main" {
   signing_protocol                  = "sigv4"
 }
 
+# Viewer-request: /aval/ → /aval/index.html (S3 REST + OAC has no directory index)
+resource "aws_cloudfront_function" "rewrite_index" {
+  name    = var.rewrite_index_function_name
+  runtime = "cloudfront-js-2.0"
+  comment = "Append index.html for directory URLs"
+  publish = true
+  code    = file("${path.module}/functions/rewrite-index.js")
+}
+
 resource "aws_cloudfront_distribution" "main" {
   enabled             = true
   is_ipv6_enabled     = var.enable_ipv6
@@ -47,6 +56,11 @@ resource "aws_cloudfront_distribution" "main" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
     cache_policy_id        = var.default_cache_policy_id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_index.arn
+    }
   }
 
   # Cache behaviors for specific paths

@@ -1,461 +1,242 @@
 # VKP Consulting - Terraform Infrastructure
 
-This directory contains Terraform configuration to manage the VKP Consulting AWS infrastructure.
+This directory manages the production AWS stack for `vkp-consulting.fr`. Resources are already imported; daily work is `plan` then `apply`.
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 terraform/
 ├── backend.tf                     # S3 backend configuration
-├── versions.tf                    # Provider versions and configuration
+├── versions.tf                    # Provider versions
 ├── variables.tf                   # Input variables
 ├── outputs.tf                     # Output values
 ├── main.tf                        # Main orchestration
-├── terraform.tfvars.example       # Example variable values
+├── terraform.tfvars.example       # Example variable values (copy to terraform.tfvars)
 │
-├── modules/                       # Reusable modules
-│   ├── s3-bucket/                 # S3 bucket module
-│   ├── lambda-function/           # Lambda function module
-│   ├── apigateway-http/           # API Gateway HTTP API module
-│   ├── cloudfront/                # CloudFront distribution module
-│   └── route53/                   # Route53 DNS records module
+├── modules/
+│   ├── s3-bucket/
+│   ├── lambda-function/
+│   ├── apigateway-http/           # HTTP API + Cognito JWT authorizer
+│   ├── cognito/                   # User Pool, groups, Hosted UI, Lambda triggers
+│   ├── cloudfront/
+│   └── route53/
 │
-└── scripts/                       # Helper scripts
-    ├── setup-backend.sh           # Setup Terraform backend
-    ├── import-resources.sh        # Import existing resources
-    ├── plan.sh                    # Run terraform plan
-    └── apply.sh                   # Run terraform apply
+└── scripts/
+    ├── setup-backend.sh           # One-time S3 + DynamoDB state backend
+    ├── plan.sh
+    └── apply.sh
 ```
 
-## 🚀 Quick Start
+One-time import scripts from the 2025 migration are archived under [`../obsolete/terraform/scripts/`](../obsolete/terraform/scripts/).
 
-### 1. Prerequisites
+## Prerequisites
 
-- Terraform >= 1.5.0
-- AWS CLI configured with appropriate credentials
-- Access to AWS account 088455116440
+- Terraform >= 1.5.0 (project has used 1.13.x)
+- AWS CLI with credentials for account `088455116440`
+- `terraform.tfvars` present (gitignored; copy from `terraform.tfvars.example`)
 
 ```bash
-# Install Terraform (macOS)
-brew install terraform
-
-# Verify installation
 terraform version
-
-# Verify AWS credentials
 aws sts get-caller-identity
 ```
 
-### 2. Setup Terraform Backend
-
-First time only - create S3 bucket and DynamoDB table for state management:
+## Daily workflow
 
 ```bash
-./scripts/setup-backend.sh
-```
-
-This creates:
-- S3 bucket: `vkp-terraform-state-088455116440`
-- DynamoDB table: `vkp-terraform-locks`
-
-### 3. Initialize Terraform
-
-```bash
-terraform init
-```
-
-### 4. Import Existing Resources
-
-Import your existing AWS resources into Terraform state:
-
-```bash
-./scripts/import-resources.sh
-```
-
-### 5. Verify Configuration
-
-```bash
+cd terraform
+terraform init          # first clone or after provider/module changes
 terraform plan
+terraform apply
+terraform output
 ```
 
-**Expected result**: After successful import, `terraform plan` should show 0 changes.
-
-If it shows changes, review them carefully and adjust the Terraform configuration to match your actual infrastructure.
-
-## 📋 Common Operations
-
-### Planning Changes
+Or use the helpers:
 
 ```bash
-# Generate and save execution plan
 ./scripts/plan.sh
-
-# Or manually
-terraform plan -out=tfplan
-```
-
-### Applying Changes
-
-```bash
-# Apply saved plan
 ./scripts/apply.sh
-
-# Or manually
-terraform apply tfplan
 ```
 
-### Deploying Lambda Updates
+Backend (already created):
+
+- S3: `vkp-terraform-state-088455116440`
+- DynamoDB: `vkp-terraform-locks`
+
+Re-run `./scripts/setup-backend.sh` only if the backend was destroyed.
+
+## Common operations
+
+### Deploy API v2 Lambda
 
 ```bash
-# Build and deploy Lambda functions
 cd ../apiv2
-npm ci
-npm run build
-npm run zip
-
-# Update Lambda via Terraform
+npm ci && npm test && npm run build && npm run zip
 cd ../terraform
 terraform apply -target=module.lambda_api2.aws_lambda_function.main
 ```
 
-### Managing Cognito Users
+Root helper: [`../deployUpdate.sh`](../deployUpdate.sh).
+
+### Cognito users
 
 ```bash
-# List all users
 ../scripts/list-cognito-users.sh
-
-# Create test user
-../scripts/create-test-user.sh admin "Admin User" "SecurePass123!"
-
-# Reset user password
+../scripts/create-test-user.sh admin test-admin@vkp-test.local "Test Admin" TestAdmin123!
 ../scripts/reset-user-password.sh user@example.com "NewPass123!"
-
-# Delete test users
 ../scripts/delete-test-users.sh
 ```
 
-### Updating Cognito Lambda Triggers
+See [`../scripts/README.md`](../scripts/README.md).
+
+### Update Cognito Lambda triggers
 
 ```bash
-# Build trigger functions
 cd ../lambda/cognito-triggers
-npm ci
-npm run build
-npm run zip
-
-# Deploy via Terraform
+npm ci && npm run build && npm run zip
 cd ../../terraform
 terraform apply \
   -target='module.cognito[0].aws_lambda_function.pre_signup' \
   -target='module.cognito[0].aws_lambda_function.post_confirmation' \
   -target='module.cognito[0].aws_lambda_function.pre_token_generation'
+```
 
-# Re-attach triggers to user pool (required after updates)
+If signup or roles stop working, re-attach triggers (circular dependency with the User Pool):
+
+```bash
 aws cognito-idp update-user-pool \
   --user-pool-id eu-north-1_OxGtXG08i \
   --lambda-config \
     PreSignUp=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-signup \
     PostConfirmation=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-post-confirmation \
     PreTokenGeneration=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-token-generation
+
+aws cognito-idp describe-user-pool \
+  --user-pool-id eu-north-1_OxGtXG08i \
+  --query 'UserPool.LambdaConfig'
 ```
 
-### Viewing Current State
+### State inspection
 
 ```bash
-# List all resources
 terraform state list
-
-# Show specific resource
 terraform state show module.lambda_api2.aws_lambda_function.main
+terraform output
 ```
 
-### Destroying Resources (CAREFUL!)
+Do not run `terraform destroy` against production unless you intend to take the site down.
 
-```bash
-# Destroy specific resource
-terraform destroy -target=module.cloudfront.aws_cloudfront_distribution.main
+## Components
 
-# Destroy everything (VERY DANGEROUS!)
-terraform destroy
-```
+### S3
 
-## 🏗️ Infrastructure Components
+| Bucket | Purpose |
+|--------|---------|
+| `vkp-consulting.fr` | Static site (CloudFront OAC only) |
+| `data-1-088455116440` | API JSON (`json/*`, HTTPS-only policy) |
+| `vkp-cloudfront-logs` | Log bucket (logging currently unused) |
 
-### S3 Buckets
+### Lambda
 
-1. **vkp-consulting.fr** - Static website
-   - CloudFront OAC access
-   - Public access blocked
+| Function | Runtime | Notes |
+|----------|---------|--------|
+| `vkp-api2-service` | nodejs20.x, arm64, 128 MB, 3s | Data bucket `json/*` |
+| `vkp-simple-service` | nodejs20.x, arm64, 128 MB, 3s | Site bucket `json/*` |
+| `vkp-cognito-pre-signup` | nodejs18.x | Validate / auto-confirm guests |
+| `vkp-cognito-post-confirmation` | nodejs18.x | Assign `user` or `guest` group |
+| `vkp-cognito-pre-token-generation` | nodejs18.x | JWT claims: role, display_name, email |
 
-2. **data-1-088455116440** - API data storage
-   - Lambda role access to `json/*` prefix
-   - HTTPS only (enforced via bucket policy)
+### API Gateway (`vkp-http-api-4`, ID `wmrksdxxml`)
 
-3. **vkp-cloudfront-logs** - CloudFront access logs
-   - Currently logging is disabled
+- `ANY /api` and `ANY /api/{proxy+}` → simple Lambda (no JWT)
+- `ANY /apiv2/public` and `ANY /apiv2/public/{proxy+}` → API v2, no JWT (guest create / login)
+- `ANY /apiv2` and `ANY /apiv2/{proxy+}` → API v2, JWT authorizer when `enable_cognito_auth` is true
+- CORS from `var.cors_allowed_origins` (example: `vkp-consulting.fr` and `www`), methods GET/POST/PATCH/PUT/DELETE/OPTIONS, MaxAge 0
+- Lambda still enforces roles (`authMiddleware`, `requireRole`) after the gateway has validated the token
 
-### Lambda Functions
+### CloudFront (`EJWBLACWDMFAZ`)
 
-1. **vkp-api2-service** - Primary REST API
-   - Runtime: Node.js 20.x
-   - Architecture: ARM64
-   - Memory: 128 MB
-   - Timeout: 3 seconds
-   - S3 access: data-1-088455116440/json/*
-
-2. **vkp-simple-service** - Legacy/Alternative API
-   - Runtime: Node.js 20.x
-   - Architecture: ARM64
-   - Memory: 128 MB
-   - Timeout: 3 seconds
-   - S3 access: vkp-consulting.fr/json/*
-
-### API Gateway
-
-- **Name**: vkp-http-api-4
-- **Type**: HTTP API
-- **CORS**: Enabled for vkp-consulting.fr
-- **Routes**:
-  - `ANY /api` → vkp-simple-service
-  - `ANY /api/{proxy+}` → vkp-simple-service
-  - `ANY /apiv2` → vkp-api2-service
-  - `ANY /apiv2/{proxy+}` → vkp-api2-service
-
-### CloudFront Distribution
-
-- **Aliases**: vkp-consulting.fr, www.vkp-consulting.fr
-- **Origins**:
-  1. S3: vkp-consulting.fr (via OAC)
-  2. API Gateway: wmrksdxxml.execute-api.eu-north-1.amazonaws.com
-- **Cache Behaviors**:
-  - `/` (default) → S3, cached
-  - `/api/errors/*` → S3, cached
-  - `/api/*` → API Gateway, not cached
-  - `/apiv2/*` → API Gateway, not cached
-- **Custom Errors**: 400, 403, 404, 500 → S3 error pages
+- Aliases: `vkp-consulting.fr`, `www.vkp-consulting.fr`
+- Origins: S3 (OAC) and API Gateway
+- `/api/*` and `/apiv2/*` uncached; default and `/api/errors/*` cached
+- Viewer-request CloudFront Function `vkp-rewrite-index` on the default (S3) behavior: `/aval/` → `/aval/index.html` (and the same for other folders). Not attached to `/api/*` or `/apiv2/*`.
+- Custom errors: 400, 403, 404, 500 → `/api/errors/{code}.html` on the S3 origin
 
 ### Route53
 
-- **Zone**: vkp-consulting.fr (Z094077718N53LUC7MTBL)
-- **Records**:
-  - `vkp-consulting.fr` (A/AAAA) → CloudFront
-  - `www.vkp-consulting.fr` (A/AAAA) → CloudFront
+Zone `Z094077718N53LUC7MTBL`: apex and `www` A/AAAA aliases to CloudFront.
 
-### Cognito Authentication
+### Cognito
 
-- **User Pool**: vkp-user-pool (eu-north-1_OxGtXG08i)
-- **Client ID**: 77e2cmbthjul60ui7guh514u50
-- **Domain**: vkp-auth.auth.eu-north-1.amazoncognito.com
-- **Groups**: admin, user, guest
-- **Lambda Triggers**: Pre-signup, Post-confirmation, Pre-token-generation
-  - ⚠️ **Note**: Triggers must be manually attached (see below)
+- User Pool: `eu-north-1_OxGtXG08i` (`vkp-user-pool`)
+- Client: `77e2cmbthjul60ui7guh514u50` (public, no secret; password, SRP, refresh)
+- Domain: `vkp-auth.auth.eu-north-1.amazoncognito.com`
+- Groups: `admin`, `user`, `guest`
+- Identity Pool: `vkp_identity_pool` (authenticated / unauthenticated roles; group → IAM role mapping)
+- OAuth callbacks: `https://vkp-consulting.fr/callback.html`, `https://vkp-consulting.fr/`
+- Logout URLs: `https://vkp-consulting.fr/`, `https://vkp-consulting.fr/logout.html`
+- API v2 Lambda also has inline policy `CognitoUserManagement` (AdminCreateUser, groups, InitiateAuth) when `enable_cognito_auth` is true
 
-#### Attaching Cognito Lambda Triggers
+Trigger behavior:
 
-Due to Terraform circular dependency limitations, Lambda triggers must be manually attached after initial deployment.
+1. **Pre-signup** — validate display name; auto-confirm guests; email verify for others
+2. **Post-confirmation** — `guest` or `user` group (admins are assigned manually)
+3. **Pre-token-generation** — `custom:role` from group (admin > user > guest)
 
-**Step 1: Get Lambda Function ARNs**
+## Variables
 
-```bash
-# Get trigger function ARNs
-aws lambda get-function --function-name vkp-cognito-pre-signup \
-  --query 'Configuration.FunctionArn' --output text
-
-aws lambda get-function --function-name vkp-cognito-post-confirmation \
-  --query 'Configuration.FunctionArn' --output text
-
-aws lambda get-function --function-name vkp-cognito-pre-token-generation \
-  --query 'Configuration.FunctionArn' --output text
-```
-
-**Step 2: Attach Triggers to User Pool**
-
-```bash
-# Attach all triggers at once
-aws cognito-idp update-user-pool \
-  --user-pool-id eu-north-1_OxGtXG08i \
-  --lambda-config \
-    PreSignUp=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-signup \
-    PostConfirmation=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-post-confirmation \
-    PreTokenGeneration=arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-token-generation
-```
-
-**Step 3: Verify Attachment**
-
-```bash
-# Check if triggers are attached
-aws cognito-idp describe-user-pool \
-  --user-pool-id eu-north-1_OxGtXG08i \
-  --query 'UserPool.LambdaConfig' \
-  --output json
-```
-
-**Expected Output:**
-
-```json
-{
-  "PreSignUp": "arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-signup",
-  "PostConfirmation": "arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-post-confirmation",
-  "PreTokenGeneration": "arn:aws:lambda:eu-north-1:088455116440:function:vkp-cognito-pre-token-generation"
-}
-```
-
-**What Each Trigger Does:**
-
-1. **Pre-Signup** (`vkp-cognito-pre-signup`)
-   - Validates display name
-   - Auto-confirms guest users (no email)
-   - Requires email verification for regular users
-
-2. **Post-Confirmation** (`vkp-cognito-post-confirmation`)
-   - Assigns default group based on user type
-   - Guest users → `guest` group
-   - Regular users → `user` group
-   - Admins must be manually assigned
-
-3. **Pre-Token-Generation** (`vkp-cognito-pre-token-generation`)
-   - Adds custom claims to JWT tokens
-   - Includes: role, display_name, email
-   - Based on group membership (admin > user > guest)
-
-**When to Re-attach:**
-
-- After initial Cognito deployment
-- After updating Lambda trigger code
-- If authentication stops working (triggers may have been detached)
-
-## 🔧 Configuration
-
-### Variables
-
-Key variables defined in `variables.tf`:
-
-```hcl
-aws_region              = "eu-north-1"
-aws_account_id          = "088455116440"
-domain_name             = "vkp-consulting.fr"
-api_data_bucket_name    = "data-1-088455116440"
-acm_certificate_arn     = "arn:aws:acm:us-east-1:..."
-route53_zone_id         = "Z094077718N53LUC7MTBL"
-```
-
-### Customization
-
-Copy the example file and customize:
+Copy and edit locally (never commit `terraform.tfvars`):
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars (git-ignored)
 ```
 
-## 🔒 Security
+Cognito is gated by `enable_cognito_auth` (default `false` in `variables.tf`; `terraform.tfvars.example` sets `true`). Resource IDs: [INFRASTRUCTURE_DATA.md](INFRASTRUCTURE_DATA.md).
 
-### State Management
+`obsolete/lambda/edge/` (CloudFront viewer-request) is not attached in Terraform.
 
-- **Backend**: S3 with encryption
-- **Locking**: DynamoDB
-- **Versioning**: Enabled on state bucket
+## Security
 
-### Access Control
+- State in S3 (encrypted, versioned) with DynamoDB lock
+- Keep `terraform.tfvars` and `*.tfstate` out of git
+- Least-privilege IAM on Lambda roles
 
-- Terraform state contains sensitive data
-- Keep `terraform.tfvars` out of version control
-- Use IAM roles with least privilege
+## Troubleshooting
 
-### Secrets
-
-Never commit:
-- `terraform.tfvars` (contains sensitive values)
-- `*.tfstate` files
-- AWS credentials
-
-## 🐛 Troubleshooting
-
-### Import Fails
+**Unexpected plan drift**
 
 ```bash
-# Check if resource exists
-aws lambda get-function --function-name vkp-api2-service --region eu-north-1
-
-# Try importing manually
-terraform import 'module.lambda_api2.aws_lambda_function.main' vkp-api2-service
-```
-
-### Plan Shows Unexpected Changes
-
-```bash
-# Compare with AWS console
-# Review Terraform resource definition
-# Check for drift
-
-# Refresh state
 terraform refresh
+terraform plan
 ```
 
-### State Lock Issues
+**State lock**
 
 ```bash
-# Check DynamoDB for stuck locks
 aws dynamodb scan --table-name vkp-terraform-locks
-
-# Force unlock (use carefully!)
-terraform force-unlock <LOCK_ID>
+terraform force-unlock <LOCK_ID>   # only after confirming no other apply
 ```
 
-### Lambda Deployment Issues
+**Lambda zip missing**
 
 ```bash
-# Ensure lambda.zip is built
 ls -lh ../apiv2/lambda.zip
-
-# Check function exists
-aws lambda get-function --function-name vkp-api2-service --region eu-north-1
-
-# Manually update if needed
 aws lambda update-function-code \
   --function-name vkp-api2-service \
   --zip-file fileb://../apiv2/lambda.zip \
   --region eu-north-1
 ```
 
-### Cognito Lambda Triggers Not Attached
+**Cognito triggers empty** — re-attach as in “Update Cognito Lambda triggers” above.
 
-If Cognito authentication isn't working (users can't sign up, roles not assigned):
+## Related docs
 
-```bash
-# Check if triggers are attached
-aws cognito-idp describe-user-pool \
-  --user-pool-id eu-north-1_OxGtXG08i \
-  --query 'UserPool.LambdaConfig'
-
-# If empty, attach triggers manually (see Cognito section below)
-```
-
-## 📚 Additional Resources
-
-- [Terraform AWS Provider Docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [Terraform Best Practices](https://www.terraform-best-practices.com/)
-- [AWS Lambda with Terraform](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function)
-- [CloudFront with Terraform](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_distribution)
-
-## 🤝 Contributing
-
-1. Make changes in a feature branch
-2. Run `terraform fmt` to format code
-3. Run `terraform validate` to validate syntax
-4. Run `terraform plan` to preview changes
-5. Submit pull request for review
-
-## 📞 Support
-
-For issues or questions:
-- Review the main [TERRAFORM_MIGRATION_PLAN.md](../TERRAFORM_MIGRATION_PLAN.md)
-- Check AWS console for actual resource state
-- Review CloudWatch logs for Lambda errors
+- [QUICK_START.md](QUICK_START.md)
+- [INFRASTRUCTURE_DATA.md](INFRASTRUCTURE_DATA.md)
+- [../INFRASTRUCTURE_OVERVIEW.md](../INFRASTRUCTURE_OVERVIEW.md)
+- [../DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md)
 
 ---
 
-**Last Updated**: October 24, 2025  
-**Terraform Version**: >= 1.5.0  
-**AWS Provider Version**: ~> 5.0
-
+**Last updated**: August 2026  
+**Terraform**: >= 1.5.0  
+**AWS provider**: ~> 5.0

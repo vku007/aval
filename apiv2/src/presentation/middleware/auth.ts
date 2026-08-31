@@ -72,11 +72,30 @@ async function verifyToken(token: string): Promise<any> {
 }
 
 /**
+ * Fake user attached when SKIP_AUTH is set (e.g. in tests)
+ */
+const SKIP_AUTH_FAKE_USER = {
+  userId: 'test-admin',
+  sub: 'test-admin',
+  email: 'test-admin@test',
+  role: 'admin',
+  display_name: 'Test Admin',
+  groups: ['admin'],
+};
+
+/**
  * Authentication middleware
- * Verifies JWT and attaches user info to request
+ * Verifies JWT and attaches user info to request.
+ * When SKIP_AUTH=true (e.g. in tests), skips verification and attaches a fake admin user.
  */
 export function authMiddleware() {
   return async (request: HttpRequest, next: () => Promise<HttpResponse>): Promise<HttpResponse> => {
+    if (process.env.SKIP_AUTH === 'true') {
+      const authRequest = request as AuthenticatedRequest;
+      authRequest.user = SKIP_AUTH_FAKE_USER;
+      return next();
+    }
+
     // Extract Authorization header
     const authHeader = request.headers.authorization || request.headers.Authorization;
 

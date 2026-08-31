@@ -44,8 +44,8 @@ resource "aws_apigatewayv2_integration" "integrations" {
   api_id           = aws_apigatewayv2_api.main.id
   integration_type = "AWS_PROXY"
 
-  integration_uri    = each.value.invoke_arn
-  integration_method = "POST"
+  integration_uri        = each.value.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
   timeout_milliseconds   = 30000
 }
@@ -54,8 +54,10 @@ resource "aws_apigatewayv2_integration" "integrations" {
 resource "aws_apigatewayv2_route" "routes" {
   for_each = var.routes
 
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = each.value.route_key
-  target    = "integrations/${aws_apigatewayv2_integration.integrations[each.value.integration_key].id}"
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = each.value.route_key
+  target             = "integrations/${aws_apigatewayv2_integration.integrations[each.value.integration_key].id}"
+  authorization_type = each.value.authorization_type
+  authorizer_id      = each.value.authorization_type == "JWT" ? try(aws_apigatewayv2_authorizer.cognito_jwt[0].id, null) : null
 }
 

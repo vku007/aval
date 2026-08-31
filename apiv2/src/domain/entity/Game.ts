@@ -4,6 +4,7 @@ import { Move } from "../value-object/Move.js";
 import { ValidationError } from "../../shared/errors/index.js";
 import { GameCreateContext } from "../../application/dto/processor/GameCreateContext.js";
 import { GameStatus } from "../value-object/GameStatus.js";
+import { GameOutcome } from "../value-object/GameOutcome.js";
 
 export enum GameTypeLength {
     BO1 = 'BO1',
@@ -18,6 +19,8 @@ export enum GameTypeLength {
 export class Game {
     public rounds: Round[];
     public endTime?: number;
+    /** Outcome (rewards, etc.) created when the game is created; not passed to constructor. */
+    public outcome: GameOutcome;
 
     constructor(
         public readonly id: string,
@@ -30,7 +33,9 @@ export class Game {
     ) {
         // Initialize rounds to empty array
         this.rounds = [];
-        
+        // Create outcome instance when game is created (not passed in)
+        this.outcome = new GameOutcome();
+
         this.validateId(id);
         this.validateType(type);
         this.validateUsersIds(usersIds);
@@ -102,6 +107,7 @@ export class Game {
 
         const updatedGame = new Game(this.id, this.type, this.usersIds, this.status, this.createContext);
         updatedGame.rounds = updatedRounds;
+        updatedGame.outcome = GameOutcome.fromJSON(this.outcome.toJSON());
         return updatedGame;
     }
 
@@ -165,6 +171,7 @@ export class Game {
             status: this.status,
             isFinished: this.status === GameStatus.Finished, // Backward compatibility
             endTime: this.endTime,
+            outcome: this.outcome.toJSON(),
             createContext: this.createContext?.toJSON()
         };
     }
@@ -215,6 +222,9 @@ export class Game {
         const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
         const game = new Game(data.id, data.type as GameTypeLength, data.usersIds, status, createContext);
         game.rounds = rounds;
+        if (data.outcome) {
+            game.outcome = GameOutcome.fromJSON(data.outcome);
+        }
         if (data.endTime !== undefined && data.endTime !== null) {
             if (typeof data.endTime !== 'number') {
                 throw new ValidationError('Game endTime must be a number');

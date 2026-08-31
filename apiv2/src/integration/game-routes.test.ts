@@ -19,7 +19,10 @@ describe('Game API Routes Integration', () => {
   
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+    process.env.SKIP_AUTH = 'true';
+    process.env.BUCKET_NAME = process.env.BUCKET_NAME || 'test-bucket';
+    process.env.JSON_PREFIX = process.env.JSON_PREFIX || 'json/';
+
     // Mock S3 responses for successful operations
     mockS3Send.mockImplementation((command) => {
       if (command.constructor.name === 'ListObjectsV2Command') {
@@ -100,7 +103,7 @@ describe('Game API Routes Integration', () => {
     it('should handle POST /apiv2/internal/games (create game)', async () => {
       const event = createApiGatewayEvent('POST', '/apiv2/internal/games', {
         id: 'test-game',
-        type: 'tournament',
+        type: 'BO3',
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false
@@ -130,7 +133,7 @@ describe('Game API Routes Integration', () => {
 
     it('should handle PUT /apiv2/internal/games/:id (update game)', async () => {
       const event = createApiGatewayEvent('PUT', '/apiv2/internal/games/test-game', {
-        type: 'championship',
+        type: 'BO5',
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false

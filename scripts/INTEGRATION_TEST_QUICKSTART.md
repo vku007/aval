@@ -2,7 +2,9 @@
 
 ## Overview
 
-This guide walks you through running the full integration test suite for the VKP API authentication and authorization system.
+This guide walks through Cognito users, tokens, and role checks against live `/apiv2` endpoints. Script catalog: [README.md](README.md). Auth model: [AUTH.md](../AUTH.md).
+
+Run all commands from the **repository root**.
 
 ## Prerequisites
 
@@ -69,12 +71,14 @@ Save the output:
 
 First, get an admin token by logging in:
 
-1. Visit: https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&redirect_uri=https://vkp-consulting.fr/callback
+1. Visit: https://vkp-auth.auth.eu-north-1.amazoncognito.com/login?client_id=77e2cmbthjul60ui7guh514u50&response_type=code&redirect_uri=https://vkp-consulting.fr/callback.html
 2. Login with: `admin@vkp-consulting.fr` / `<your-admin-password>`
 3. Open Developer Tools → Console
 4. Get token:
 ```javascript
 const idToken = document.cookie.split('; ').find(c => c.startsWith('idToken=')).split('=')[1];
+const payload = JSON.parse(atob(idToken.split('.')[1]));
+console.log(payload.email, payload.role || payload['custom:role']);
 console.log(idToken);
 ```
 5. Copy the token
@@ -139,6 +143,8 @@ For each test user, login and get their ID token:
 2. Login with `test-guest@vkp-test.local` / `TestGuest123!`
 3. Get token
 4. Save as `TEST_GUEST_TOKEN`
+
+Anonymous guest (no Hosted UI): `./scripts/test-guest-user.sh` calls `POST /apiv2/public/create-guest` and checks `/apiv2/external/me`.
 
 ## Step 5: Run Entity Endpoint Tests (2 minutes)
 
@@ -286,10 +292,10 @@ Legend:
 
 **Fix**: 
 1. Logout and login again to get fresh token
-2. Verify token contains `custom:role`:
+2. Verify token contains `role` or `custom:role`:
 ```javascript
 const payload = JSON.parse(atob(idToken.split('.')[1]));
-console.log(payload['custom:role']); // Should be 'admin'
+console.log(payload.role || payload['custom:role']); // Should be 'admin'
 ```
 
 ### Issue: 403 Forbidden for Admin
@@ -318,18 +324,9 @@ aws cognito-idp admin-add-user-to-group \
 
 ## Next Steps
 
-For comprehensive testing, see: **`apiv2/plans/integration_test_plan.md`**
-
-Includes tests for:
-- ETag concurrency control
-- Pagination (limit, cursor, prefix)
-- Data validation
-- Error responses
-- User/Game entity endpoints
-- Game-specific operations (rounds, moves)
+Unit and integration tests: [apiv2/TESTING_GUIDE.md](../apiv2/TESTING_GUIDE.md). There are no `test-user-endpoints.sh` / `test-game-endpoints.sh` scripts; exercise those APIs with curl or the Vitest suite.
 
 ---
 
-**Total Time**: ~35 minutes  
-**Last Updated**: November 3, 2025
+**Last updated**: August 2026
 

@@ -1,5 +1,5 @@
-import { ValidationError } from "../../shared/errors/index.js";
-import { GameTypeLength } from "../entity/Game.js";
+import { ValidationError } from "../../../shared/errors/index.js";
+import { GameTypeLength } from "../../entity/Game.js";
 
 export enum Material {
     Gold = 'Gold',
@@ -7,25 +7,18 @@ export enum Material {
     Copper = 'Copper'
 }
 
-export enum CoinType {
-    Game = 'Game',
-    Round = 'Round'
-}
-
-export class Coin {
+export class Medal {
     constructor(
         public readonly issuerId: number,
         public readonly enemyId: number,
         public readonly createdTime: number,
         public readonly madeOf: Material,
-        public readonly coinType: CoinType,
         public readonly gameLength: GameTypeLength
     ) {
         this.validateIssuerId(issuerId);
         this.validateEnemyId(enemyId);
         this.validateCreatedTime(createdTime);
         this.validateMadeOf(madeOf);
-        this.validateCoinType(coinType);
         this.validateGameLength(gameLength);
     }
 
@@ -38,116 +31,106 @@ export class Coin {
             enemyId: this.enemyId,
             createdTime: this.createdTime,
             madeOf: this.madeOf,
-            coinType: this.coinType,
             gameLength: this.gameLength
         };
     }
 
     /**
-     * Create a new Coin from JSON data
+     * Create a new Medal from JSON data
      */
-    static fromJSON(data: any): Coin {
+    static fromJSON(data: any): Medal {
         if (!data || typeof data !== 'object') {
-            throw new ValidationError('Invalid coin data: must be an object');
+            throw new ValidationError('Invalid medal data: must be an object');
         }
 
         if (typeof data.issuerId !== 'number') {
-            throw new ValidationError('Coin issuerId is required and must be a number');
+            throw new ValidationError('Medal issuerId is required and must be a number');
         }
 
         if (typeof data.enemyId !== 'number') {
-            throw new ValidationError('Coin enemyId is required and must be a number');
+            throw new ValidationError('Medal enemyId is required and must be a number');
         }
 
         if (typeof data.createdTime !== 'number') {
-            throw new ValidationError('Coin createdTime is required and must be a number');
+            throw new ValidationError('Medal createdTime is required and must be a number');
         }
 
         if (!data.madeOf || typeof data.madeOf !== 'string') {
-            throw new ValidationError('Coin madeOf is required and must be a string');
+            throw new ValidationError('Medal madeOf is required and must be a string');
         }
 
         if (!Object.values(Material).includes(data.madeOf as Material)) {
             throw new ValidationError(`Invalid madeOf: ${data.madeOf}. Must be one of: ${Object.values(Material).join(', ')}`);
         }
 
-        if (!data.coinType || typeof data.coinType !== 'string') {
-            throw new ValidationError('Coin coinType is required and must be a string');
-        }
-
-        if (!Object.values(CoinType).includes(data.coinType as CoinType)) {
-            throw new ValidationError(`Invalid coinType: ${data.coinType}. Must be one of: ${Object.values(CoinType).join(', ')}`);
-        }
-
         if (!data.gameLength || typeof data.gameLength !== 'string') {
-            throw new ValidationError('Coin gameLength is required and must be a string');
+            throw new ValidationError('Medal gameLength is required and must be a string');
         }
 
         if (!Object.values(GameTypeLength).includes(data.gameLength as GameTypeLength)) {
             throw new ValidationError(`Invalid gameLength: ${data.gameLength}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
         }
 
-        return new Coin(
+        return new Medal(
             data.issuerId, 
             data.enemyId, 
             data.createdTime, 
             data.madeOf as Material, 
-            data.coinType as CoinType,
             data.gameLength as GameTypeLength
         );
     }
 
     private validateIssuerId(issuerId: number): void {
         if (typeof issuerId !== 'number') {
-            throw new ValidationError('Coin issuerId must be a number');
+            throw new ValidationError('Medal issuerId must be a number');
         }
 
         if (!Number.isFinite(issuerId)) {
-            throw new ValidationError('Coin issuerId must be a finite number');
+            throw new ValidationError('Medal issuerId must be a finite number');
         }
 
         if (!Number.isInteger(issuerId)) {
-            throw new ValidationError('Coin issuerId must be an integer');
+            throw new ValidationError('Medal issuerId must be an integer');
         }
 
         if (issuerId < 0) {
-            throw new ValidationError('Coin issuerId must be a non-negative integer');
+            throw new ValidationError('Medal issuerId must be a non-negative integer');
         }
     }
 
     private validateEnemyId(enemyId: number): void {
         if (typeof enemyId !== 'number') {
-            throw new ValidationError('Coin enemyId must be a number');
+            throw new ValidationError('Medal enemyId must be a number');
         }
 
         if (!Number.isFinite(enemyId)) {
-            throw new ValidationError('Coin enemyId must be a finite number');
+            throw new ValidationError('Medal enemyId must be a finite number');
         }
 
         if (!Number.isInteger(enemyId)) {
-            throw new ValidationError('Coin enemyId must be an integer');
+            throw new ValidationError('Medal enemyId must be an integer');
         }
 
         if (enemyId < 0) {
-            throw new ValidationError('Coin enemyId must be a non-negative integer');
+            throw new ValidationError('Medal enemyId must be a non-negative integer');
         }
     }
 
     private validateCreatedTime(createdTime: number): void {
         if (typeof createdTime !== 'number') {
-            throw new ValidationError('Coin createdTime must be a number');
+            throw new ValidationError('Medal createdTime must be a number');
         }
 
         if (!Number.isFinite(createdTime)) {
-            throw new ValidationError('Coin createdTime must be a finite number');
+            throw new ValidationError('Medal createdTime must be a finite number');
         }
 
         if (!Number.isInteger(createdTime)) {
-            throw new ValidationError('Coin createdTime must be an integer (Unix timestamp in milliseconds)');
+            throw new ValidationError('Medal createdTime must be an integer (Unix timestamp in milliseconds)');
         }
 
         if (createdTime < 0) {
-            throw new ValidationError('Coin createdTime must be a positive number');
+            throw new ValidationError('Medal createdTime must be a positive number');
         }
 
         // Validate that it's a reasonable Unix timestamp (after 1970-01-01 and before year 2100)
@@ -156,14 +139,14 @@ export class Coin {
         
         if (createdTime < minTimestamp || createdTime > maxTimestamp) {
             throw new ValidationError(
-                `Coin createdTime must be a valid Unix timestamp in milliseconds between ${minTimestamp} and ${maxTimestamp}`
+                `Medal createdTime must be a valid Unix timestamp in milliseconds between ${minTimestamp} and ${maxTimestamp}`
             );
         }
     }
 
     private validateMadeOf(madeOf: Material): void {
         if (!madeOf) {
-            throw new ValidationError('Coin madeOf is required');
+            throw new ValidationError('Medal madeOf is required');
         }
 
         if (!Object.values(Material).includes(madeOf)) {
@@ -171,19 +154,9 @@ export class Coin {
         }
     }
 
-    private validateCoinType(coinType: CoinType): void {
-        if (!coinType) {
-            throw new ValidationError('Coin coinType is required');
-        }
-
-        if (!Object.values(CoinType).includes(coinType)) {
-            throw new ValidationError(`Invalid coinType: ${coinType}. Must be one of: ${Object.values(CoinType).join(', ')}`);
-        }
-    }
-
     private validateGameLength(gameLength: GameTypeLength): void {
         if (!gameLength) {
-            throw new ValidationError('Coin gameLength is required');
+            throw new ValidationError('Medal gameLength is required');
         }
 
         if (!Object.values(GameTypeLength).includes(gameLength)) {
@@ -191,4 +164,3 @@ export class Coin {
         }
     }
 }
-

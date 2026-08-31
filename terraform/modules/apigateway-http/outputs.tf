@@ -28,3 +28,8 @@ output "api_arn" {
   value       = aws_apigatewayv2_api.main.execution_arn
 }
 
+output "jwt_authorizer_id" {
+  description = "Cognito JWT authorizer ID (null if disabled)"
+  value       = try(aws_apigatewayv2_authorizer.cognito_jwt[0].id, null)
+}
+

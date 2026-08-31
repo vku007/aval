@@ -62,6 +62,7 @@ describe('Lambda Handler - Integration Tests', () => {
     process.env.BUCKET_NAME = 'test-bucket';
     process.env.JSON_PREFIX = 'json/';
     process.env.CORS_ORIGIN = 'https://vkp-consulting.fr';
+    process.env.SKIP_AUTH = 'true';
   });
 
   describe('CORS', () => {
@@ -92,16 +93,15 @@ describe('Lambda Handler - Integration Tests', () => {
     it('should accept POST with application/json', async () => {
       const entityId = `test-entity-${Date.now()}`;
       
-      // Mock HEAD checks (not found in both locations) then PUT success
+      // Mock getMetadata (checkPreconditions): HEAD base, user, game (all not found) then PUT success
       const notFoundError = new Error('Not Found');
       notFoundError.name = 'NotFound';
       (notFoundError as any).$metadata = { httpStatusCode: 404 };
       
       mockSend
-        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found)
-        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found)
-        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found) - called by getMetadata
-        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found) - called by getMetadata
+        .mockRejectedValueOnce(notFoundError) // HEAD base (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD user (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD game (not found)
         .mockResolvedValueOnce({ ETag: '"abc123"' }); // PUT
 
       const event = createEvent('POST', '/apiv2/internal/files', { id: entityId, data: { x: 1 } });
@@ -208,16 +208,15 @@ describe('Lambda Handler - Integration Tests', () => {
     it('should create entity with POST', async () => {
       const entityId = `new-entity-${Date.now()}`;
       
-      // Mock HEAD checks (not found in both locations) then PUT success
+      // Mock getMetadata (checkPreconditions): HEAD base, user, game (all not found) then PUT success
       const notFoundError = new Error('Not Found');
       notFoundError.name = 'NotFound';
       (notFoundError as any).$metadata = { httpStatusCode: 404 };
       
       mockSend
-        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found)
-        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found)
-        .mockRejectedValueOnce(notFoundError) // HEAD check base location (not found) - called by getMetadata
-        .mockRejectedValueOnce(notFoundError) // HEAD check user location (not found) - called by getMetadata
+        .mockRejectedValueOnce(notFoundError) // HEAD base (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD user (not found)
+        .mockRejectedValueOnce(notFoundError) // HEAD game (not found)
         .mockResolvedValueOnce({ ETag: '"new-etag"' }); // PUT
 
       const event = createEvent('POST', '/apiv2/internal/files', {

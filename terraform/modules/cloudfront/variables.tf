@@ -1,3 +1,9 @@
+variable "rewrite_index_function_name" {
+  description = "CloudFront Function name for directory index rewrite"
+  type        = string
+  default     = "vkp-rewrite-index"
+}
+
 variable "oac_name" {
   description = "Name of the Origin Access Control"
   type        = string

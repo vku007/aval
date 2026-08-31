@@ -290,10 +290,14 @@ describe('Game', () => {
             winnerId: undefined
           }],
           status: RoundStatus.Finished,
-          startTime: startTime
+          startTime: startTime,
+          winnerId: undefined
         }],
         status: GameStatus.Finished,
-        isFinished: true // Backward compatibility
+        isFinished: true, // Backward compatibility
+        endTime: undefined,
+        outcome: { rewards: {} },
+        createContext: undefined
       });
     });
   });

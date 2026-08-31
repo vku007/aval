@@ -38,8 +38,9 @@ variable "lambda_integrations" {
 variable "routes" {
   description = "Map of routes to create"
   type = map(object({
-    route_key       = string
-    integration_key = string
+    route_key          = string
+    integration_key    = string
+    authorization_type = optional(string, "NONE")
   }))
   default = {}
 }

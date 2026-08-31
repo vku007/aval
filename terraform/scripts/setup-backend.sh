@@ -78,5 +78,5 @@ echo
 echo "Next steps:"
 echo "  1. cd terraform/"
 echo "  2. terraform init"
-echo "  3. ./scripts/import-resources.sh"
+echo "  3. terraform plan"
 

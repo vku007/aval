@@ -67,10 +67,10 @@ module "s3_api_data" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyInsecureTransport"
-        Effect = "Deny"
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
         Principal = "*"
-        Action   = "s3:*"
+        Action    = "s3:*"
         Resource = [
           "arn:aws:s3:::${var.api_data_bucket_name}",
           "arn:aws:s3:::${var.api_data_bucket_name}/*"
@@ -132,13 +132,13 @@ module "s3_cloudfront_logs" {
 module "lambda_api2" {
   source = "./modules/lambda-function"
 
-  function_name    = "vkp-api2-service"
-  handler          = "index.handler"
-  runtime          = "nodejs20.x"
-  architectures    = ["arm64"]
-  lambda_zip_path  = "../apiv2/lambda.zip"
-  timeout          = 3
-  memory_size      = 128
+  function_name      = "vkp-api2-service"
+  handler            = "index.handler"
+  runtime            = "nodejs20.x"
+  architectures      = ["arm64"]
+  lambda_zip_path    = "../apiv2/lambda.zip"
+  timeout            = 3
+  memory_size        = 128
   log_retention_days = 7
 
   environment_variables = merge(
@@ -157,9 +157,9 @@ module "lambda_api2" {
     } : {}
   )
 
-  s3_bucket_name = var.api_data_bucket_name
-  s3_prefix      = var.json_prefix
-  aws_region     = var.aws_region
+  s3_bucket_name                = var.api_data_bucket_name
+  s3_prefix                     = var.json_prefix
+  aws_region                    = var.aws_region
   create_api_gateway_permission = true
 
   tags = local.common_tags
@@ -197,13 +197,13 @@ resource "aws_iam_role_policy" "lambda_cognito_access" {
 module "lambda_simple" {
   source = "./modules/lambda-function"
 
-  function_name    = "vkp-simple-service"
-  handler          = "index.handler"
-  runtime          = "nodejs20.x"
-  architectures    = ["arm64"]
-  lambda_zip_path  = "../lambda/lambda.zip"
-  timeout          = 3
-  memory_size      = 128
+  function_name      = "vkp-simple-service"
+  handler            = "index.handler"
+  runtime            = "nodejs20.x"
+  architectures      = ["arm64"]
+  lambda_zip_path    = "../lambda/lambda.zip"
+  timeout            = 3
+  memory_size        = 128
   log_retention_days = 7
 
   environment_variables = {
@@ -213,9 +213,9 @@ module "lambda_simple" {
     CORS_ORIGIN    = "https://${var.domain_name}"
   }
 
-  s3_bucket_name = var.domain_name
-  s3_prefix      = var.json_prefix
-  aws_region     = var.aws_region
+  s3_bucket_name                = var.domain_name
+  s3_prefix                     = var.json_prefix
+  aws_region                    = var.aws_region
   create_api_gateway_permission = true
 
   tags = local.common_tags
@@ -234,10 +234,14 @@ module "api_gateway" {
   source = "./modules/apigateway-http"
 
   api_name             = "vkp-http-api-4"
-  cors_allowed_origins = ["https://vkp-consulting.fr, https://www.vkp-consulting.fr"]
+  cors_allowed_origins = var.cors_allowed_origins
   cors_allowed_methods = ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"]
   cors_allowed_headers = ["content-type", "authorization", "if-match", "if-none-match"]
   cors_max_age         = 0
+
+  enable_jwt_authorizer = var.enable_cognito_auth
+  cognito_issuer_url    = var.enable_cognito_auth ? module.cognito[0].issuer_url : ""
+  cognito_client_id     = var.enable_cognito_auth ? module.cognito[0].user_pool_client_id : ""
 
   lambda_integrations = {
     simple_integration = {
@@ -257,13 +261,23 @@ module "api_gateway" {
       route_key       = "ANY /api/{proxy+}"
       integration_key = "simple_integration"
     }
-    apiv2_root = {
-      route_key       = "ANY /apiv2"
+    apiv2_public_root = {
+      route_key       = "ANY /apiv2/public"
       integration_key = "api2_integration"
     }
-    apiv2_proxy = {
-      route_key       = "ANY /apiv2/{proxy+}"
+    apiv2_public_proxy = {
+      route_key       = "ANY /apiv2/public/{proxy+}"
       integration_key = "api2_integration"
+    }
+    apiv2_root = {
+      route_key          = "ANY /apiv2"
+      integration_key    = "api2_integration"
+      authorization_type = var.enable_cognito_auth ? "JWT" : "NONE"
+    }
+    apiv2_proxy = {
+      route_key          = "ANY /apiv2/{proxy+}"
+      integration_key    = "api2_integration"
+      authorization_type = var.enable_cognito_auth ? "JWT" : "NONE"
     }
   }
 
@@ -300,8 +314,8 @@ module "cognito" {
   google_client_id     = var.google_client_id
   google_client_secret = var.google_client_secret
 
-  # API Gateway ARN for IAM policies
-  api_gateway_arn = module.api_gateway.api_arn
+  # Account-scoped execute-api ARN (avoids a cycle with the JWT authorizer)
+  api_gateway_arn = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:*"
 
   tags = local.common_tags
 }

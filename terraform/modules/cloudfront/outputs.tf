@@ -23,3 +23,8 @@ output "oac_id" {
   value       = aws_cloudfront_origin_access_control.main.id
 }
 
+output "rewrite_index_function_arn" {
+  description = "ARN of the directory-index CloudFront Function"
+  value       = aws_cloudfront_function.rewrite_index.arn
+}
+

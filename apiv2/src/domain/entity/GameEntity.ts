@@ -9,6 +9,7 @@ import { SubRoundStatus } from '../value-object/SubRoundStatus.js';
 import { Move, MoveContext, MoveType } from '../value-object/Move.js';
 import { GameStatus } from '../value-object/GameStatus.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
+import { GameOutcome } from '../value-object/GameOutcome.js';
 
 // Define the data structure for better type safety
 interface GameData {
@@ -19,6 +20,7 @@ interface GameData {
   isFinished?: boolean; // Backward compatibility
   createContext?: any; // Store as JSON object
   endTime?: number;
+  outcome?: any; // Serialized GameOutcome (rewards) for persistence
 }
 
 interface RoundData {
@@ -62,7 +64,8 @@ export class GameEntity {
     etag?: string,
     metadata?: EntityMetadata,
     createContext?: GameCreateContext,
-    endTime?: number
+    endTime?: number,
+    outcome?: any // Serialized GameOutcome (game.outcome.toJSON()) for persistence
   ) {
     this.validateId(id);
     this.validateGameData(type, usersIds, rounds, status);
@@ -75,7 +78,8 @@ export class GameEntity {
       status,
       isFinished: status === GameStatus.Finished, // Backward compatibility
       createContext: createContext ? createContext.toJSON() : undefined,
-      endTime
+      endTime,
+      outcome
     };
     
     this._backed = new JsonEntity(id, gameData as unknown as JsonValue, etag, metadata);
@@ -125,6 +129,11 @@ export class GameEntity {
     return this.getGameData().endTime;
   }
 
+  /** Serialized outcome (rewards) for persistence; undefined if not set. */
+  get outcome(): any {
+    return this.getGameData().outcome;
+  }
+
   // Read-only access to entity metadata (etag, size, lastModified)
   get metadata(): EntityMetadata | undefined {
     return this._backed.metadata;
@@ -155,7 +164,8 @@ export class GameEntity {
       backed.etag, 
       backed.metadata,
       createContext,
-      gameData.endTime
+      gameData.endTime,
+      gameData.outcome
     );
   }
 
@@ -250,6 +260,9 @@ export class GameEntity {
     if (gameData.endTime !== undefined) {
       game.endTime = gameData.endTime;
     }
+    if (gameData.outcome) {
+      game.outcome = GameOutcome.fromJSON(gameData.outcome);
+    }
     return game;
   }
 
@@ -263,7 +276,8 @@ export class GameEntity {
       this._backed.etag,
       this._backed.metadata,
       game.createContext,
-      game.endTime
+      game.endTime,
+      game.outcome.toJSON()
     );
   }
 
@@ -352,7 +366,8 @@ export class GameEntity {
       status: this.status,
       isFinished: this.isFinished, // Backward compatibility
       createContext: gameData.createContext,
-      endTime: gameData.endTime
+      endTime: gameData.endTime,
+      outcome: gameData.outcome
     };
   }
 
@@ -398,7 +413,8 @@ export class GameEntity {
     const rounds = data.rounds.map((roundData: any) => Round.fromJSON(roundData));
     const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
     const endTime = data.endTime !== undefined && data.endTime !== null ? data.endTime : undefined;
-    return new GameEntity(data.id, data.type as GameTypeLength, data.usersIds, rounds, status, undefined, undefined, createContext, endTime);
+    const outcome = data.outcome;
+    return new GameEntity(data.id, data.type as GameTypeLength, data.usersIds, rounds, status, undefined, undefined, createContext, endTime, outcome);
   }
 
   // Validation methods

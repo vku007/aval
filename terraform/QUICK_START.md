@@ -1,125 +1,63 @@
-# Terraform Quick Start Guide
+# Terraform Quick Start
 
-## 🎯 Goal
-Manage your AWS infrastructure as code using Terraform.
+Day-to-day workflow for the existing VKP stack. Full reference: [README.md](README.md).
 
-## ⚡ 5-Minute Setup
+## First clone
 
-### Step 1: Setup Backend (One-time)
 ```bash
 cd terraform
-./scripts/setup-backend.sh
-```
-
-### Step 2: Initialize Terraform
-```bash
+cp terraform.tfvars.example terraform.tfvars   # then fill real values
 terraform init
-```
-
-### Step 3: Import Existing Resources
-```bash
-./scripts/import-resources.sh
-```
-
-### Step 4: Verify Configuration
-```bash
 terraform plan
 ```
 
-Expected: **0 changes** (infrastructure already matches code)
+Backend S3/DynamoDB already exist. Do not re-import resources.
 
-## 🚀 Daily Workflow
-
-### Deploying Lambda Updates
+## Daily: infrastructure change
 
 ```bash
-# 1. Build Lambda
-cd apiv2
-npm ci && npm run build && npm run zip
-
-# 2. Deploy with Terraform
-cd ../terraform
-terraform apply -target=module.lambda_api2.aws_lambda_function.main -auto-approve
-```
-
-### Making Infrastructure Changes
-
-```bash
-# 1. Edit Terraform files
-vim main.tf
-
-# 2. Plan changes
+cd terraform
+# edit .tf files
 ./scripts/plan.sh
-
-# 3. Review the plan carefully
-
-# 4. Apply changes
+# review the plan
 ./scripts/apply.sh
 ```
 
-## 📝 Common Commands
+## Deploy API v2 Lambda
 
 ```bash
-# See all resources
+cd apiv2
+npm ci && npm test && npm run build && npm run zip
+cd ../terraform
+terraform apply -target=module.lambda_api2.aws_lambda_function.main
+```
+
+Or from repo root: `./deployUpdate.sh`
+
+## Common commands
+
+```bash
 terraform state list
-
-# Check specific resource
 terraform show module.lambda_api2.aws_lambda_function.main
-
-# Format code
-terraform fmt -recursive
-
-# Validate syntax
-terraform validate
-
-# Refresh state from AWS
-terraform refresh
-```
-
-## 🔍 Viewing Outputs
-
-```bash
-# All outputs
 terraform output
-
-# Specific output
 terraform output api_gateway_url
-terraform output website_url
+terraform output cognito_user_pool_id
+terraform fmt -recursive
+terraform validate
 ```
 
-## ⚠️ Important Notes
+## Notes
 
-1. **Always run `terraform plan` before `apply`**
-2. **Never commit `terraform.tfvars`** (contains sensitive data)
-3. **State is stored in S3** (shared across team)
-4. **DynamoDB provides state locking** (prevents conflicts)
+1. Always `plan` before `apply`
+2. Never commit `terraform.tfvars`
+3. State is in S3 with DynamoDB locking
 
-## 🆘 Need Help?
-
-- Full documentation: `terraform/README.md`
-- Migration plan: `TERRAFORM_MIGRATION_PLAN.md`
-- Terraform docs: https://www.terraform.io/docs
-
-## 📞 Emergency Rollback
+## Rollback Lambda only
 
 ```bash
-# If something goes wrong, rollback Lambda:
 cd apiv2
 aws lambda update-function-code \
   --function-name vkp-api2-service \
   --zip-file fileb://lambda.zip \
   --region eu-north-1
 ```
-
----
-
-**Pro Tip**: Alias common commands in your shell:
-
-```bash
-# Add to ~/.zshrc or ~/.bashrc
-alias tfp='terraform plan'
-alias tfa='terraform apply'
-alias tfo='terraform output'
-alias tfs='terraform state list'
-```
-

@@ -317,7 +317,10 @@ export class GameService {
       rounds,
       status,
       existingGame.internalGetBackingStore().etag,
-      existingGame.metadata
+      existingGame.metadata,
+      existingGame.createContext,
+      existingGame.endTime,
+      existingGame.outcome
     );
   }
 
@@ -368,7 +371,10 @@ export class GameService {
       rounds,
       status,
       existingGame.internalGetBackingStore().etag,
-      existingGame.metadata
+      existingGame.metadata,
+      existingGame.createContext,
+      existingGame.endTime,
+      existingGame.outcome
     );
   }
 }

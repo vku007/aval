@@ -26,3 +26,12 @@ route53_zone_id = "Z094077718N53LUC7MTBL"
 max_body_bytes = 1048576  # 1MB
 json_prefix    = "json/"
 
+# Cognito Authentication
+enable_cognito_auth   = true
+cognito_domain_prefix = "vkp-auth"  # must be globally unique
+
+# Optional Google OAuth (leave empty if unused)
+enable_google_oauth  = false
+google_client_id     = ""
+google_client_secret = ""
+

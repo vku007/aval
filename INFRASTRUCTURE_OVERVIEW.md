@@ -20,6 +20,9 @@ CloudFront CDN (d1kcdf4orzsjcw.cloudfront.net)
 S3 Static Site      API Gateway           CloudWatch Logs
 (vkp-consulting.fr)  (wmrksdxxml)         (Monitoring)
                            ↓
+                    JWT authorizer
+                    (/apiv2/public/* open)
+                           ↓
                     ┌──────┴──────┐
                     ↓             ↓
             Lambda Simple    Lambda API v2
@@ -29,6 +32,10 @@ S3 Static Site      API Gateway           CloudWatch Logs
                            ↓
                     S3 Data Bucket
                   (data-1-088455116440)
+
+Cognito User Pool (vkp-auth)
+  groups: admin, user, guest
+  triggers: pre-signup, post-confirmation, pre-token-generation
 ```
 
 ---
@@ -38,25 +45,29 @@ S3 Static Site      API Gateway           CloudWatch Logs
 | Service | URL | Purpose |
 |---------|-----|---------|
 | **Main Website** | https://vkp-consulting.fr | Public website |
+| **API portal** | https://vkp-consulting.fr/aval | VKP API management UI |
 | **CloudFront** | https://d1kcdf4orzsjcw.cloudfront.net | CDN distribution |
 | **API Gateway** | https://wmrksdxxml.execute-api.eu-north-1.amazonaws.com | Direct API access |
-| **API v1** | https://vkp-consulting.fr/api/* | Simple file operations |
-| **API v2** | https://vkp-consulting.fr/apiv2/internal/* | Advanced file/user/game mgmt |
+| **API v1** | https://vkp-consulting.fr/api/* | Simple hello/echo Lambda |
+| **API v2** | https://vkp-consulting.fr/apiv2/* | File / user / game management |
+| **Cognito Hosted UI** | https://vkp-auth.auth.eu-north-1.amazoncognito.com | Login / logout / OAuth |
 
 ---
 
-## 📦 AWS Resources (38 Total)
+## 📦 AWS Resources
 
-### Compute & Application (8 resources)
+### Compute & Application
 
 | Resource | Name/ID | Purpose | Managed By |
 |----------|---------|---------|------------|
 | **Lambda Function** | `vkp-api2-service` | Advanced REST API | Terraform |
 | **Lambda Function** | `vkp-simple-service` | Simple REST API | Terraform |
+| **Lambda Function** | `vkp-cognito-pre-signup` | Cognito pre-signup trigger | Terraform |
+| **Lambda Function** | `vkp-cognito-post-confirmation` | Group assignment | Terraform |
+| **Lambda Function** | `vkp-cognito-pre-token-generation` | JWT custom claims | Terraform |
 | **API Gateway HTTP API** | `wmrksdxxml` | API routing | Terraform |
 | **API Gateway Stage** | `$default` | Default stage | Terraform |
-| **API Gateway Integration** × 2 | `301xu2b`, `ss8r9fd` | Lambda integrations | Terraform |
-| **API Gateway Route** × 4 | Various | API routes | Terraform |
+| **API Gateway JWT Authorizer** | `cognito-jwt-authorizer` | Cognito JWT on /apiv2 (not /public) | Terraform |
 
 ### Storage (9 resources)
 
@@ -84,7 +95,7 @@ S3 Static Site      API Gateway           CloudWatch Logs
 | **Route53 Record** | A | www.vkp-consulting.fr | CloudFront | Terraform |
 | **Route53 Record** | AAAA | www.vkp-consulting.fr | CloudFront | Terraform |
 
-### Security & IAM (8 resources)
+### Security & IAM
 
 | Resource | Name | Purpose | Managed By |
 |----------|------|---------|------------|
@@ -93,6 +104,12 @@ S3 Static Site      API Gateway           CloudWatch Logs
 | **IAM Policy Attachment** × 2 | Basic execution | CloudWatch logs | Terraform |
 | **IAM Inline Policy** × 2 | S3 access | Data bucket access | Terraform |
 | **Lambda Permission** × 2 | API Gateway invoke | API integration | Terraform |
+| **Cognito User Pool** | `eu-north-1_OxGtXG08i` | Authentication | Terraform |
+| **Cognito App Client** | `77e2cmbthjul60ui7guh514u50` | Web OAuth client | Terraform |
+| **Cognito Domain** | `vkp-auth` | Hosted UI | Terraform |
+| **Cognito Groups** | `admin`, `user`, `guest` | Role mapping | Terraform |
+| **Cognito Identity Pool** | `vkp_identity_pool` | IAM role assumption | Terraform |
+| **IAM Policy** | `CognitoUserManagement` | API v2 guest/user admin APIs | Terraform |
 
 ### Monitoring (3 resources)
 
@@ -100,6 +117,7 @@ S3 Static Site      API Gateway           CloudWatch Logs
 |----------|------|-----------|---------|------------|
 | **CloudWatch Log Group** | `/aws/lambda/vkp-api2-service` | 7 days | API v2 logs | Terraform |
 | **CloudWatch Log Group** | `/aws/lambda/vkp-simple-service` | 7 days | API v1 logs | Terraform |
+| **CloudWatch Log Group** | `/aws/lambda/vkp-cognito-*` | 7 days | Cognito trigger logs | Terraform |
 | **CloudWatch Log Group** | `/aws/apigateway/vkp-http-api` | 7 days | API Gateway logs | Terraform |
 
 ### State Management (4 resources)
@@ -107,7 +125,7 @@ S3 Static Site      API Gateway           CloudWatch Logs
 | Resource | Name | Purpose | Managed By |
 |----------|------|---------|------------|
 | **S3 Bucket** | `vkp-terraform-state-088455116440` | Terraform state | Manual |
-| **DynamoDB Table** | `vkp-terraform-state-lock` | State locking | Manual |
+| **DynamoDB Table** | `vkp-terraform-locks` | State locking | Manual |
 | **S3 Versioning** | Enabled | State history | Manual |
 | **S3 Encryption** | AES256 | State security | Manual |
 
@@ -128,6 +146,8 @@ S3 Bucket (vkp-consulting.fr)
   ↓ Origin Access Control
 Return: index.html
 ```
+
+Page map and deploy: [site/README.md](site/README.md). Hub: `/aval/`. Game: `/html5Simple/`. CloudFront 400/403/404/500: `/api/errors/{code}.html`. Directory URLs (`/aval/`) are rewritten to `index.html` by CloudFront Function `vkp-rewrite-index` on the S3 behavior.
 
 **Performance**: 
 - Cache Hit: ~50ms
@@ -175,6 +195,22 @@ Return: 200 OK with file list
 **Performance**: 
 - Direct API: ~150-400ms
 
+### 4. Authenticated API Request
+
+```
+User Browser
+  ↓ Login via Hosted UI (callback.html)
+Cognito (vkp-auth)
+  ↓ ID token (JWT with custom:role)
+API Gateway JWT authorizer (skipped for /apiv2/public/*)
+  ↓
+Lambda API v2 (authMiddleware + requireRole)
+  ↓
+S3 Data Bucket
+```
+
+Groups: `admin` (full CRUD), `user` / `guest` (limited, e.g. `/apiv2/external/me`). Missing/invalid tokens on protected routes return 401 from API Gateway; role failures return 403 from Lambda.
+
 ---
 
 ## 🔐 Security Architecture
@@ -197,17 +233,17 @@ Return: 200 OK with file list
     ↓                 ↓
 ┌───────┐      ┌──────────────┐
 │  S3   │      │ API Gateway  │
-│ (OAC) │      │ (IAM Auth)   │
+│ (OAC) │      │ JWT + CORS   │
 └───────┘      └──────┬───────┘
                       │
               ┌───────▼────────┐
               │  Lambda        │
-              │  (IAM Role)    │
+              │  requireRole   │
               └───────┬────────┘
                       │
               ┌───────▼────────┐
               │  S3 Data       │
-              │  (Bucket Policy)│
+              │  Cognito Pool  │
               └────────────────┘
 ```
 
@@ -240,10 +276,10 @@ Return: 200 OK with file list
 
 ```json
 {
-  "AllowedOrigins": ["https://vkp-consulting.fr"],
-  "AllowedMethods": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
-  "AllowedHeaders": ["Content-Type", "Authorization", "If-Match", "If-None-Match"],
-  "MaxAge": 3600
+  "AllowedOrigins": ["https://vkp-consulting.fr", "https://www.vkp-consulting.fr"],
+  "AllowedMethods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  "AllowedHeaders": ["content-type", "authorization", "if-match", "if-none-match"],
+  "MaxAge": 0
 }
 ```
 
@@ -260,9 +296,10 @@ Return: 200 OK with file list
 | **CloudFront** | 10GB data transfer<br>100K requests | $1.20 | $0.085/GB + $0.01/10K |
 | **S3 Storage** | 1GB storage<br>150K requests | $0.30 | Standard storage |
 | **Route53** | 1 hosted zone | $0.50 | Fixed cost |
+| **Cognito** | User Pool MAU | $0–5 | Free tier covers typical usage |
 | **CloudWatch Logs** | 1GB logs | $0.50 | 7 days retention |
 | **Data Transfer** | 5GB out | $0.45 | S3 → Internet |
-| **Total** | - | **~$3.25/month** | Low traffic |
+| **Total** | - | **~$3–8/month** | Low traffic |
 
 ### High Traffic Scenario (1M requests/month)
 
@@ -287,8 +324,8 @@ Return: 200 OK with file list
 |--------|-----------------|-------------------|
 | **Cold Start** | ~400ms | ~800ms |
 | **Warm Execution** | ~50-100ms | ~100-300ms |
-| **Memory** | 128MB | 256MB |
-| **Timeout** | 30s | 30s |
+| **Memory** | 128MB | 128MB |
+| **Timeout** | 3s | 3s |
 | **Concurrent Executions** | 10 | 10 (reserved) |
 
 ### API Gateway
@@ -395,14 +432,8 @@ cd apiv2
 # Unit tests
 npm test
 
-# Integration tests
-npm run test:integration
-
-# Coverage report
-npm run test:coverage
-
-# Manual testing
-./test-game-api.sh
+# Live checks (repo root)
+../scripts/test-guest-user.sh
 ```
 
 ### 3. End-to-End Testing
@@ -412,12 +443,11 @@ npm run test:coverage
 curl -I https://vkp-consulting.fr/
 
 # Test API v1
-curl https://vkp-consulting.fr/api/files
+curl https://vkp-consulting.fr/api/
 
-# Test API v2
-curl -X POST https://vkp-consulting.fr/apiv2/internal/users \
-  -H "Content-Type: application/json" \
-  -d '{"id":"test","name":"Test User","externalId":999}'
+# Test API v2 (JWT required except /public)
+curl -i https://vkp-consulting.fr/apiv2/external/me
+# 401 without Authorization: Bearer <idToken>
 
 # Test CORS
 curl -H "Origin: https://vkp-consulting.fr" \
@@ -505,15 +535,19 @@ aws s3 sync s3://backups/site-v1/ s3://vkp-consulting.fr/
 ### Documentation
 
 - [Main README](README.md)
+- [Authentication and authorization](AUTH.md)
+- [Documentation index](DOCUMENTATION_INDEX.md)
 - [Terraform Guide](terraform/README.md)
 - [Terraform Quick Start](terraform/QUICK_START.md)
-- [API v2 Documentation](apiv2/COMPLETE_API_DOCUMENTATION.md)
+- [Infrastructure data](terraform/INFRASTRUCTURE_DATA.md)
+- [API v2 Documentation](apiv2/API_DOCUMENTATION.md)
 - [Testing Guide](apiv2/TESTING_GUIDE.md)
+- [Static site](site/README.md)
 
 ### Terraform State
 
 - **Backend**: S3 (`vkp-terraform-state-088455116440`)
-- **Locking**: DynamoDB (`vkp-terraform-state-lock`)
+- **Locking**: DynamoDB (`vkp-terraform-locks`)
 - **Region**: eu-north-1
 - **Workspace**: default
 
@@ -531,7 +565,6 @@ aws s3 sync s3://backups/site-v1/ s3://vkp-consulting.fr/
 ### Planned Improvements
 
 - [ ] Add WAF to CloudFront for enhanced security
-- [ ] Implement API Gateway usage plans and API keys
 - [ ] Add Lambda layers for shared dependencies
 - [ ] Set up X-Ray tracing for distributed tracing
 - [ ] Implement S3 lifecycle policies for log archival
@@ -543,9 +576,7 @@ aws s3 sync s3://backups/site-v1/ s3://vkp-consulting.fr/
 
 ---
 
-**Document Version**: 1.1  
-**Last Updated**: November 1, 2025  
-**Infrastructure Status**: ✅ Fully Operational  
-**Terraform State**: ✅ In Sync  
-**Recent Changes**: Added `/internal/` path prefix to all API v2 endpoints
+**Document Version**: 1.2  
+**Last Updated**: August 2026  
+**Infrastructure Status**: Operational (Terraform + Cognito)
 
