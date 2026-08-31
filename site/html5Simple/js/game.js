@@ -1,24 +1,34 @@
 /**
- * Game Configuration
- * Sharp, bright, candy style
+ * Game configuration — logical size 390×844, Scale.FIT into the viewport.
  */
 
 console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, LoginModalScene, RegisterModalScene, SimpleGameScene, ErrorModalScene]);
 
+applyGameFrame(fitGameFrame());
+
 const config = {
     type: Phaser.AUTO,
     parent: 'phaser-game',
-    width: window.innerWidth * 0.75,
-    height: window.innerHeight * 0.75,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
     backgroundColor: '#ffffff',
     scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT
     },
     scene: [BootScene, MenuScene, LoginModalScene, RegisterModalScene, SimpleGameScene, ErrorModalScene]
 };
 
-console.log('[game.js] Creating Phaser.Game with config:', config);
+console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);
 const game = new Phaser.Game(config);
-console.log('[game.js] Phaser.Game created');
 
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        applyGameFrame(fitGameFrame());
+        game.scale.refresh();
+    }, 120);
+});

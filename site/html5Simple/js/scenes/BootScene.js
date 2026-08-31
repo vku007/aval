@@ -15,20 +15,18 @@ class BootScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         
         // Title
-        this.add.text(width / 2, height / 2 - 60, 'BOOT SCENE', {
-            font: '72px monospace',
+        this.add.text(width / 2, height / 2 - 40, 'BOOT SCENE', {
+            font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
-        // Loading text
-        this.add.text(width / 2, height / 2 + 60, 'Loading...', {
-            font: '36px monospace',
+        this.add.text(width / 2, height / 2 + 24, 'Loading...', {
+            font: `${UI.heading}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
-        // Size info
-        this.add.text(width / 2, height - 50, `Canvas: ${width}x${height}`, {
-            font: '20px monospace',
+        this.add.text(width / 2, height - 28, `Canvas: ${width}x${height}`, {
+            font: `${UI.small}px monospace`,
             fill: '#666666'
         }).setOrigin(0.5);
 

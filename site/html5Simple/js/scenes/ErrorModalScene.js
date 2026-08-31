@@ -41,9 +41,10 @@ class ErrorModalScene extends Phaser.Scene {
         modalBg.strokeRect(modalX - modalWidth/2, modalY - modalHeight/2, modalWidth, modalHeight);
         
         // Error title
-        this.add.text(modalX, modalY - modalHeight/2 + 30, this.errorTitle, {
-            font: 'bold 24px monospace',
-            fill: '#ff0000'
+        this.add.text(modalX, modalY - modalHeight/2 + 28, this.errorTitle, {
+            font: `bold ${UI.heading}px monospace`,
+            fill: '#ff0000',
+            wordWrap: { width: modalWidth - 32 }
         }).setOrigin(0.5);
         
         // Error message (with word wrap)
@@ -51,7 +52,7 @@ class ErrorModalScene extends Phaser.Scene {
         const messageMaxWidth = modalWidth - 40;
         
         this.add.text(modalX, messageY, this.errorMessage, {
-            font: '16px monospace',
+            font: `${UI.body}px monospace`,
             fill: '#000000',
             wordWrap: { width: messageMaxWidth, useAdvancedWrap: true },
             align: 'center'

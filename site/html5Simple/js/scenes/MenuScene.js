@@ -20,40 +20,34 @@ class MenuScene extends Phaser.Scene {
         console.log('[MenuScene] Display name:', displayName);
         
         // User panel (upper left corner)
-        this.playerText = this.add.text(20, 20, `Player: ${displayName}`, {
-            font: '24px monospace',
-            fill: '#000000'
+        this.playerText = this.add.text(UI.pad, UI.pad, `Player: ${displayName}`, {
+            font: `${UI.body}px monospace`,
+            fill: '#000000',
+            wordWrap: { width: width - UI.pad * 2 }
         }).setOrigin(0, 0);
-        console.log('[MenuScene] Player text created at (20, 20):', this.playerText);
-        
-        // Store reference for updates
+
         this.currentDisplayName = displayName;
 
-        // Debug info
-        this.add.text(width / 2, 50, 'MENU SCENE', {
-            font: '48px monospace',
+        this.add.text(width / 2, 56, 'MENU', {
+            font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
-        this.add.text(width / 2, 100, `Canvas: ${width}x${height}`, {
-            font: '20px monospace',
+        this.add.text(width / 2, 88, `${width}x${height}`, {
+            font: `${UI.small}px monospace`,
             fill: '#666666'
         }).setOrigin(0.5);
 
-        // Create the buttons
-        // Calculate spacing to fit all 6 buttons
-        const buttonHeight = 31;
         const totalButtons = 6;
-        const buttonSpacing = 70; // Reduced spacing to fit all buttons
-        const totalHeight = (totalButtons - 1) * buttonSpacing + buttonHeight;
-        const buttonYStart = (height - totalHeight) / 2 + 100; // Start below the title
+        const totalHeight = (totalButtons - 1) * UI.menuBtnGap + UI.menuBtnH;
+        const buttonYStart = 130 + (height - 130 - totalHeight) / 2;
 
         this.createMenuButton(width / 2, buttonYStart, 'LOGIN', () => this.onGameClick(width / 2, buttonYStart));
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing, 'REGISTER', () => this.onRegisterClick());
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 2, 'LOGOUT', () => this.onLogoutClick());
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 3, 'INVENTORY', () => console.log('Inventory Clicked'));
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 4, 'START GAME', () => this.onStartGameClick());
-        this.createMenuButton(width / 2, buttonYStart + buttonSpacing * 5, 'EXIT', () => console.log('Exit Clicked'));
+        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap, 'REGISTER', () => this.onRegisterClick());
+        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 2, 'LOGOUT', () => this.onLogoutClick());
+        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 3, 'INVENTORY', () => console.log('Inventory Clicked'));
+        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 4, 'START GAME', () => this.onStartGameClick());
+        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 5, 'EXIT', () => console.log('Exit Clicked'));
     }
 
     /**
@@ -168,27 +162,19 @@ class MenuScene extends Phaser.Scene {
     createMenuButton(x, y, label, callback) {
         const btn = this.add.container(x, y);
         
-        const btnWidth = 350;
-        const btnHeight = 31;
+        const btnWidth = UI.menuBtnW;
+        const btnHeight = UI.menuBtnH;
 
-        // Wireframe rectangle
         const bg = this.add.graphics();
         bg.lineStyle(2, 0x000000, 1);
         bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
         
-        // Button label
         const text = this.add.text(0, 0, label, {
-            font: '32px monospace',
+            font: `${UI.heading}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
-        // Size label
-        const sizeLabel = this.add.text(btnWidth/2 - 5, -btnHeight/2 + 5, `${btnWidth}x${btnHeight}`, {
-            font: '12px monospace',
-            fill: '#666666'
-        }).setOrigin(1, 0);
-        
-        btn.add([bg, text, sizeLabel]);
+        btn.add([bg, text]);
         
         // Interactivity
         const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);

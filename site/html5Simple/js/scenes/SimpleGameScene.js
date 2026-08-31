@@ -96,8 +96,7 @@ class SimpleGameScene extends Phaser.Scene {
         // 4. Action Panel (30%)
         this.createActionPanel(0, currentY, width, actionPanelHeight);
         
-        // Add back button in top-right corner
-        this.createBackButton(width - 80, 20);
+        this.createBackButton(width - 36, 16);
         
         // Initialize game (create new game or load existing)
         this.initializeGame();
@@ -485,32 +484,31 @@ class SimpleGameScene extends Phaser.Scene {
         bg.lineStyle(2, 0x000000, 1);
         bg.strokeRect(x, y, width, height);
         
-        // Panel label
-        this.add.text(x + 10, y + 10, 'CHARACTERS', {
-            font: '16px monospace',
+        this.add.text(x + 8, y + 6, 'CHARACTERS', {
+            font: `${UI.small}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0);
         
-        // Get player name from registry
         const user = this.registry.get('currentUser');
         const playerName = user?.name || 'Player';
+        const nameMaxW = Math.floor(width / 2) - 48;
         
-        // Player name (left corner)
-        this.playerNameText = this.add.text(x + 20, y + height / 2, playerName, {
-            font: '20px monospace',
-            fill: '#000000'
+        this.playerNameText = this.add.text(x + 10, y + height / 2 + 8, playerName, {
+            font: `${UI.body}px monospace`,
+            fill: '#000000',
+            wordWrap: { width: nameMaxW }
         }).setOrigin(0, 0.5);
         
-        // VS text (center)
-        this.add.text(x + width / 2, y + height / 2, 'VS', {
-            font: '18px monospace',
+        this.add.text(x + width / 2, y + height / 2 + 8, 'VS', {
+            font: `${UI.small}px monospace`,
             fill: '#666666'
         }).setOrigin(0.5);
         
-        // Enemy name (right corner)
-        this.enemyNameText = this.add.text(x + width - 20, y + height / 2, 'Enemy', {
-            font: '20px monospace',
-            fill: '#000000'
+        this.enemyNameText = this.add.text(x + width - 10, y + height / 2 + 8, 'Enemy', {
+            font: `${UI.body}px monospace`,
+            fill: '#000000',
+            wordWrap: { width: nameMaxW },
+            align: 'right'
         }).setOrigin(1, 0.5);
     }
 
@@ -529,17 +527,16 @@ class SimpleGameScene extends Phaser.Scene {
         bg.strokeRect(x, y, width, height);
         
         // Panel label
-        this.add.text(x + 10, y + 10, 'GAME RESULTS', {
-            font: '16px monospace',
+        this.add.text(x + 8, y + 6, 'GAME RESULTS', {
+            font: `${UI.small}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0);
         
         // Calculate sub-panel dimensions
-        const panelContentY = y + 35;
-        const panelContentHeight = height - 35;
+        const panelContentY = y + 24;
+        const panelContentHeight = height - 24;
         
-        // Square panels for scores (left and right)
-        const scorePanelSize = Math.min(panelContentHeight - 10, 80);
+        const scorePanelSize = Math.min(panelContentHeight - 8, 64);
         const scorePanelY = panelContentY + (panelContentHeight - scorePanelSize) / 2;
         
         // Player score panel (left, square)
@@ -569,14 +566,13 @@ class SimpleGameScene extends Phaser.Scene {
         bg.strokeRect(x, y, width, height);
         
         // Label
-        this.add.text(x + width / 2, y + 10, 'PLAYER', {
-            font: 'bold 12px monospace',
+        this.add.text(x + width / 2, y + 6, 'PLAYER', {
+            font: `bold ${UI.small}px monospace`,
             fill: '#0066cc'
         }).setOrigin(0.5, 0);
         
-        // Score text (store reference for updates)
-        this.playerScoreText = this.add.text(x + width / 2, y + height / 2, '0', {
-            font: 'bold 32px monospace',
+        this.playerScoreText = this.add.text(x + width / 2, y + height / 2 + 4, '0', {
+            font: `bold ${UI.title}px monospace`,
             fill: '#0066cc'
         }).setOrigin(0.5);
     }
@@ -594,14 +590,13 @@ class SimpleGameScene extends Phaser.Scene {
         bg.strokeRect(x, y, width, height);
         
         // Label
-        this.add.text(x + width / 2, y + 10, 'ENEMY', {
-            font: 'bold 12px monospace',
+        this.add.text(x + width / 2, y + 6, 'ENEMY', {
+            font: `bold ${UI.small}px monospace`,
             fill: '#cc0000'
         }).setOrigin(0.5, 0);
         
-        // Score text (store reference for updates)
-        this.enemyScoreText = this.add.text(x + width / 2, y + height / 2, '0', {
-            font: 'bold 32px monospace',
+        this.enemyScoreText = this.add.text(x + width / 2, y + height / 2 + 4, '0', {
+            font: `bold ${UI.title}px monospace`,
             fill: '#cc0000'
         }).setOrigin(0.5);
     }
@@ -644,17 +639,15 @@ class SimpleGameScene extends Phaser.Scene {
         bg.strokeRect(x, y, width, height);
         
         // Panel label
-        this.add.text(x + 10, y + 10, 'CURRENT MOVE', {
-            font: '16px monospace',
+        this.add.text(x + 8, y + 6, 'CURRENT MOVE', {
+            font: `${UI.small}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0);
         
-        // Calculate sub-panel dimensions
-        const panelContentY = y + 35;
-        const panelContentHeight = height - 35;
+        const panelContentY = y + 24;
+        const panelContentHeight = height - 24;
         
-        // Fixed size for left and enemy panels
-        const sidePanelWidth = 150;
+        const sidePanelWidth = Math.max(64, Math.floor(width * 0.22));
         const sidePanelHeight = panelContentHeight - 10;
         const sidePanelY = panelContentY + 5;
         
@@ -735,7 +728,7 @@ class SimpleGameScene extends Phaser.Scene {
         bg.strokeRect(x, y, width, height);
         
         // Calculate sub-panel dimensions
-        const goActionPanelWidth = 80; // Fixed size for GO button panel
+        const goActionPanelWidth = 56;
         const goActionPanelX = x + 5;
         const goActionPanelY = y + 5;
         const goActionPanelHeight = height - 10;
@@ -774,8 +767,8 @@ class SimpleGameScene extends Phaser.Scene {
         
         const btn = this.add.container(x, y);
         
-        const btnWidth = 60;
-        const btnHeight = 50;
+        const btnWidth = 48;
+        const btnHeight = 44;
         
         // Button background
         const bg = this.add.graphics();
@@ -784,7 +777,7 @@ class SimpleGameScene extends Phaser.Scene {
         
         // Button text
         const text = this.add.text(0, 0, 'GO', {
-            font: 'bold 16px monospace',
+            font: `bold ${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
@@ -844,7 +837,7 @@ class SimpleGameScene extends Phaser.Scene {
         
         // Store reference to the status text so we can update it
         this.currentMoveText = this.add.text(x + width / 2, y + height / 2, 'Initializing game...', {
-            font: '18px monospace',
+            font: `${UI.body}px monospace`,
             fill: '#666666',
             wordWrap: { width: width - 20 }
         }).setOrigin(0.5);
@@ -882,57 +875,44 @@ class SimpleGameScene extends Phaser.Scene {
         console.log('[SimpleGameScene] GO button disabled');
     }
     
-    onGoButtonClick() {
-        console.log('[SimpleGameScene] GO button clicked');
-        // TODO: Implement GO button action
-        this.updateGameStatus('GO button clicked!');
-    }
-
     createActionPanel(x, y, width, height) {
         console.log('[SimpleGameScene] Creating Action panel:', x, y, width, height);
         
-        // Panel background
         const bg = this.add.graphics();
         bg.lineStyle(2, 0x000000, 1);
         bg.strokeRect(x, y, width, height);
         
-        // Panel label
-        this.add.text(x + 10, y + 10, 'ACTIONS', {
-            font: '16px monospace',
+        this.add.text(x + 8, y + 6, 'ACTIONS', {
+            font: `${UI.small}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0);
         
-        // Action buttons for game moves
-        const buttonY = y + height / 2;
-        const buttonSpacing = 120;
-        const startX = width / 2 - buttonSpacing * 1.5; // Adjusted for 4 buttons
+        const n = 4;
+        const gap = 6;
+        const pad = 10;
+        const btnW = Math.floor((width - pad * 2 - gap * (n - 1)) / n);
+        const btnH = 44;
+        const buttonY = y + height / 2 + 8;
+        const startX = x + pad + btnW / 2;
+        const spacing = btnW + gap;
         
-        // Store button references for enabling/disabling (all action buttons including CANCEL)
         this.actionButtons = [];
         
-        // Create CANCEL button (first in row, should be disabled when game is finished)
-        this.actionButtons.push(this.createActionButton(startX, buttonY, 'CANCEL', () => this.onCancelAction()));
-        
-        // Create game move buttons
-        this.actionButtons.push(this.createActionButton(startX + buttonSpacing, buttonY, 'STONE', () => this.onPrepareMove('Stone')));
-        this.actionButtons.push(this.createActionButton(startX + buttonSpacing * 2, buttonY, 'SCISSORS', () => this.onPrepareMove('Scissors')));
-        this.actionButtons.push(this.createActionButton(startX + buttonSpacing * 3, buttonY, 'PAPER', () => this.onPrepareMove('Paper')));
+        this.actionButtons.push(this.createActionButton(startX, buttonY, 'CANCEL', () => this.onCancelAction(), btnW, btnH));
+        this.actionButtons.push(this.createActionButton(startX + spacing, buttonY, 'STONE', () => this.onPrepareMove('Stone'), btnW, btnH));
+        this.actionButtons.push(this.createActionButton(startX + spacing * 2, buttonY, 'SCISSORS', () => this.onPrepareMove('Scissors'), btnW, btnH));
+        this.actionButtons.push(this.createActionButton(startX + spacing * 3, buttonY, 'PAPER', () => this.onPrepareMove('Paper'), btnW, btnH));
     }
 
-    createActionButton(x, y, label, callback) {
+    createActionButton(x, y, label, callback, btnWidth = 82, btnHeight = 44) {
         const btn = this.add.container(x, y);
-        
-        const btnWidth = 100;
-        const btnHeight = 40;
 
-        // Button background
         const bg = this.add.graphics();
         bg.lineStyle(2, 0x000000, 1);
         bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
         
-        // Button text
         const text = this.add.text(0, 0, label, {
-            font: '12px monospace',
+            font: `${UI.small}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
@@ -976,17 +956,15 @@ class SimpleGameScene extends Phaser.Scene {
     createBackButton(x, y) {
         const btn = this.add.container(x, y);
         
-        const btnWidth = 70;
-        const btnHeight = 30;
+        const btnWidth = 56;
+        const btnHeight = 24;
         
-        // Button background
         const bg = this.add.graphics();
         bg.lineStyle(2, 0x000000, 1);
         bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
         
-        // Button text
         const text = this.add.text(0, 0, 'BACK', {
-            font: '12px monospace',
+            font: `${UI.small}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         

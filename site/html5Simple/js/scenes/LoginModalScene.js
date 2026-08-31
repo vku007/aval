@@ -26,50 +26,44 @@ class LoginModalScene extends Phaser.Scene {
         overlay.setOrigin(0, 0);
         overlay.setInteractive();
         
-        // Modal dimensions
-        const modalWidth = 400;
-        const modalHeight = 350;
+        const modalWidth = Math.min(350, width - 24);
+        const modalHeight = 300;
         const modalX = width / 2;
         const modalY = height / 2;
+        const fieldW = modalWidth - 32;
+        const labelX = modalX - fieldW / 2;
+        const btnW = Math.floor((fieldW - 12) / 2);
         
-        // Modal background
         this.modalBg = this.add.rectangle(modalX, modalY, modalWidth, modalHeight, 0xffffff);
         this.modalBg.setStrokeStyle(2, 0x000000);
         
-        // Title
-        this.add.text(modalX, modalY - 140, 'LOGIN', {
-            font: '24px monospace',
+        this.add.text(modalX, modalY - 120, 'LOGIN', {
+            font: `${UI.heading}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
-        // Email label
-        this.add.text(modalX - 180, modalY - 80, 'Email:', {
-            font: '14px monospace',
+        this.add.text(labelX, modalY - 82, 'Email:', {
+            font: `${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0.5);
         
-        // Email field
-        this.emailField = this.createInputField(modalX, modalY - 50, 360, 40, 'email');
+        this.emailField = this.createInputField(modalX, modalY - 54, fieldW, 36, 'email');
         
-        // Password label
-        this.add.text(modalX - 180, modalY + 10, 'Password:', {
-            font: '14px monospace',
+        this.add.text(labelX, modalY - 10, 'Password:', {
+            font: `${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0.5);
         
-        // Password field
-        this.passwordField = this.createInputField(modalX, modalY + 40, 360, 40, 'password');
+        this.passwordField = this.createInputField(modalX, modalY + 18, fieldW, 36, 'password');
         
-        // Error message text
-        this.errorText = this.add.text(modalX, modalY + 80, '', {
-            font: '12px monospace',
+        this.errorText = this.add.text(modalX, modalY + 52, '', {
+            font: `${UI.small}px monospace`,
             fill: '#ff0000',
-            wordWrap: { width: 360 }
+            wordWrap: { width: fieldW }
         }).setOrigin(0.5, 0);
         
-        // Buttons
-        this.createButton(modalX - 95, modalY + 130, 170, 40, 'CANCEL', () => this.close());
-        this.createButton(modalX + 95, modalY + 130, 170, 40, 'LOGIN', () => this.handleSubmit(), true);
+        this.createButton(modalX - btnW / 2 - 6, modalY + 112, btnW, 36, 'CANCEL', () => this.close());
+        this.createButton(modalX + btnW / 2 + 6, modalY + 112, btnW, 36, 'LOGIN', () => this.handleSubmit(), true);
         
         // Keyboard input
         this.input.keyboard.on('keydown', this.handleKeyDown, this);
@@ -111,6 +105,7 @@ class LoginModalScene extends Phaser.Scene {
         field.text = text;
         field.cursor = cursor;
         field.name = name;
+        field.fieldWidth = width;
         
         // Click to focus
         bg.setInteractive();
@@ -158,10 +153,10 @@ class LoginModalScene extends Phaser.Scene {
         const emailWidth = this.emailField.text.width;
         const passwordWidth = this.passwordField.text.width;
         
-        this.emailField.cursor.setPosition(-180 + 10 + emailWidth, 0);
+        this.emailField.cursor.setPosition(-this.emailField.fieldWidth / 2 + 10 + emailWidth, 0);
         this.emailField.cursor.setVisible(this.activeField === 'email');
         
-        this.passwordField.cursor.setPosition(-180 + 10 + passwordWidth, 0);
+        this.passwordField.cursor.setPosition(-this.passwordField.fieldWidth / 2 + 10 + passwordWidth, 0);
         this.passwordField.cursor.setVisible(this.activeField === 'password');
     }
 

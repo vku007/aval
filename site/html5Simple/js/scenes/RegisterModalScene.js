@@ -27,59 +27,51 @@ class RegisterModalScene extends Phaser.Scene {
         overlay.setOrigin(0, 0);
         overlay.setInteractive();
         
-        // Modal dimensions (taller for 3 fields)
-        const modalWidth = 400;
-        const modalHeight = 450;
+        const modalWidth = Math.min(350, width - 24);
+        const modalHeight = 400;
         const modalX = width / 2;
         const modalY = height / 2;
+        const fieldW = modalWidth - 32;
+        const labelX = modalX - fieldW / 2;
+        const btnW = Math.floor((fieldW - 12) / 2);
         
-        // Modal background
         this.modalBg = this.add.rectangle(modalX, modalY, modalWidth, modalHeight, 0xffffff);
         this.modalBg.setStrokeStyle(2, 0x000000);
         
-        // Title
-        this.add.text(modalX, modalY - 190, 'REGISTER', {
-            font: '24px monospace',
+        this.add.text(modalX, modalY - 170, 'REGISTER', {
+            font: `${UI.heading}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
         
-        // Email label
-        this.add.text(modalX - 180, modalY - 130, 'Email:', {
-            font: '14px monospace',
+        this.add.text(labelX, modalY - 132, 'Email:', {
+            font: `${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0.5);
         
-        // Email field
-        this.emailField = this.createInputField(modalX, modalY - 100, 360, 40, 'email');
+        this.emailField = this.createInputField(modalX, modalY - 104, fieldW, 36, 'email');
         
-        // Password label
-        this.add.text(modalX - 180, modalY - 40, 'Password:', {
-            font: '14px monospace',
+        this.add.text(labelX, modalY - 58, 'Password:', {
+            font: `${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0.5);
         
-        // Password field
-        this.passwordField = this.createInputField(modalX, modalY - 10, 360, 40, 'password');
+        this.passwordField = this.createInputField(modalX, modalY - 30, fieldW, 36, 'password');
         
-        // Display Name label
-        this.add.text(modalX - 180, modalY + 50, 'Display Name (optional):', {
-            font: '14px monospace',
+        this.add.text(labelX, modalY + 16, 'Display Name (optional):', {
+            font: `${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0.5);
         
-        // Display Name field
-        this.displayNameField = this.createInputField(modalX, modalY + 80, 360, 40, 'displayName');
+        this.displayNameField = this.createInputField(modalX, modalY + 44, fieldW, 36, 'displayName');
         
-        // Error message text
-        this.errorText = this.add.text(modalX, modalY + 130, '', {
-            font: '12px monospace',
+        this.errorText = this.add.text(modalX, modalY + 82, '', {
+            font: `${UI.small}px monospace`,
             fill: '#ff0000',
-            wordWrap: { width: 360 }
+            wordWrap: { width: fieldW }
         }).setOrigin(0.5, 0);
         
-        // Buttons
-        this.createButton(modalX - 95, modalY + 180, 170, 40, 'CANCEL', () => this.close());
-        this.createButton(modalX + 95, modalY + 180, 170, 40, 'REGISTER', () => this.handleSubmit(), true);
+        this.createButton(modalX - btnW / 2 - 6, modalY + 154, btnW, 36, 'CANCEL', () => this.close());
+        this.createButton(modalX + btnW / 2 + 6, modalY + 154, btnW, 36, 'REGISTER', () => this.handleSubmit(), true);
         
         // Keyboard input
         this.input.keyboard.on('keydown', this.handleKeyDown, this);
@@ -121,6 +113,7 @@ class RegisterModalScene extends Phaser.Scene {
         field.text = text;
         field.cursor = cursor;
         field.name = name;
+        field.fieldWidth = width;
         
         // Click to focus
         bg.setInteractive();
@@ -170,13 +163,13 @@ class RegisterModalScene extends Phaser.Scene {
         const passwordWidth = this.passwordField.text.width;
         const displayNameWidth = this.displayNameField.text.width;
         
-        this.emailField.cursor.setPosition(-180 + 10 + emailWidth, 0);
+        this.emailField.cursor.setPosition(-this.emailField.fieldWidth / 2 + 10 + emailWidth, 0);
         this.emailField.cursor.setVisible(this.activeField === 'email');
         
-        this.passwordField.cursor.setPosition(-180 + 10 + passwordWidth, 0);
+        this.passwordField.cursor.setPosition(-this.passwordField.fieldWidth / 2 + 10 + passwordWidth, 0);
         this.passwordField.cursor.setVisible(this.activeField === 'password');
         
-        this.displayNameField.cursor.setPosition(-180 + 10 + displayNameWidth, 0);
+        this.displayNameField.cursor.setPosition(-this.displayNameField.fieldWidth / 2 + 10 + displayNameWidth, 0);
         this.displayNameField.cursor.setVisible(this.activeField === 'displayName');
     }
 
