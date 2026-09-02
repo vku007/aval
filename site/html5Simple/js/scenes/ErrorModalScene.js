@@ -11,113 +11,92 @@ class ErrorModalScene extends Phaser.Scene {
         console.log('[ErrorModalScene] init() called with data:', data);
         this.errorMessage = data.errorMessage || 'An unknown error occurred';
         this.errorTitle = data.errorTitle || 'Error';
+        this._fxClosing = false;
     }
 
     create() {
         console.log('[ErrorModalScene] create() started');
-        
+
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        
-        // Semi-transparent overlay
-        const overlay = this.add.graphics();
-        overlay.fillStyle(0x000000, 0.7);
-        overlay.fillRect(0, 0, width, height);
-        overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, width, height), Phaser.Geom.Rectangle.Contains);
-        
-        // Modal dimensions
+
+        const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 1);
+        overlay.setOrigin(0, 0);
+        overlay.setInteractive();
+        overlay._fxTargetAlpha = 0.7;
+
         const modalWidth = Math.min(500, width - 40);
         const modalHeight = Math.min(300, height - 40);
-        const modalX = width / 2;
-        const modalY = height / 2;
-        
-        // Modal background
+
+        const card = this.add.container(width / 2, height / 2);
+
         const modalBg = this.add.graphics();
         modalBg.fillStyle(0xffffff, 1);
-        modalBg.fillRect(modalX - modalWidth/2, modalY - modalHeight/2, modalWidth, modalHeight);
-        
-        // Modal border
+        modalBg.fillRect(-modalWidth / 2, -modalHeight / 2, modalWidth, modalHeight);
         modalBg.lineStyle(3, 0xff0000, 1);
-        modalBg.strokeRect(modalX - modalWidth/2, modalY - modalHeight/2, modalWidth, modalHeight);
-        
-        // Error title
-        this.add.text(modalX, modalY - modalHeight/2 + 28, this.errorTitle, {
+        modalBg.strokeRect(-modalWidth / 2, -modalHeight / 2, modalWidth, modalHeight);
+        card.add(modalBg);
+
+        const title = this.add.text(0, -modalHeight / 2 + 28, this.errorTitle, {
             font: `bold ${UI.heading}px monospace`,
             fill: '#ff0000',
             wordWrap: { width: modalWidth - 32 }
         }).setOrigin(0.5);
-        
-        // Error message (with word wrap)
-        const messageY = modalY - modalHeight/2 + 80;
-        const messageMaxWidth = modalWidth - 40;
-        
-        this.add.text(modalX, messageY, this.errorMessage, {
+        card.add(title);
+
+        const message = this.add.text(0, -modalHeight / 2 + 80, this.errorMessage, {
             font: `${UI.body}px monospace`,
             fill: '#000000',
-            wordWrap: { width: messageMaxWidth, useAdvancedWrap: true },
+            wordWrap: { width: modalWidth - 40, useAdvancedWrap: true },
             align: 'center'
         }).setOrigin(0.5, 0);
-        
-        // OK button
-        const buttonY = modalY + modalHeight/2 - 50;
-        this.createOkButton(modalX, buttonY);
-        
+        card.add(message);
+
+        const okBtn = this.createOkButton(0, modalHeight / 2 - 28 - UI.touchMin / 2);
+        card.add(okBtn);
+
+        fxOpenModal(this, overlay, card);
+
         console.log('[ErrorModalScene] Modal created');
     }
 
     createOkButton(x, y) {
         const btn = this.add.container(x, y);
-        
-        const btnWidth = 100;
-        const btnHeight = 40;
 
-        // Button background
+        const btnWidth = 160;
+        const btnHeight = UI.touchMin;
+
         const bg = this.add.graphics();
         bg.fillStyle(0xff0000, 1);
-        bg.fillRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-        
-        // Button border
+        bg.fillRect(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight);
         bg.lineStyle(2, 0x000000, 1);
-        bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-        
-        // Button text
+        bg.strokeRect(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight);
+
         const text = this.add.text(0, 0, 'OK', {
-            font: 'bold 18px monospace',
+            font: `bold ${UI.heading}px monospace`,
             fill: '#ffffff'
         }).setOrigin(0.5);
-        
+
         btn.add([bg, text]);
-        
-        // Make interactive
-        const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+
+        const hitArea = new Phaser.Geom.Rectangle(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight);
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
-        
-        btn.on('pointerover', () => {
-            bg.clear();
-            bg.fillStyle(0xcc0000, 1);
-            bg.fillRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-            bg.lineStyle(3, 0x000000, 1);
-            bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+        bindPress(this, btn, {
+            onClick: () => {
+                console.log('[ErrorModalScene] OK button clicked, closing modal');
+                this.close();
+            }
         });
-        
-        btn.on('pointerout', () => {
-            bg.clear();
-            bg.fillStyle(0xff0000, 1);
-            bg.fillRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-            bg.lineStyle(2, 0x000000, 1);
-            bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-        });
-        
-        btn.on('pointerdown', () => {
-            console.log('[ErrorModalScene] OK button clicked, closing modal');
-            this.close();
-        });
-        
+
         return btn;
     }
 
     close() {
         console.log('[ErrorModalScene] Closing modal');
-        this.scene.stop();
+        fxCloseModal(this);
+    }
+
+    shutdown() {
+        fxResumeOtherScenes(this);
     }
 }

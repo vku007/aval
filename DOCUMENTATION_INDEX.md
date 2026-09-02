@@ -30,6 +30,7 @@ Living documentation for the VKP Consulting infrastructure and APIs.
 - [scripts/README.md](scripts/README.md) — Cognito user and test helpers
 - [scripts/INTEGRATION_TEST_QUICKSTART.md](scripts/INTEGRATION_TEST_QUICKSTART.md) — auth/authorization test walkthrough
 - [site/README.md](site/README.md) — static site map, auth pages, deploy
+- [site/html5Simple/SCENES.md](site/html5Simple/SCENES.md) — Phaser scene copy and transitions
 
 ## Historical notes
 

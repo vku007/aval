@@ -23,6 +23,7 @@ const config = {
 
 console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);
 const game = new Phaser.Game(config);
+window.game = game;
 
 let resizeTimer;
 window.addEventListener('resize', () => {

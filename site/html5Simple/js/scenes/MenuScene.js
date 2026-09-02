@@ -10,8 +10,10 @@ class MenuScene extends Phaser.Scene {
 
     create() {
         console.log('[MenuScene] create() started');
+        fxEnter(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
+        this._starting = false;
 
         // Get user from registry
         const user = this.registry.get('currentUser');
@@ -28,26 +30,75 @@ class MenuScene extends Phaser.Scene {
 
         this.currentDisplayName = displayName;
 
-        this.add.text(width / 2, 56, 'MENU', {
+        this.add.text(width / 2, 56, 'Sweet Adventure', {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
-        
-        this.add.text(width / 2, 88, `${width}x${height}`, {
-            font: `${UI.small}px monospace`,
+
+        this.add.text(width / 2, 88, 'Pick a match', {
+            font: `${UI.body}px monospace`,
             fill: '#666666'
         }).setOrigin(0.5);
 
-        const totalButtons = 6;
-        const totalHeight = (totalButtons - 1) * UI.menuBtnGap + UI.menuBtnH;
-        const buttonYStart = 130 + (height - 130 - totalHeight) / 2;
+        if (isUiDebug()) {
+            this.add.text(width / 2, 108, `${width}x${height}`, {
+                font: `${UI.small}px monospace`,
+                fill: '#666666'
+            }).setOrigin(0.5);
+        }
 
-        this.createMenuButton(width / 2, buttonYStart, 'LOGIN', () => this.onGameClick(width / 2, buttonYStart));
-        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap, 'REGISTER', () => this.onRegisterClick());
-        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 2, 'LOGOUT', () => this.onLogoutClick());
-        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 3, 'INVENTORY', () => console.log('Inventory Clicked'));
-        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 4, 'START GAME', () => this.onStartGameClick());
-        this.createMenuButton(width / 2, buttonYStart + UI.menuBtnGap * 5, 'EXIT', () => console.log('Exit Clicked'));
+        const buttons = [
+            { label: 'LOGIN', onClick: () => this.onGameClick(), height: UI.menuBtnH },
+            { label: 'REGISTER', onClick: () => this.onRegisterClick(), height: UI.menuBtnH },
+            { label: 'LOGOUT', onClick: () => this.onLogoutClick(), height: UI.menuBtnH },
+            { label: 'INVENTORY', onClick: () => console.log('Inventory Clicked'), height: UI.menuBtnH },
+            { label: 'START GAME', onClick: () => this.onStartGameClick(), height: UI.menuPrimaryH },
+            { label: 'EXIT', onClick: () => console.log('Exit Clicked'), height: UI.menuBtnH },
+        ];
+        const gap = 16;
+        const totalHeight = buttons.reduce((sum, btn) => sum + btn.height, 0) + gap * (buttons.length - 1);
+        const switcherH = UI.touchMin;
+        const buttonYStart = 120 + (height - 120 - switcherH - 24 - totalHeight) / 2;
+
+        let y = buttonYStart;
+        buttons.forEach((btn) => {
+            const isPrimary = btn.label === 'START GAME';
+            const made = this.createMenuButton(width / 2, y + btn.height / 2, btn.label, btn.onClick, btn.height, {
+                strong: isPrimary,
+                idleKind: isPrimary && UI.fx.menuPrimaryPulse ? 'pulse' : null,
+                particles: true
+            });
+            if (isPrimary) {
+                this.startGameBtn = made;
+            }
+            y += btn.height + gap;
+        });
+
+        const chipW = 170;
+        const chipGap = 8;
+        const chipY = height - 16 - switcherH / 2;
+        this.createDebugChip(
+            width / 2 - chipW / 2 - chipGap / 2,
+            chipY,
+            chipW,
+            `Layout: ${UI.layout.label}`,
+            () => {
+                cycleUiLayout();
+                writeUiQueryParams();
+                this.scene.restart();
+            }
+        );
+        this.createDebugChip(
+            width / 2 + chipW / 2 + chipGap / 2,
+            chipY,
+            chipW,
+            `FX: ${UI.fx.label}`,
+            () => {
+                cycleUiFx();
+                writeUiQueryParams();
+                this.scene.restart();
+            }
+        );
     }
 
     /**
@@ -104,18 +155,22 @@ class MenuScene extends Phaser.Scene {
 
     async onStartGameClick() {
         console.log('[MenuScene] Start Game button clicked');
+        if (this._starting) return;
+        this._starting = true;
+        if (this.startGameBtn && this.startGameBtn.buttonText) {
+            this.startGameBtn.buttonText.setText('STARTING...');
+        }
         
         try {
-            // Check if gameClient is available
             if (typeof gameClient === 'undefined') {
                 console.error('[MenuScene] gameClient not available');
+                this.resetStartGame();
                 alert('Game client not initialized');
                 return;
             }
             
             console.log('[MenuScene] Creating new game...');
             
-            // Create game with parameters (matching backend GameCreateContext)
             const gameContext = {
                 gameType: 'PVE',
                 rounds: 'BO3',
@@ -132,17 +187,25 @@ class MenuScene extends Phaser.Scene {
             console.log('[MenuScene] Game created:', response);
             
             if (response.gameId) {
-                // Pass gameId to SimpleGameScene
                 console.log('[MenuScene] Starting SimpleGameScene with gameId:', response.gameId);
-                this.scene.start('SimpleGameScene', { gameId: response.gameId });
+                fxGoTo(this, 'SimpleGameScene', { gameId: response.gameId }, { flash: true });
             } else {
                 console.error('[MenuScene] No gameId in response');
+                this.resetStartGame();
                 alert('Failed to create game: No game ID returned');
             }
             
         } catch (error) {
             console.error('[MenuScene] Failed to create game:', error);
+            this.resetStartGame();
             alert(`Failed to create game: ${error.message}`);
+        }
+    }
+
+    resetStartGame() {
+        this._starting = false;
+        if (this.startGameBtn && this.startGameBtn.buttonText) {
+            this.startGameBtn.buttonText.setText('START GAME');
         }
     }
 
@@ -156,14 +219,31 @@ class MenuScene extends Phaser.Scene {
         }
     }
 
-    /**
-     * Create debug wireframe button
-     */
-    createMenuButton(x, y, label, callback) {
+    createDebugChip(x, y, btnWidth, label, onClick) {
+        const btn = this.add.container(x, y);
+        const btnHeight = UI.touchMin;
+
+        const bg = this.add.graphics();
+        bg.lineStyle(2, 0x000000, 1);
+        bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+
+        const text = this.add.text(0, 0, label, {
+            font: `${UI.body}px monospace`,
+            fill: '#000000'
+        }).setOrigin(0.5);
+
+        btn.add([bg, text]);
+
+        const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+        btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
+        bindPress(this, btn, { onClick });
+        return btn;
+    }
+
+    createMenuButton(x, y, label, callback, btnHeight = UI.menuBtnH, options = {}) {
         const btn = this.add.container(x, y);
         
         const btnWidth = UI.menuBtnW;
-        const btnHeight = UI.menuBtnH;
 
         const bg = this.add.graphics();
         bg.lineStyle(2, 0x000000, 1);
@@ -175,26 +255,22 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         btn.add([bg, text]);
+        btn.buttonText = text;
         
-        // Interactivity
         const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
-        
-        btn.on('pointerover', () => {
-            bg.clear();
-            bg.lineStyle(3, 0x000000, 1);
-            bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
+
+        bindPress(this, btn, {
+            onClick: callback,
+            strong: !!options.strong,
+            particles: !!options.particles,
+            idleKind: options.idleKind || null
         });
-        
-        btn.on('pointerout', () => {
-            bg.clear();
-            bg.lineStyle(2, 0x000000, 1);
-            bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-        });
-        
-        btn.on('pointerdown', () => {
-            callback();
-        });
+
+        if (options.idleKind) {
+            fxStartIdle(this, btn, options.idleKind);
+        }
+        return btn;
     }
 }
 

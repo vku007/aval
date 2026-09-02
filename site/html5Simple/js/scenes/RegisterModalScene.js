@@ -5,180 +5,143 @@
 class RegisterModalScene extends Phaser.Scene {
     constructor() {
         super({ key: 'RegisterModalScene' });
+    }
+
+    init(data) {
         this.emailValue = '';
         this.passwordValue = '';
         this.displayNameValue = '';
-        this.activeField = 'email'; // 'email', 'password', or 'displayName'
+        this.activeField = 'email';
         this.errorMessage = '';
         this.isSubmitting = false;
+        this.onRegisterSuccess = data?.onRegisterSuccess;
+        this._fxClosing = false;
     }
 
     create(data) {
         console.log('[RegisterModalScene] create() started');
-        
-        // Store callback to update parent scene
-        this.onRegisterSuccess = data?.onRegisterSuccess;
-        
+
+        this.onRegisterSuccess = data?.onRegisterSuccess || this.onRegisterSuccess;
+
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        
-        // Semi-transparent overlay
-        const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.5);
+
+        const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 1);
         overlay.setOrigin(0, 0);
         overlay.setInteractive();
-        
+        overlay._fxTargetAlpha = 0.5;
+
         const modalWidth = Math.min(350, width - 24);
-        const modalHeight = 400;
-        const modalX = width / 2;
-        const modalY = height / 2;
-        const fieldW = modalWidth - 32;
-        const labelX = modalX - fieldW / 2;
+        const fieldH = Math.max(UI.fieldH, 54);
+        const btnH = UI.touchMin;
+        const modalHeight = 520;
+        const fieldW = modalWidth - 40;
         const btnW = Math.floor((fieldW - 12) / 2);
-        
-        this.modalBg = this.add.rectangle(modalX, modalY, modalWidth, modalHeight, 0xffffff);
-        this.modalBg.setStrokeStyle(2, 0x000000);
-        
-        this.add.text(modalX, modalY - 170, 'REGISTER', {
+        const top = -modalHeight / 2;
+
+        const card = this.add.container(width / 2, height / 2);
+        card.add(drawRoundedCard(this, 0, 0, modalWidth, modalHeight, 18));
+
+        card.add(this.add.text(0, top + 32, 'Create account', {
             font: `${UI.heading}px monospace`,
-            fill: '#000000'
-        }).setOrigin(0.5);
-        
-        this.add.text(labelX, modalY - 132, 'Email:', {
-            font: `${UI.body}px monospace`,
-            fill: '#000000'
-        }).setOrigin(0, 0.5);
-        
-        this.emailField = this.createInputField(modalX, modalY - 104, fieldW, 36, 'email');
-        
-        this.add.text(labelX, modalY - 58, 'Password:', {
-            font: `${UI.body}px monospace`,
-            fill: '#000000'
-        }).setOrigin(0, 0.5);
-        
-        this.passwordField = this.createInputField(modalX, modalY - 30, fieldW, 36, 'password');
-        
-        this.add.text(labelX, modalY + 16, 'Display Name (optional):', {
-            font: `${UI.body}px monospace`,
-            fill: '#000000'
-        }).setOrigin(0, 0.5);
-        
-        this.displayNameField = this.createInputField(modalX, modalY + 44, fieldW, 36, 'displayName');
-        
-        this.errorText = this.add.text(modalX, modalY + 82, '', {
+            fill: '#111111'
+        }).setOrigin(0.5));
+
+        card.add(this.add.text(0, top + 56, 'Save this guest as a real player', {
             font: `${UI.small}px monospace`,
-            fill: '#ff0000',
+            fill: '#666666',
+            wordWrap: { width: fieldW },
+            align: 'center'
+        }).setOrigin(0.5));
+
+        const fieldStart = top + 88;
+        const fieldGap = 14;
+
+        this.emailField = createStyledInput(this, 0, fieldStart, fieldW, fieldH, {
+            name: 'email',
+            label: 'Email',
+            placeholder: 'you@email.com',
+            onFocus: (name) => this.setActiveField(name)
+        });
+        card.add(this.emailField);
+
+        this.passwordField = createStyledInput(this, 0, fieldStart + fieldH + fieldGap, fieldW, fieldH, {
+            name: 'password',
+            label: 'Password',
+            placeholder: 'Min. 12 characters',
+            onFocus: (name) => this.setActiveField(name)
+        });
+        card.add(this.passwordField);
+
+        this.displayNameField = createStyledInput(this, 0, fieldStart + (fieldH + fieldGap) * 2, fieldW, fieldH, {
+            name: 'displayName',
+            label: 'Display name',
+            placeholder: 'Optional',
+            onFocus: (name) => this.setActiveField(name)
+        });
+        card.add(this.displayNameField);
+
+        this.errorText = this.add.text(0, fieldStart + (fieldH + fieldGap) * 3 + 8, '', {
+            font: `${UI.small}px monospace`,
+            fill: '#cc0000',
             wordWrap: { width: fieldW }
         }).setOrigin(0.5, 0);
-        
-        this.createButton(modalX - btnW / 2 - 6, modalY + 154, btnW, 36, 'CANCEL', () => this.close());
-        this.createButton(modalX + btnW / 2 + 6, modalY + 154, btnW, 36, 'REGISTER', () => this.handleSubmit(), true);
-        
-        // Keyboard input
-        this.input.keyboard.on('keydown', this.handleKeyDown, this);
-        
-        // Set initial focus
-        this.setActiveField('email');
-    }
+        card.add(this.errorText);
 
-    createInputField(x, y, width, height, name) {
-        const field = this.add.container(x, y);
-        
-        // Background
-        const bg = this.add.rectangle(0, 0, width, height, 0xffffff);
-        bg.setStrokeStyle(2, 0x000000);
-        
-        // Text display
-        const text = this.add.text(-width/2 + 10, 0, '', {
-            font: '14px monospace',
-            fill: '#000000'
-        }).setOrigin(0, 0.5);
-        
-        // Cursor (blinking)
-        const cursor = this.add.text(0, 0, '|', {
-            font: '14px monospace',
-            fill: '#000000'
-        }).setOrigin(0, 0.5);
-        
-        // Blinking animation
-        this.tweens.add({
-            targets: cursor,
-            alpha: 0,
-            duration: 500,
-            yoyo: true,
-            repeat: -1
-        });
-        
-        field.add([bg, text, cursor]);
-        field.bg = bg;
-        field.text = text;
-        field.cursor = cursor;
-        field.name = name;
-        field.fieldWidth = width;
-        
-        // Click to focus
-        bg.setInteractive();
-        bg.on('pointerdown', () => this.setActiveField(name));
-        
-        return field;
+        const btnY = top + modalHeight - 28 - btnH / 2;
+        const cancelBtn = this.createButton(-btnW / 2 - 6, btnY, btnW, btnH, 'CANCEL', () => this.close());
+        const registerBtn = this.createButton(btnW / 2 + 6, btnY, btnW, btnH, 'REGISTER', () => this.handleSubmit(), true);
+        card.add(cancelBtn);
+        card.add(registerBtn);
+
+        fxOpenModal(this, overlay, card);
+
+        this.input.keyboard.on('keydown', this.handleKeyDown, this);
+        this.setActiveField('email');
     }
 
     createButton(x, y, width, height, label, callback, isPrimary = false) {
         const button = this.add.container(x, y);
-        
+
         const bg = this.add.rectangle(0, 0, width, height, isPrimary ? 0x000000 : 0xffffff);
         bg.setStrokeStyle(2, 0x000000);
-        
+
         const text = this.add.text(0, 0, label, {
-            font: '14px monospace',
+            font: `${UI.body}px monospace`,
             fill: isPrimary ? '#ffffff' : '#000000'
         }).setOrigin(0.5);
-        
+
         button.add([bg, text]);
-        
-        bg.setInteractive({ useHandCursor: true });
-        bg.on('pointerover', () => bg.setStrokeStyle(3, 0x000000));
-        bg.on('pointerout', () => bg.setStrokeStyle(2, 0x000000));
-        bg.on('pointerdown', callback);
-        
+
+        const hitArea = new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height);
+        button.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
+        bindPress(this, button, { onClick: callback });
+
         button.bg = bg;
         button.text = text;
-        
+
         return button;
     }
 
     setActiveField(fieldName) {
         this.activeField = fieldName;
-        
-        // Update borders
-        this.emailField.bg.setStrokeStyle(fieldName === 'email' ? 3 : 2, 0x000000);
-        this.passwordField.bg.setStrokeStyle(fieldName === 'password' ? 3 : 2, 0x000000);
-        this.displayNameField.bg.setStrokeStyle(fieldName === 'displayName' ? 3 : 2, 0x000000);
-        
-        // Update cursor positions
+        this.emailField.setFocused(fieldName === 'email');
+        this.passwordField.setFocused(fieldName === 'password');
+        this.displayNameField.setFocused(fieldName === 'displayName');
         this.updateCursorPosition();
     }
 
     updateCursorPosition() {
-        const emailWidth = this.emailField.text.width;
-        const passwordWidth = this.passwordField.text.width;
-        const displayNameWidth = this.displayNameField.text.width;
-        
-        this.emailField.cursor.setPosition(-this.emailField.fieldWidth / 2 + 10 + emailWidth, 0);
-        this.emailField.cursor.setVisible(this.activeField === 'email');
-        
-        this.passwordField.cursor.setPosition(-this.passwordField.fieldWidth / 2 + 10 + passwordWidth, 0);
-        this.passwordField.cursor.setVisible(this.activeField === 'password');
-        
-        this.displayNameField.cursor.setPosition(-this.displayNameField.fieldWidth / 2 + 10 + displayNameWidth, 0);
-        this.displayNameField.cursor.setVisible(this.activeField === 'displayName');
+        this.emailField.syncCaret();
+        this.passwordField.syncCaret();
+        this.displayNameField.syncCaret();
     }
 
     handleKeyDown(event) {
-        if (this.isSubmitting) return;
-        
+        if (this.isSubmitting || this._fxClosing) return;
+
         const key = event.key;
-        
-        // Tab to switch fields
+
         if (key === 'Tab') {
             event.preventDefault();
             if (this.activeField === 'email') {
@@ -190,20 +153,17 @@ class RegisterModalScene extends Phaser.Scene {
             }
             return;
         }
-        
-        // Enter to submit
+
         if (key === 'Enter') {
             this.handleSubmit();
             return;
         }
-        
-        // ESC to cancel
+
         if (key === 'Escape') {
             this.close();
             return;
         }
-        
-        // Backspace
+
         if (key === 'Backspace') {
             if (this.activeField === 'email') {
                 this.emailValue = this.emailValue.slice(0, -1);
@@ -215,8 +175,7 @@ class RegisterModalScene extends Phaser.Scene {
             this.updateDisplay();
             return;
         }
-        
-        // Regular characters
+
         if (key.length === 1) {
             if (this.activeField === 'email') {
                 this.emailValue += key;
@@ -230,16 +189,9 @@ class RegisterModalScene extends Phaser.Scene {
     }
 
     updateDisplay() {
-        // Update email display
-        this.emailField.text.setText(this.emailValue);
-        
-        // Update password display (bullets)
-        this.passwordField.text.setText('•'.repeat(this.passwordValue.length));
-        
-        // Update display name
-        this.displayNameField.text.setText(this.displayNameValue);
-        
-        // Update cursor positions
+        this.emailField.setDisplay(this.emailValue);
+        this.passwordField.setDisplay('•'.repeat(this.passwordValue.length));
+        this.displayNameField.setDisplay(this.displayNameValue);
         this.updateCursorPosition();
     }
 
@@ -252,68 +204,63 @@ class RegisterModalScene extends Phaser.Scene {
     }
 
     async handleSubmit() {
-        if (this.isSubmitting) return;
-        
+        if (this.isSubmitting || this._fxClosing) return;
+
         console.log('[RegisterModalScene] handleSubmit() started');
         this.clearError();
-        
-        // Validation
+
         if (!this.emailValue.trim()) {
             this.showError('Email is required');
             this.setActiveField('email');
             return;
         }
-        
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(this.emailValue)) {
             this.showError('Invalid email format');
             this.setActiveField('email');
             return;
         }
-        
+
         if (!this.passwordValue) {
             this.showError('Password is required');
             this.setActiveField('password');
             return;
         }
-        
+
         if (this.passwordValue.length < 12) {
             this.showError('Password must be at least 12 characters');
             this.setActiveField('password');
             return;
         }
-        
-        // Check password complexity
+
         if (!/[a-zA-Z]/.test(this.passwordValue) || !/[0-9]/.test(this.passwordValue)) {
             this.showError('Password must contain letters and numbers');
             this.setActiveField('password');
             return;
         }
-        
-        // Disable input during submission
+
         this.isSubmitting = true;
         this.showError('Registering...');
-        
+
         try {
             const user = await gameAPI.promoteToRegular(
-                this.emailValue, 
+                this.emailValue,
                 this.passwordValue,
                 this.displayNameValue || this.emailValue.split('@')[0]
             );
             console.log('[RegisterModalScene] Registration successful:', user);
-            
-            // Update parent scene
+
             if (this.onRegisterSuccess) {
                 this.onRegisterSuccess(user);
             }
-            
-            // Close modal
+
             this.close();
-            
+
         } catch (error) {
             console.error('[RegisterModalScene] Registration failed:', error);
             this.isSubmitting = false;
-            
+
             if (error.statusCode === 409 || error.data?.errorCode === 'EMAIL_EXISTS') {
                 this.showError('This email is already registered. Please use the LOGIN button instead.');
             } else if (error.statusCode === 400) {
@@ -332,11 +279,12 @@ class RegisterModalScene extends Phaser.Scene {
 
     close() {
         console.log('[RegisterModalScene] Closing modal');
-        this.scene.stop('RegisterModalScene');
+        fxCloseModal(this);
     }
 
     shutdown() {
         console.log('[RegisterModalScene] shutdown() - cleaning up');
+        fxResumeOtherScenes(this);
         this.input.keyboard.off('keydown', this.handleKeyDown, this);
     }
 }
