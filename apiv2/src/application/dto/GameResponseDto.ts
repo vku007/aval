@@ -7,7 +7,6 @@ import type { EntityMetadata } from '../../shared/types/common.js';
 export class GameResponseDto {
   constructor(
     public readonly id: string,
-    public readonly type: string,
     public readonly usersIds: string[],
     public readonly rounds: RoundResponseDto[],
     public readonly isFinished: boolean,
@@ -18,7 +17,6 @@ export class GameResponseDto {
   static fromGameEntity(gameEntity: GameEntity): GameResponseDto {
     return new GameResponseDto(
       gameEntity.id,
-      gameEntity.type,
       gameEntity.usersIds,
       gameEntity.rounds.map(round => RoundResponseDto.fromRound(round)),
       gameEntity.isFinished, // Backward compatibility - uses getter that converts status
@@ -30,7 +28,6 @@ export class GameResponseDto {
   toJSON(): object {
     return {
       id: this.id,
-      type: this.type,
       usersIds: this.usersIds,
       rounds: this.rounds.map(round => round.toJSON()),
       isFinished: this.isFinished,

@@ -1,7 +1,6 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { JsonEntity } from '../../domain/entity/JsonEntity.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
@@ -17,7 +16,7 @@ export class S3GameRepository implements IGameRepository {
   constructor(
     private readonly s3Client: S3Client,
     private readonly config: AppConfig,
-    private readonly gameFactory: (id: string, type: GameTypeLength, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => GameEntity
+    private readonly gameFactory: (id: string, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => GameEntity
   ) {
     this.gamePrefix = `${config.s3.prefix}games/`;
   }
@@ -98,7 +97,6 @@ export class S3GameRepository implements IGameRepository {
       // Return new game entity with updated metadata
       return this.gameFactory(
         game.id,
-        game.type,
         game.usersIds,
         game.rounds,
         game.isFinished,

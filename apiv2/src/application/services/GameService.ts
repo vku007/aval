@@ -1,5 +1,4 @@
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
@@ -50,7 +49,6 @@ export class GameService {
   async createGame(dto: CreateGameDto, ifNoneMatch?: string): Promise<GameResponseDto> {
     this.logger.info('Creating game', { 
       id: dto.id, 
-      type: dto.type, 
       usersCount: dto.usersIds.length,
       roundsCount: dto.rounds.length,
       ifNoneMatch 
@@ -91,7 +89,6 @@ export class GameService {
     const status = dto.isFinished ? GameStatus.Finished : GameStatus.Created;
     const gameEntity = new GameEntity(
       dto.id, 
-      dto.type as GameTypeLength, 
       dto.usersIds, 
       rounds, 
       status
@@ -312,7 +309,6 @@ export class GameService {
       : existingGame.status;
     return new GameEntity(
       existingGame.id,
-      (dto.type as GameTypeLength | undefined) ?? existingGame.type,
       dto.usersIds ?? existingGame.usersIds,
       rounds,
       status,
@@ -327,8 +323,8 @@ export class GameService {
   private replaceGameData(existingGame: GameEntity, dto: UpdateGameDto): GameEntity {
     // For replace strategy, all fields are required
     // Convert isFinished (old) to status (new) for backward compatibility
-    if (!dto.type || !dto.usersIds || !dto.rounds || dto.isFinished === undefined) {
-      throw new ValidationError('Replace strategy requires all fields: type, usersIds, rounds, isFinished');
+    if (!dto.usersIds || !dto.rounds || dto.isFinished === undefined) {
+      throw new ValidationError('Replace strategy requires all fields: usersIds, rounds, isFinished');
     }
 
     // Convert DTO rounds to Round objects
@@ -366,7 +362,6 @@ export class GameService {
     const status = dto.isFinished ? GameStatus.Finished : GameStatus.Created;
     return new GameEntity(
       existingGame.id,
-      dto.type as GameTypeLength,
       dto.usersIds,
       rounds,
       status,

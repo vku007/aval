@@ -11,6 +11,8 @@ apiv2/
 ├── buildAndDeploy.sh
 ├── API_DOCUMENTATION.md   # endpoint reference
 ├── TESTING_GUIDE.md
+├── src/domain/CLASS_DIAGRAM.md
+├── src/domain/GAME_FLOW.md
 └── README.md
 ```
 
@@ -24,7 +26,7 @@ CLI bootstrap, pre-DDD sources, and unauthenticated curl tests live in [`../obso
 | `/apiv2/external/*` | JWT | any authenticated |
 | `/apiv2/internal/*` | JWT | `admin` only |
 
-Internal resources: `files`, `users`, `games` (CRUD + ETag). Games also have rounds/moves/finish. External: `me`, `promote`, `games`. Details: [API_DOCUMENTATION.md](API_DOCUMENTATION.md).
+Internal resources: `files`, `users`, `games` (CRUD + ETag). Games also have rounds/moves/finish. External: `me`, `promote`, `games`. Details: [API_DOCUMENTATION.md](API_DOCUMENTATION.md). Class diagrams: [src/domain/CLASS_DIAGRAM.md](src/domain/CLASS_DIAGRAM.md). Game flow: [src/domain/GAME_FLOW.md](src/domain/GAME_FLOW.md).
 
 ## Local
 

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GameService } from './GameService.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
@@ -10,7 +9,6 @@ import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { CreateGameDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { NotFoundError } from '../../shared/errors/NotFoundError.js';
-import { ConflictError } from '../../shared/errors/ConflictError.js';
 import { ValidationError } from '../../shared/errors/ValidationError.js';
 
 // Mock repository
@@ -32,18 +30,17 @@ describe('GameService', () => {
 
   describe('getGame', () => {
     it('should return game when found', async () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       mockRepository.findById.mockResolvedValueOnce(gameEntity);
 
       const result = await gameService.getGame('game-1');
 
       expect(result.id).toBe('game-1');
-      expect(result.type).toBe(GameTypeLength.BO3);
       expect(mockRepository.findById).toHaveBeenCalledWith('game-1', undefined);
     });
 
     it('should pass ifNoneMatch header', async () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       mockRepository.findById.mockResolvedValueOnce(gameEntity);
 
       await gameService.getGame('game-1', 'etag-123');
@@ -62,19 +59,17 @@ describe('GameService', () => {
     it('should create game successfully', async () => {
       const dto: CreateGameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false
       };
 
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       mockRepository.save.mockResolvedValueOnce(gameEntity);
 
       const result = await gameService.createGame(dto);
 
       expect(result.id).toBe('game-1');
-      expect(result.type).toBe(GameTypeLength.BO3);
       expect(mockRepository.save).toHaveBeenCalledWith(
         expect.any(GameEntity),
         { ifNoneMatch: '*' }
@@ -84,13 +79,12 @@ describe('GameService', () => {
     it('should pass ifNoneMatch header for creation', async () => {
       const dto: CreateGameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false
       };
 
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       mockRepository.save.mockResolvedValueOnce(gameEntity);
 
       await gameService.createGame(dto, 'etag-123');
@@ -104,7 +98,6 @@ describe('GameService', () => {
     it('should create game with rounds and moves', async () => {
       const dto: CreateGameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [{
           id: 'round-1',
@@ -129,7 +122,7 @@ describe('GameService', () => {
       subRound.moves = [move];
       const round = new Round('round-1', RoundStatus.Pending, startTime);
       round.subRounds = [subRound];
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [round], GameStatus.Created);
       mockRepository.save.mockResolvedValueOnce(gameEntity);
 
       const result = await gameService.createGame(dto);
@@ -141,9 +134,8 @@ describe('GameService', () => {
 
   describe('updateGame', () => {
     it('should update game with replace strategy', async () => {
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       const dto: UpdateGameDto = {
-        type: GameTypeLength.BO5,
         usersIds: ['user-1', 'user-2'],
         rounds: [],
         isFinished: true
@@ -155,6 +147,9 @@ describe('GameService', () => {
       const result = await gameService.updateGame('game-1', dto, false);
 
       expect(result).toBeDefined();
+      const saved = mockRepository.save.mock.calls[0][0] as GameEntity;
+      expect(saved.usersIds).toEqual(['user-1', 'user-2']);
+      expect(saved.status).toBe(GameStatus.Finished);
       expect(mockRepository.save).toHaveBeenCalledWith(
         expect.any(GameEntity),
         { ifMatch: undefined }
@@ -162,9 +157,9 @@ describe('GameService', () => {
     });
 
     it('should update game with merge strategy', async () => {
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       const dto: UpdateGameDto = {
-        type: GameTypeLength.BO5
+        isFinished: true
       };
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);
@@ -173,6 +168,9 @@ describe('GameService', () => {
       const result = await gameService.updateGame('game-1', dto, true);
 
       expect(result).toBeDefined();
+      const saved = mockRepository.save.mock.calls[0][0] as GameEntity;
+      expect(saved.usersIds).toEqual(['user-1']);
+      expect(saved.status).toBe(GameStatus.Finished);
       expect(mockRepository.save).toHaveBeenCalledWith(
         expect.any(GameEntity),
         { ifMatch: undefined }
@@ -186,9 +184,8 @@ describe('GameService', () => {
     });
 
     it('should pass ifMatch header for updates', async () => {
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       const dto: UpdateGameDto = { 
-        type: GameTypeLength.BO5,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false
@@ -238,8 +235,8 @@ describe('GameService', () => {
 
   describe('listGames', () => {
     it('should return list of games', async () => {
-      const game1 = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
-      const game2 = new GameEntity('game-2', GameTypeLength.BO5, ['user-2'], [], GameStatus.Created);
+      const game1 = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
+      const game2 = new GameEntity('game-2', ['user-2'], [], GameStatus.Created);
       
       mockRepository.findAll.mockResolvedValueOnce({
         items: [game1, game2],
@@ -267,7 +264,7 @@ describe('GameService', () => {
 
   describe('game-specific operations', () => {
     it('should add round to game', async () => {
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
       const startTime = Date.now();
       const subRound = new SubRound(1, startTime, startTime, startTime);
       const round = new Round('round-1', RoundStatus.Pending, startTime);
@@ -290,7 +287,7 @@ describe('GameService', () => {
       const subRound = new SubRound(1, startTime, startTime, startTime);
       const round = new Round('round-1', RoundStatus.Pending, startTime);
       round.subRounds = [subRound];
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [round], GameStatus.Created);
       const context = new MoveContext(MoveType.Stone, 10, 1);
       const move = new Move('user-1', context, Date.now());
 
@@ -306,7 +303,7 @@ describe('GameService', () => {
       const subRound = new SubRound(1, startTime, startTime, startTime);
       const round = new Round('round-1', RoundStatus.Current, startTime);
       round.subRounds = [subRound];
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [round], GameStatus.Created);
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);
       mockRepository.save.mockResolvedValueOnce(existingGame);
@@ -321,7 +318,7 @@ describe('GameService', () => {
     });
 
     it('should finish game', async () => {
-      const existingGame = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created);
+      const existingGame = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
 
       mockRepository.findById.mockResolvedValueOnce(existingGame);
       mockRepository.save.mockResolvedValueOnce(existingGame);

@@ -22,6 +22,8 @@ Living documentation for the VKP Consulting infrastructure and APIs.
 
 - [apiv2/README.md](apiv2/README.md) — package layout, test, deploy
 - [apiv2/API_DOCUMENTATION.md](apiv2/API_DOCUMENTATION.md) — endpoint reference (public / external / internal)
+- [apiv2/src/domain/CLASS_DIAGRAM.md](apiv2/src/domain/CLASS_DIAGRAM.md) — domain and layer class diagrams
+- [apiv2/src/domain/GAME_FLOW.md](apiv2/src/domain/GAME_FLOW.md) — class diagram walkthrough and external game flow
 - [apiv2/TESTING_GUIDE.md](apiv2/TESTING_GUIDE.md) — Vitest and live Cognito checks
 - [apiv2/plans/](apiv2/plans/) — design notes, not ops docs
 
@@ -38,4 +40,4 @@ Completed migration and feature snapshots live in [obsolete/](obsolete/). Do not
 
 ---
 
-**Last updated**: August 2026
+**Last updated**: September 2026

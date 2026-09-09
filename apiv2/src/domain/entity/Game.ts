@@ -6,6 +6,7 @@ import { GameCreateContext } from "../../application/dto/processor/GameCreateCon
 import { GameStatus } from "../value-object/GameStatus.js";
 import { GameOutcome } from "../value-object/GameOutcome.js";
 
+/** Best-of length used by Medal.gameLength, not stored on Game. */
 export enum GameTypeLength {
     BO1 = 'BO1',
     BO3 = 'BO3',
@@ -24,7 +25,6 @@ export class Game {
 
     constructor(
         public readonly id: string,
-        public readonly type: GameTypeLength,
         public readonly usersIds: string[],
         public status: GameStatus,
         // TODO: This could be changed to a specific domain value object class in the future
@@ -37,7 +37,6 @@ export class Game {
         this.outcome = new GameOutcome();
 
         this.validateId(id);
-        this.validateType(type);
         this.validateUsersIds(usersIds);
         this.validateStatus(status);
         if (createContext !== undefined) {
@@ -105,7 +104,7 @@ export class Game {
         newRound.finish();
         updatedRounds[roundIndex] = newRound;
 
-        const updatedGame = new Game(this.id, this.type, this.usersIds, this.status, this.createContext);
+        const updatedGame = new Game(this.id, this.usersIds, this.status, this.createContext);
         updatedGame.rounds = updatedRounds;
         updatedGame.outcome = GameOutcome.fromJSON(this.outcome.toJSON());
         return updatedGame;
@@ -165,7 +164,6 @@ export class Game {
     toJSON(): object {
         return {
             id: this.id,
-            type: this.type,
             usersIds: [...this.usersIds],
             rounds: this.rounds.map(round => round.toJSON()),
             status: this.status,
@@ -186,14 +184,6 @@ export class Game {
 
         if (!data.id || typeof data.id !== 'string') {
             throw new ValidationError('Game ID is required and must be a string');
-        }
-
-        if (!data.type || typeof data.type !== 'string') {
-            throw new ValidationError('Game type is required and must be a string');
-        }
-
-        if (!Object.values(GameTypeLength).includes(data.type as GameTypeLength)) {
-            throw new ValidationError(`Invalid game type: ${data.type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
         }
 
         if (!Array.isArray(data.usersIds)) {
@@ -220,7 +210,7 @@ export class Game {
 
         const rounds = data.rounds.map((roundData: any) => Round.fromJSON(roundData));
         const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
-        const game = new Game(data.id, data.type as GameTypeLength, data.usersIds, status, createContext);
+        const game = new Game(data.id, data.usersIds, status, createContext);
         game.rounds = rounds;
         if (data.outcome) {
             game.outcome = GameOutcome.fromJSON(data.outcome);
@@ -248,16 +238,6 @@ export class Game {
             throw new ValidationError(
                 `Invalid game id: ${id}. Must match pattern ^[a-zA-Z0-9._-]{1,128}$`
             );
-        }
-    }
-
-    private validateType(type: GameTypeLength): void {
-        if (!type) {
-            throw new ValidationError('Game type is required');
-        }
-
-        if (!Object.values(GameTypeLength).includes(type)) {
-            throw new ValidationError(`Invalid game type: ${type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
         }
     }
 

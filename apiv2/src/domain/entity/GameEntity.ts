@@ -1,7 +1,7 @@
 import { ValidationError } from '../../shared/errors/index.js';
 import { JsonEntity } from './JsonEntity.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
-import { Game, GameTypeLength } from './Game.js';
+import { Game } from './Game.js';
 import { Round } from '../value-object/Round.js';
 import { RoundStatus } from '../value-object/RoundStatus.js';
 import { SubRound } from '../value-object/SubRound.js';
@@ -13,7 +13,6 @@ import { GameOutcome } from '../value-object/GameOutcome.js';
 
 // Define the data structure for better type safety
 interface GameData {
-  type: GameTypeLength;
   usersIds: string[];
   rounds: RoundData[];
   status: GameStatus;
@@ -57,7 +56,6 @@ export class GameEntity {
 
   constructor(
     id: string,
-    type: GameTypeLength,
     usersIds: string[],
     rounds: Round[],
     status: GameStatus,
@@ -68,11 +66,10 @@ export class GameEntity {
     outcome?: any // Serialized GameOutcome (game.outcome.toJSON()) for persistence
   ) {
     this.validateId(id);
-    this.validateGameData(type, usersIds, rounds, status);
+    this.validateGameData(usersIds, rounds, status);
     
     // Convert Game objects to data structure
     const gameData: GameData = {
-      type,
       usersIds: [...usersIds], // Create copy to avoid mutation
       rounds: rounds.map(round => this.roundToData(round)),
       status,
@@ -88,10 +85,6 @@ export class GameEntity {
   // Read-only properties that read from backed field
   get id(): string {
     return this._backed.id;
-  }
-
-  get type(): GameTypeLength {
-    return this.getGameData().type;
   }
 
   get usersIds(): string[] {
@@ -157,7 +150,6 @@ export class GameEntity {
     const createContext = gameData.createContext ? GameCreateContext.fromJSON(gameData.createContext) : undefined;
     return new GameEntity(
       backed.id, 
-      gameData.type, 
       gameData.usersIds, 
       rounds, 
       status, 
@@ -172,14 +164,13 @@ export class GameEntity {
   // Factory method
   static create(
     id: string, 
-    type: GameTypeLength, 
     usersIds: string[], 
     rounds: Round[], 
     status: GameStatus, 
     etag?: string, 
     metadata?: EntityMetadata
   ): GameEntity {
-    return new GameEntity(id, type, usersIds, rounds, status, etag, metadata);
+    return new GameEntity(id, usersIds, rounds, status, etag, metadata);
   }
 
   // Immutable operations that delegate to Game class
@@ -255,7 +246,7 @@ export class GameEntity {
     // Support both status (new) and isFinished (old) for backward compatibility
     const status = gameData.status || (gameData.isFinished ? GameStatus.Finished : GameStatus.Created);
     const createContext = gameData.createContext ? GameCreateContext.fromJSON(gameData.createContext) : undefined;
-    const game = new Game(this.id, gameData.type, gameData.usersIds, status, createContext);
+    const game = new Game(this.id, gameData.usersIds, status, createContext);
     game.rounds = rounds;
     if (gameData.endTime !== undefined) {
       game.endTime = gameData.endTime;
@@ -269,7 +260,6 @@ export class GameEntity {
   private fromGame(game: Game): GameEntity {
     return new GameEntity(
       game.id,
-      game.type,
       game.usersIds,
       game.rounds,
       game.status,
@@ -360,7 +350,6 @@ export class GameEntity {
     const gameData = this.getGameData();
     return {
       id: this.id,
-      type: this.type,
       usersIds: this.usersIds,
       rounds: this.rounds.map(round => round.toJSON()),
       status: this.status,
@@ -378,14 +367,6 @@ export class GameEntity {
 
     if (!data.id || typeof data.id !== 'string') {
       throw new ValidationError('Game entity ID is required and must be a string');
-    }
-
-    if (!data.type || typeof data.type !== 'string') {
-      throw new ValidationError('Game entity type is required and must be a string');
-    }
-
-    if (!Object.values(GameTypeLength).includes(data.type as GameTypeLength)) {
-      throw new ValidationError(`Invalid game type: ${data.type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
     }
 
     if (!Array.isArray(data.usersIds)) {
@@ -414,7 +395,7 @@ export class GameEntity {
     const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
     const endTime = data.endTime !== undefined && data.endTime !== null ? data.endTime : undefined;
     const outcome = data.outcome;
-    return new GameEntity(data.id, data.type as GameTypeLength, data.usersIds, rounds, status, undefined, undefined, createContext, endTime, outcome);
+    return new GameEntity(data.id, data.usersIds, rounds, status, undefined, undefined, createContext, endTime, outcome);
   }
 
   // Validation methods
@@ -435,21 +416,10 @@ export class GameEntity {
     }
   }
 
-  private validateGameData(type: GameTypeLength, usersIds: string[], rounds: Round[], status: GameStatus): void {
-    this.validateType(type);
+  private validateGameData(usersIds: string[], rounds: Round[], status: GameStatus): void {
     this.validateUsersIds(usersIds);
     this.validateRounds(rounds);
     this.validateStatus(status);
-  }
-
-  private validateType(type: GameTypeLength): void {
-    if (!type) {
-      throw new ValidationError('Game type is required');
-    }
-
-    if (!Object.values(GameTypeLength).includes(type)) {
-      throw new ValidationError(`Invalid game type: ${type}. Must be one of: ${Object.values(GameTypeLength).join(', ')}`);
-    }
   }
 
   private validateUsersIds(usersIds: string[]): void {

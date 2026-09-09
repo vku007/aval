@@ -70,6 +70,92 @@ There are no `/apiv2/files` or `/apiv2/games` routes (those 401 at the JWT autho
 
 ---
 
+## Domain model
+
+Layered DDD: presentation → application (services + DTOs) → domain → S3 repositories. Full class diagrams: [src/domain/CLASS_DIAGRAM.md](src/domain/CLASS_DIAGRAM.md). Create/play/surrender flow: [src/domain/GAME_FLOW.md](src/domain/GAME_FLOW.md). Rewards: [src/domain/value-object/GameOutcome-diagram.md](src/domain/value-object/GameOutcome-diagram.md).
+
+```mermaid
+classDiagram
+    class Game {
+        +id: string
+        +usersIds: string[]
+        +status: GameStatus
+        +rounds: Round[]
+        +outcome: GameOutcome
+        +createContext?: GameCreateContext
+        +endTime?: number
+    }
+
+    class Round {
+        +id: string
+        +status: RoundStatus
+        +startTime: number
+        +winnerId?: string
+        +endTime?: number
+        +subRounds: SubRound[]
+    }
+
+    class SubRound {
+        +idNum: number
+        +status: SubRoundStatus
+        +startAt: number
+        +finishedAt: number
+        +updatedAt: number
+        +winnerId?: string
+        +moves: Move[]
+    }
+
+    class Move {
+        +userId: string
+        +context: MoveContext
+        +time: number
+    }
+
+    class MoveContext {
+        +moveType: MoveType
+        +size: number
+        +decorId: number
+    }
+
+    class GameEntity {
+        +toGame() Game
+    }
+
+    class JsonEntity
+    class GameOutcome
+
+    Game "1" *-- "*" Round
+    Round "1" *-- "*" SubRound
+    SubRound "1" *-- "*" Move
+    Move "1" *-- "1" MoveContext
+    Game "1" *-- "1" GameOutcome
+    GameEntity ..> Game
+    GameEntity o-- JsonEntity
+```
+
+`GameEntity` / `UserEntity` wrap `JsonEntity` (S3 JSON + ETag) and delegate rules to `Game` / `UserProfile`. Moves live on `SubRound`, not `Round`.
+
+| Enum | Values |
+|------|--------|
+| `GameStatus` | `created`, `started`, `finished`, `broken` |
+| `GameTypeLength` (`Medal.gameLength`) | `BO1`, `BO3`, `BO5`, `BO7`, `BO9`, `BO11`, `BO19` |
+| `RoundStatus` | `pending`, `current`, `finished` |
+| `SubRoundStatus` | `init`, `wait_player`, `done`, `surrendered` |
+| `MoveType` | `Stone`, `Paper`, `Scissors` |
+| `ActionType` (player update) | `Move`, `Surrender` |
+| `GameType` (create context) | `PVP`, `PVE` |
+| `RoundsLength` (create context) | `BO1`, `BO3`, `BO7` |
+| `KindOfGame` | `classic` (same `MoveType` is always a draw; `size` unused), `extended` (same `MoveType`: higher `size` wins, equal `size` is a draw; different types ignore `size`) |
+
+Two HTTP shapes for the same aggregate:
+
+| Surface | Path | Game body |
+|---------|------|-----------|
+| Player processor | `/apiv2/external/games` | `GameCreateContext` in; `payload` with `roundStates` / `subRoundStates` out |
+| Admin CRUD | `/apiv2/internal/games` | Legacy DTO: rounds still send `moves` + `isFinished`; responses flatten all sub-round moves onto the round |
+
+---
+
 ## Public API (`/apiv2/public`)
 
 No JWT. CORS + JSON body.
@@ -112,9 +198,101 @@ Caller must be a guest (`@vkp.local` or group `guest`).
 
 ### Player games
 
-**POST** `/apiv2/external/games` — create a game for the authenticated user (processor payload, not the admin Game CRUD body).
+Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NPC_1`. Created games persist `type: "BO7"` today even when `rounds` in the create context is `BO1` or `BO3`.
 
-**GET / PUT / PATCH** `/apiv2/external/games/{gameId}` — read/update that game.
+#### Create game
+
+**POST** `/apiv2/external/games`
+
+```json
+{
+  "gameType": "PVE",
+  "rounds": "BO7",
+  "kind": "classic",
+  "level": { "name": "1" },
+  "episode": { "name": "intro" }
+}
+```
+
+| Field | Type | Required | Values |
+|-------|------|----------|--------|
+| `gameType` | string | Yes | `PVP`, `PVE` |
+| `rounds` | string | Yes | `BO1`, `BO3`, `BO7` |
+| `kind` | string | Yes | `classic` (same type is a draw; `size` unused), `extended` (same type compares `size`; different types ignore `size`) |
+| `level.name` | string | Yes | non-empty |
+| `episode.name` | string | Yes | non-empty |
+
+**Success (200)**:
+
+```json
+{ "status": "created", "gameId": "game-1697123456789-abc1234" }
+```
+
+#### Get game
+
+**GET** `/apiv2/external/games/{gameId}`
+
+```json
+{
+  "status": "ok",
+  "payload": {
+    "gameContext": {
+      "status": "created",
+      "initGameContext": {
+        "gameType": "PVE",
+        "rounds": "BO7",
+        "kind": "classic",
+        "level": { "name": "1" },
+        "episode": { "name": "intro" }
+      }
+    },
+    "playerContext": {
+      "roundStates": [
+        {
+          "status": "current",
+          "started": "2026-09-02T20:00:00.000Z",
+          "finished": null,
+          "roundId": "round-1",
+          "winnerId": null,
+          "subRoundStates": [
+            {
+              "idNum": 1,
+              "status": "wait_player",
+              "started": "2026-09-02T20:00:00.000Z",
+              "finished": null,
+              "updated": "2026-09-02T20:00:00.000Z",
+              "winnerId": null,
+              "moves": []
+            }
+          ]
+        }
+      ]
+    },
+    "enemyContext": {}
+  }
+}
+```
+
+`roundStates` / `subRoundStates` are presentation objects (`RoundState`, `SubRoundState`). Move objects use `userId`, `context.moveType` (`Stone` \| `Paper` \| `Scissors`), `context.size`, `context.decorId`, `time`.
+
+#### Update game (action)
+
+**PUT** or **PATCH** `/apiv2/external/games/{gameId}`
+
+```json
+{
+  "type": "Move",
+  "context": {
+    "move": {
+      "userId": "<jwt-sub>",
+      "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
+      "time": 1697123456789
+    }
+  }
+}
+```
+
+`type` is `Move` or `Surrender`. Response is `status`, `gameId`, `payload` (same shape as GET), and `message`.
 
 ---
 
@@ -775,11 +953,11 @@ curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/users/user-123" \
 
 ## Games API (`/apiv2/internal/games`)
 
-The Games API provides specialized management for game entities with structured data validation, including support for rounds and moves.
+Admin CRUD for the same `Game` aggregate. Zod still accepts a **legacy round DTO** (`moves` on the round, `isFinished`, numeric `winnerId`). On write, those moves are wrapped in one `SubRound`. On read, `GameResponseDto` flattens every sub-round's moves back onto the round and maps `GameStatus` / `RoundStatus` to `isFinished`. Match length lives on `createContext.rounds` (`RoundsLength`), not on the admin DTO.
 
 ### List Games
 
-**GET** `/apiv2/games`
+**GET** `/apiv2/internal/games`
 
 Retrieve a paginated list of all games.
 
@@ -795,7 +973,7 @@ Retrieve a paginated list of all games.
 
 ```json
 {
-  "names": ["game-001", "game-002", "poker-123"],
+  "names": ["game-001", "game-002", "game-123"],
   "nextCursor": "eyJuZXh0VG9rZW4iOiIxMjMifQ=="
 }
 ```
@@ -810,9 +988,9 @@ curl -X GET "https://vkp-consulting.fr/apiv2/internal/games?limit=20"
 
 ### Get Game
 
-**GET** `/apiv2/games/{id}`
+**GET** `/apiv2/internal/games/{id}`
 
-Retrieve a specific game by ID.
+Retrieve a specific game by ID. Response is the flattened admin DTO (`isFinished`, moves on the round).
 
 #### Path Parameters
 
@@ -832,24 +1010,23 @@ Retrieve a specific game by ID.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [
     {
       "id": "round-1",
       "moves": [
         {
-          "id": "move-1",
           "userId": "user-001",
-          "value": 10,
-          "valueDecorated": "10♠",
+          "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
           "time": 1697123456789
         }
       ],
       "isFinished": false
     }
   ],
-  "isFinished": false
+  "isFinished": false,
+  "etag": "\"abc123\"",
+  "metadata": { "etag": "\"abc123\"", "size": 512, "lastModified": "2026-09-02T18:30:00.000Z" }
 }
 ```
 
@@ -873,7 +1050,7 @@ curl -X GET "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
 
 ### Get Game Metadata
 
-**GET** `/apiv2/games/{id}/meta`
+**GET** `/apiv2/internal/games/{id}/meta`
 
 Retrieve metadata for a specific game without downloading the content.
 
@@ -903,16 +1080,15 @@ curl -X GET "https://vkp-consulting.fr/apiv2/internal/games/game-123/meta"
 
 ### Create Game
 
-**POST** `/apiv2/games`
+**POST** `/apiv2/internal/games`
 
-Create a new game with the specified ID, type, users, rounds, and status.
+Create a new game with the specified ID, users, rounds, and finished flag.
 
 #### Request Body
 
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [],
   "isFinished": false
@@ -924,27 +1100,28 @@ Create a new game with the specified ID, type, users, rounds, and status.
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
 | `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
-| `type` | string | Yes | 1-100 characters |
 | `usersIds` | string[] | Yes | 1-10 unique user IDs |
-| `rounds` | Round[] | No | Array of round objects (default: []) |
-| `isFinished` | boolean | No | Default: false |
+| `rounds` | Round[] | No | Array of legacy round objects (default: []) |
+| `isFinished` | boolean | No | Default: false. Mapped to `GameStatus.finished` or `created` |
 
-**Round Object**:
+**Round Object** (write DTO; stored as one `SubRound` containing `moves`):
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
 | `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
 | `moves` | Move[] | No | Array of move objects (default: []) |
-| `isFinished` | boolean | No | Default: false |
-| `time` | number | No | Unix timestamp in milliseconds (default: current time) |
+| `isFinished` | boolean | No | Default: false. Mapped to `RoundStatus.finished` or `pending` |
+| `startTime` | number | No | Unix timestamp in milliseconds (default: now) |
+| `endTime` | number | No | Unix timestamp in milliseconds |
+| `winnerId` | number | No | Coerced to string on persist (`Round.winnerId` is a user id string) |
 
 **Move Object**:
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
-| `userId` | string | Yes | Must be a valid user ID |
-| `value` | number | Yes | Finite number |
-| `valueDecorated` | string | Yes | Display representation of the value |
-| `time` | number | No | Unix timestamp in milliseconds (default: current time) |
+| `userId` | string | Yes | Valid user ID pattern |
+| `context.moveType` | string | Yes | `Stone`, `Paper`, `Scissors` |
+| `context.size` | number | Yes | Non-negative integer |
+| `context.decorId` | number | Yes | Non-negative integer |
+| `time` | number | No | Unix timestamp in milliseconds (default: now) |
 
 #### Headers
 
@@ -959,7 +1136,6 @@ Create a new game with the specified ID, type, users, rounds, and status.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [],
   "isFinished": false
@@ -980,9 +1156,8 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games" \
   -H "Content-Type: application/json" \
   -H "If-None-Match: *" \
   -d '{
-    "id": "poker-game-1",
-    "type": "texas-holdem",
-    "usersIds": ["player1", "player2", "player3"],
+    "id": "game-123",
+    "usersIds": ["player1", "player2"],
     "rounds": [],
     "isFinished": false
   }'
@@ -992,9 +1167,9 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games" \
 
 ### Update Game (Replace)
 
-**PUT** `/apiv2/games/{id}`
+**PUT** `/apiv2/internal/games/{id}`
 
-Replace the entire game data.
+Replace the entire game data. Replace requires `usersIds`, `rounds`, and `isFinished`.
 
 #### Path Parameters
 
@@ -1006,14 +1181,13 @@ Replace the entire game data.
 
 ```json
 {
-  "type": "poker",
   "usersIds": ["user-001", "user-002", "user-003"],
   "rounds": [
     {
       "id": "round-1",
       "moves": [],
       "isFinished": false,
-      "time": 1697123456789
+      "startTime": 1697123456789
     }
   ],
   "isFinished": false
@@ -1033,7 +1207,6 @@ Replace the entire game data.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002", "user-003"],
   "rounds": [
     {
@@ -1053,7 +1226,6 @@ curl -X PUT "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
-    "type": "poker",
     "usersIds": ["user-001", "user-002", "user-003"],
     "rounds": [],
     "isFinished": false
@@ -1064,9 +1236,9 @@ curl -X PUT "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
 
 ### Update Game (Merge)
 
-**PATCH** `/apiv2/games/{id}`
+**PATCH** `/apiv2/internal/games/{id}`
 
-Partially update a game by merging new data with existing content.
+Partially update a game. Body is the same fields as PUT, all optional (`UpdateGameDto`). There is no `{ "merge": true, "data": ... }` wrapper.
 
 #### Path Parameters
 
@@ -1078,10 +1250,7 @@ Partially update a game by merging new data with existing content.
 
 ```json
 {
-  "merge": true,
-  "data": {
-    "isFinished": true
-  }
+  "isFinished": true
 }
 ```
 
@@ -1098,7 +1267,6 @@ Partially update a game by merging new data with existing content.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [
     {
@@ -1118,10 +1286,7 @@ curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
-    "merge": true,
-    "data": {
-      "isFinished": true
-    }
+    "isFinished": true
   }'
 ```
 
@@ -1129,7 +1294,7 @@ curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/games/game-123" \
 
 ### Delete Game
 
-**DELETE** `/apiv2/games/{id}`
+**DELETE** `/apiv2/internal/games/{id}`
 
 Delete a game permanently.
 
@@ -1160,9 +1325,9 @@ curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/games/old-game" \
 
 ### Add Round to Game
 
-**POST** `/apiv2/games/{id}/rounds`
+**POST** `/apiv2/internal/games/{id}/rounds`
 
-Add a new round to an existing game.
+Add a new round. Body is the legacy round DTO; moves are stored in a single `SubRound`.
 
 #### Path Parameters
 
@@ -1177,7 +1342,7 @@ Add a new round to an existing game.
   "id": "round-2",
   "moves": [],
   "isFinished": false,
-  "time": 1697123456789
+  "startTime": 1697123456789
 }
 ```
 
@@ -1194,7 +1359,6 @@ Add a new round to an existing game.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [
     {
@@ -1222,7 +1386,7 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds" \
     "id": "round-2",
     "moves": [],
     "isFinished": false,
-    "time": 1697123456789
+    "startTime": 1697123456789
   }'
 ```
 
@@ -1230,9 +1394,9 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds" \
 
 ### Add Move to Round
 
-**POST** `/apiv2/games/{gameId}/rounds/{roundId}/moves`
+**POST** `/apiv2/internal/games/{gameId}/rounds/{roundId}/moves`
 
-Add a new move to a specific round in a game.
+This route still exists, but `Game.addMoveToRound` throws: moves must be added on a `SubRound`. Use PUT/PATCH of the game, or the player processor (`POST`/`PUT` `/apiv2/external/games`), until this admin path is rewired.
 
 #### Path Parameters
 
@@ -1245,10 +1409,8 @@ Add a new move to a specific round in a game.
 
 ```json
 {
-  "id": "move-1",
   "userId": "user-001",
-  "value": 10,
-  "valueDecorated": "10♠",
+  "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
   "time": 1697123456789
 }
 ```
@@ -1262,30 +1424,7 @@ Add a new move to a specific round in a game.
 
 #### Response
 
-**Success (200)**:
-```json
-{
-  "id": "game-123",
-  "type": "poker",
-  "usersIds": ["user-001", "user-002"],
-  "rounds": [
-    {
-      "id": "round-1",
-      "moves": [
-        {
-          "id": "move-1",
-          "userId": "user-001",
-          "value": 10,
-          "valueDecorated": "10♠",
-          "time": 1697123456789
-        }
-      ],
-      "isFinished": false
-    }
-  ],
-  "isFinished": false
-}
-```
+**Success (200)**: flattened admin game DTO (not currently reachable; domain throws `addMoveToRound is no longer supported`).
 
 #### Example
 
@@ -1294,10 +1433,8 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds/rou
   -H "Content-Type: application/json" \
   -H "If-Match: \"abc123\"" \
   -d '{
-    "id": "move-1",
     "userId": "user-001",
-    "value": 10,
-    "valueDecorated": "10♠"
+    "context": { "moveType": "Stone", "size": 0, "decorId": 0 }
   }'
 ```
 
@@ -1305,9 +1442,9 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds/rou
 
 ### Finish Round
 
-**PATCH** `/apiv2/games/{gameId}/rounds/{roundId}/finish`
+**PATCH** `/apiv2/internal/games/{gameId}/rounds/{roundId}/finish`
 
-Mark a specific round as finished.
+Mark a specific round as finished (`RoundStatus.finished`).
 
 #### Path Parameters
 
@@ -1328,17 +1465,14 @@ Mark a specific round as finished.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [
     {
       "id": "round-1",
       "moves": [
         {
-          "id": "move-1",
           "userId": "user-001",
-          "value": 10,
-          "valueDecorated": "10♠",
+          "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
           "time": 1697123456789
         }
       ],
@@ -1360,9 +1494,9 @@ curl -X PATCH "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds/ro
 
 ### Finish Game
 
-**PATCH** `/apiv2/games/{id}/finish`
+**PATCH** `/apiv2/internal/games/{id}/finish`
 
-Mark a game as finished.
+Mark a game as finished (`GameStatus.finished`).
 
 #### Path Parameters
 
@@ -1382,7 +1516,6 @@ Mark a game as finished.
 ```json
 {
   "id": "game-123",
-  "type": "poker",
   "usersIds": ["user-001", "user-002"],
   "rounds": [
     {
@@ -1624,8 +1757,8 @@ const gameResponse = await fetch('https://vkp-consulting.fr/apiv2/internal/games
     'If-None-Match': '*'
   },
   body: JSON.stringify({
-    id: 'poker-game-1',
-    type: 'texas-holdem',
+    id: 'game-123',
+    type: 'BO3',
     usersIds: ['user-123', 'user-456'],
     rounds: [],
     isFinished: false
@@ -1673,8 +1806,8 @@ print('Created user:', user)
 
 # Create game
 game_data = {
-    'id': 'poker-game-1',
-    'type': 'texas-holdem',
+    'id': 'game-123',
+    'type': 'BO3',
     'usersIds': ['user-123', 'user-456'],
     'rounds': [],
     'isFinished': False
@@ -1721,10 +1854,10 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/users" \
 # Create game
 curl -X POST "https://vkp-consulting.fr/apiv2/internal/games" \
   -H "Content-Type: application/json" \
-  -d '{"id": "poker-game-1", "type": "texas-holdem", "usersIds": ["user-123", "user-456"], "rounds": [], "isFinished": false}'
+  -d '{"id": "game-123", "usersIds": ["user-123", "user-456"], "rounds": [], "isFinished": false}'
 
 # Add round to game
-curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/poker-game-1/rounds" \
+curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds" \
   -H "Content-Type: application/json" \
   -d '{"id": "round-1", "moves": [], "isFinished": false}'
 
@@ -1737,7 +1870,15 @@ curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/files/config" \
 
 ## Changelog
 
-### Version 2.1 (Current)
+### Version 2.2 (Current)
+
+- ✅ **Domain class diagrams**: `Game` → `Round` → `SubRound` → `Move`; backing-store `GameEntity` / `UserEntity`
+- ✅ **Player processor docs**: `/apiv2/external/games` create context, `Action` update, `roundStates` / `subRoundStates`
+- ✅ **Admin game DTO**: Stone/Paper/Scissors `MoveContext`; legacy flattened `moves` + `isFinished` on responses
+- ✅ **Round.winnerId**: string user id in domain (admin write still accepts a number and stringifies it)
+- ✅ **Admin add-move**: route present; domain rejects moves on `Round` (use `SubRound` / processor)
+
+### Version 2.1
 
 - ✅ **Games API**: Complete game management with rounds and moves
 - ✅ **Game Operations**: Add rounds, add moves, finish rounds, finish games
@@ -1771,4 +1912,4 @@ For API support and questions, please refer to the project documentation or cont
 
 ---
 
-*Last updated: August 2026*
+*Last updated: September 2026*

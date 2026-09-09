@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SimpleGameProcessor } from './SimpleGameProcessor.js';
-import { SimpleGameResolver } from './SimpleGameResolver.js';
+import { GameProcessor } from './GameProcessor.js';
+import { NPC_EXTENDED_MAX_SIZE } from './NpcActor.js';
+import { ClassicGameResolver } from './ClassicGameResolver.js';
+import { ExtendedGameResolver } from './ExtendedGameResolver.js';
 import { SimpleGameOutcomeResolver } from './SimpleGameOutcomeResolver.js';
-import { Game, GameTypeLength } from '../../domain/entity/Game.js';
+import { Game } from '../../domain/entity/Game.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { Action } from '../../domain/value-object/Action.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
@@ -18,8 +20,8 @@ import { GameLevel } from '../../domain/value-object/GameLevel.js';
 import { EpisodeContext } from '../../domain/value-object/EpisodeContext.js';
 import { ValidationError } from '../../shared/errors/index.js';
 
-describe('SimpleGameProcessor.processAction', () => {
-  const processor = new SimpleGameProcessor(new SimpleGameResolver(new SimpleGameOutcomeResolver()));
+describe('GameProcessor.processAction', () => {
+  const processor = new GameProcessor(new ClassicGameResolver(new SimpleGameOutcomeResolver()));
   const USER_1 = 'user-1';
   const USER_2 = 'user-2';
   const NPC_1 = 'NPC_1';
@@ -42,7 +44,7 @@ describe('SimpleGameProcessor.processAction', () => {
       gameLevel,
       episodeContext
     );
-    return new Game(id, GameTypeLength.BO3, usersIds, status, createContext);
+    return new Game(id, usersIds, status, createContext);
   }
 
   /**
@@ -101,25 +103,21 @@ describe('SimpleGameProcessor.processAction', () => {
       expect(result.rounds[1].status).toBe(RoundStatus.Current);
     });
 
-    it('should create new subRound when previous subRound is done', () => {
-      // Arrange
+    it('should create new subRound on the same round after a draw', () => {
       const game = createGameWithContext('game-1', [USER_1, USER_2]);
-      const action1 = createMoveAction(USER_1, MoveType.Stone);
-      const action2 = createMoveAction(USER_2, MoveType.Paper);
-      
-      // Process first two moves to finish first subRound
-      processor.processAction(game, action1, USER_1);
-      processor.processAction(game, action2, USER_2);
+      processor.processAction(game, createMoveAction(USER_1, MoveType.Stone), USER_1);
+      processor.processAction(game, createMoveAction(USER_2, MoveType.Stone), USER_2);
 
-      // Act - Process third move which should create a new subRound in a new round
-      // (since the previous round is finished, a new round is created)
-      const action3 = createMoveAction(USER_1, MoveType.Scissors);
-      const result = processor.processAction(game, action3, USER_1);
+      const result = processor.processAction(game, createMoveAction(USER_1, MoveType.Scissors), USER_1);
 
-      // Assert - A new round should be created with a new subRound
-      expect(result.rounds.length).toBeGreaterThan(1);
-      expect(result.rounds[1].subRounds.length).toBeGreaterThan(0);
+      expect(result.rounds).toHaveLength(1);
+      expect(result.rounds[0].status).toBe(RoundStatus.Current);
+      expect(result.rounds[0].subRounds).toHaveLength(2);
+      expect(result.rounds[0].subRounds[0].status).toBe(SubRoundStatus.Done);
+      expect(result.rounds[0].subRounds[0].winnerId).toBeUndefined();
+      expect(result.rounds[0].subRounds[1].moves).toHaveLength(1);
     });
+
   });
 
   describe('Move Sequences', () => {
@@ -457,8 +455,8 @@ describe('SimpleGameProcessor.processAction', () => {
   });
 });
 
-describe('SimpleGameProcessor.doNpcAction', () => {
-  const processor = new SimpleGameProcessor(new SimpleGameResolver(new SimpleGameOutcomeResolver()));
+describe('GameProcessor.doNpcAction', () => {
+  const processor = new GameProcessor(new ClassicGameResolver(new SimpleGameOutcomeResolver()));
   const USER_1 = 'user-1';
   const NPC_1 = 'NPC_1';
 
@@ -480,7 +478,7 @@ describe('SimpleGameProcessor.doNpcAction', () => {
       gameLevel,
       episodeContext
     );
-    return new Game(id, GameTypeLength.BO3, usersIds, status, createContext);
+    return new Game(id, usersIds, status, createContext);
   }
 
   /**
@@ -754,6 +752,81 @@ describe('SimpleGameProcessor.doNpcAction', () => {
         }
       });
     });
+  });
+});
+
+describe('GameProcessor Extended kind', () => {
+  const processor = new GameProcessor(new ExtendedGameResolver(new SimpleGameOutcomeResolver()));
+  const USER_1 = 'user-1';
+  const USER_2 = 'user-2';
+  const NPC_1 = 'NPC_1';
+
+  function createExtendedGame(
+    id: string,
+    usersIds: string[],
+    roundsLength: RoundsLength = RoundsLength.BO3,
+    status: GameStatus = GameStatus.Created
+  ): Game {
+    const createContext = new GameCreateContext(
+      GameType.PVP,
+      roundsLength,
+      KindOfGame.Extended,
+      new GameLevel('Level1'),
+      new EpisodeContext('Episode1')
+    );
+    return new Game(id, usersIds, status, createContext);
+  }
+
+  function createMoveAction(userId: string, moveType: MoveType, size: number): Action {
+    const moveContext = new MoveContext(moveType, size, 1);
+    const move = new Move(userId, moveContext, Date.now());
+    return new Action(ActionType.Move, new ActionContext(move));
+  }
+
+  it('equal-size same type draw opens sub-round 2', () => {
+    const game = createExtendedGame('game-1', [USER_1, USER_2]);
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 4), USER_1);
+    processor.processAction(game, createMoveAction(USER_2, MoveType.Stone, 4), USER_2);
+
+    const result = processor.processAction(game, createMoveAction(USER_1, MoveType.Scissors, 1), USER_1);
+
+    expect(result.rounds).toHaveLength(1);
+    expect(result.rounds[0].status).toBe(RoundStatus.Current);
+    expect(result.rounds[0].subRounds).toHaveLength(2);
+    expect(result.rounds[0].subRounds[0].status).toBe(SubRoundStatus.Done);
+    expect(result.rounds[0].subRounds[0].winnerId).toBeUndefined();
+    expect(result.rounds[0].subRounds[1].moves).toHaveLength(1);
+  });
+
+  it('same type + larger size finishes the round', () => {
+    const game = createExtendedGame('game-1', [USER_1, USER_2]);
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 8), USER_1);
+    const result = processor.processAction(game, createMoveAction(USER_2, MoveType.Stone, 3), USER_2);
+
+    expect(result.rounds).toHaveLength(1);
+    expect(result.rounds[0].status).toBe(RoundStatus.Finished);
+    expect(result.rounds[0].winnerId).toBe(USER_1);
+    expect(result.rounds[0].subRounds[0].winnerId).toBe(USER_1);
+  });
+
+  it('different types ignore size (Paper 1 beats Stone 100)', () => {
+    const game = createExtendedGame('game-1', [USER_1, USER_2]);
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Paper, 1), USER_1);
+    const result = processor.processAction(game, createMoveAction(USER_2, MoveType.Stone, 100), USER_2);
+
+    expect(result.rounds[0].status).toBe(RoundStatus.Finished);
+    expect(result.rounds[0].winnerId).toBe(USER_1);
+  });
+
+  it('NPC move size is in 0..NPC_EXTENDED_MAX_SIZE', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 5), USER_1);
+    processor.doNpcAction(game);
+
+    const npcMove = game.rounds[0].subRounds[0].moves.find(m => m.userId === NPC_1);
+    expect(npcMove).toBeDefined();
+    expect(npcMove!.context.size).toBeGreaterThanOrEqual(0);
+    expect(npcMove!.context.size).toBeLessThanOrEqual(NPC_EXTENDED_MAX_SIZE);
   });
 });
 

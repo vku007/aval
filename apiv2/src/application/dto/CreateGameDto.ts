@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { ValidationError } from '../../shared/errors/index.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
 
 // Schema for creating a new game
 const CreateGameSchema = z.object({
@@ -8,10 +7,6 @@ const CreateGameSchema = z.object({
     .min(1, 'Game ID is required')
     .max(128, 'Game ID must be 128 characters or less')
     .regex(/^[a-zA-Z0-9._-]+$/, 'Game ID must contain only alphanumeric characters, dots, hyphens, and underscores'),
-  
-  type: z.enum(['BO1', 'BO3', 'BO5', 'BO7', 'BO9', 'BO11', 'BO19'], {
-    errorMap: () => ({ message: `Game type must be one of: ${Object.values(GameTypeLength).join(', ')}` })
-  }),
   
   usersIds: z.array(z.string()
     .min(1, 'User ID cannot be empty')
@@ -85,7 +80,6 @@ export type CreateGameDtoType = z.infer<typeof CreateGameSchema>;
 export class CreateGameDto {
   constructor(
     public readonly id: string,
-    public readonly type: string,
     public readonly usersIds: string[],
     public readonly rounds: RoundDto[],
     public readonly isFinished: boolean
@@ -96,7 +90,6 @@ export class CreateGameDto {
       const validated = CreateGameSchema.parse(body);
       return new CreateGameDto(
         validated.id,
-        validated.type,
         validated.usersIds,
         validated.rounds,
         validated.isFinished

@@ -6,28 +6,23 @@ describe('UpdateGameDto', () => {
   describe('validation', () => {
     it('should validate valid update data', () => {
       const validData = {
-        type: 'BO3',
         usersIds: ['user-1', 'user-2'],
         isFinished: true
       };
 
       const result = UpdateGameDtoValidator.validate(validData);
-
-      expect(result.type).toBe('BO3');
       expect(result.usersIds).toEqual(['user-1', 'user-2']);
       expect(result.isFinished).toBe(true);
     });
 
     it('should validate partial update data', () => {
       const partialData = {
-        type: 'BO3'
+        isFinished: true
       };
 
       const result = UpdateGameDtoValidator.validate(partialData);
-
-      expect(result.type).toBe('BO3');
+      expect(result.isFinished).toBe(true);
       expect(result.usersIds).toBeUndefined();
-      expect(result.isFinished).toBeUndefined();
     });
 
     it('should validate empty object', () => {
@@ -61,15 +56,6 @@ describe('UpdateGameDto', () => {
       expect(result.rounds![0].moves).toHaveLength(1);
     });
 
-    it('should throw ValidationError for invalid type', () => {
-      const invalidData = {
-        type: ''
-      };
-
-      expect(() => UpdateGameDtoValidator.validate(invalidData)).toThrow(ValidationError);
-      expect(() => UpdateGameDtoValidator.validate({ type: 'a'.repeat(101) })).toThrow(ValidationError);
-    });
-
     it('should throw ValidationError for invalid usersIds', () => {
       expect(() => UpdateGameDtoValidator.validate({
         usersIds: []
@@ -89,19 +75,6 @@ describe('UpdateGameDto', () => {
         rounds: [{
           id: '',
           moves: [],
-          isFinished: false
-        }]
-      })).toThrow(ValidationError);
-
-      expect(() => UpdateGameDtoValidator.validate({
-        rounds: [{
-          id: 'round-1',
-          moves: [{
-            id: '',
-            userId: 'user-1',
-            value: 10,
-            valueDecorated: 'ten'
-          }],
           isFinished: false
         }]
       })).toThrow(ValidationError);
@@ -128,17 +101,16 @@ describe('UpdateGameDto', () => {
   describe('validatePartial', () => {
     it('should validate partial data', () => {
       const partialData = {
-        type: 'BO3'
+        isFinished: true
       };
 
       const result = UpdateGameDtoValidator.validatePartial(partialData);
-
-      expect(result.type).toBe('BO3');
+      expect(result.isFinished).toBe(true);
     });
 
     it('should throw ValidationError for invalid partial data', () => {
       const invalidPartialData = {
-        type: ''
+        usersIds: []
       };
 
       expect(() => UpdateGameDtoValidator.validatePartial(invalidPartialData)).toThrow(ValidationError);

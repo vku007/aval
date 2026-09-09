@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GameController } from './GameController.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
-import { GameService } from '../../application/services/GameService.js';
-import { Logger } from '../../shared/logging/Logger.js';
 import { ValidationError, NotFoundError } from '../../shared/errors/index.js';
 import { HttpRequest } from '../../infrastructure/http/HttpTypes.js';
 
@@ -40,11 +37,10 @@ describe('GameController', () => {
     it('should return game when found', async () => {
       const gameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false,
-        toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [], isFinished: false })
+        toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [], isFinished: false })
       };
       const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -72,11 +68,10 @@ describe('GameController', () => {
     it('should pass ifNoneMatch header', async () => {
       const gameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false,
-        toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [], isFinished: false })
+        toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [], isFinished: false })
       };
       const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -153,11 +148,10 @@ describe('GameController', () => {
     it('should create game successfully', async () => {
       const gameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false,
-        toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [], isFinished: false })
+        toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [], isFinished: false })
       };
       const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -173,7 +167,6 @@ describe('GameController', () => {
         params: {},
         body: {
           id: 'game-1',
-          type: GameTypeLength.BO3,
           usersIds: ['user-1'],
           rounds: [],
           isFinished: false
@@ -188,7 +181,6 @@ describe('GameController', () => {
       expect(mockGameService.createGame).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'game-1',
-          type: GameTypeLength.BO3,
           usersIds: ['user-1'],
           rounds: [],
           isFinished: false
@@ -228,11 +220,10 @@ describe('GameController', () => {
     it('should update game successfully', async () => {
       const gameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO5,
         usersIds: ['user-1', 'user-2'],
         rounds: [],
         isFinished: false,
-        toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO5, usersIds: ['user-1', 'user-2'], rounds: [], isFinished: false })
+        toJSON: () => ({ id: 'game-1', usersIds: ['user-1', 'user-2'], rounds: [], isFinished: false })
       };
       const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -247,7 +238,6 @@ describe('GameController', () => {
         query: {},
         params: { id: 'game-1' },
         body: {
-          type: GameTypeLength.BO5,
           usersIds: ['user-1', 'user-2'],
           rounds: [],
           isFinished: false
@@ -266,11 +256,10 @@ describe('GameController', () => {
     it('should patch game successfully', async () => {
       const gameDto = {
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1'],
         rounds: [],
         isFinished: true,
-        toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [], isFinished: true })
+        toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [], isFinished: true })
       };
       const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -373,11 +362,10 @@ describe('GameController', () => {
       it('should add round to game successfully', async () => {
         const gameDto = {
           id: 'game-1',
-          type: GameTypeLength.BO3,
           usersIds: ['user-1'],
           rounds: [{ id: 'round-1', moves: [], isFinished: false }],
           isFinished: false,
-          toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [{ id: 'round-1', moves: [], isFinished: false }], isFinished: false })
+          toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [{ id: 'round-1', moves: [], isFinished: false }], isFinished: false })
         };
         const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -410,11 +398,10 @@ describe('GameController', () => {
       it('should add move to game round successfully', async () => {
         const gameDto = {
           id: 'game-1',
-          type: GameTypeLength.BO3,
           usersIds: ['user-1'],
           rounds: [{ id: 'round-1', moves: [{ userId: 'user-1', context: { moveType: 'Stone', size: 10, decorId: 1 }, time: Date.now() }], isFinished: false }],
           isFinished: false,
-          toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [{ id: 'round-1', moves: [{ userId: 'user-1', context: { moveType: 'Stone', size: 10, decorId: 1 }, time: Date.now() }], isFinished: false }], isFinished: false })
+          toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [{ id: 'round-1', moves: [{ userId: 'user-1', context: { moveType: 'Stone', size: 10, decorId: 1 }, time: Date.now() }], isFinished: false }], isFinished: false })
         };
         const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -450,11 +437,10 @@ describe('GameController', () => {
       it('should finish game round successfully', async () => {
         const gameDto = {
           id: 'game-1',
-          type: GameTypeLength.BO3,
           usersIds: ['user-1'],
           rounds: [{ id: 'round-1', moves: [], isFinished: true }],
           isFinished: false,
-          toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [{ id: 'round-1', moves: [], isFinished: true }], isFinished: false })
+          toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [{ id: 'round-1', moves: [], isFinished: true }], isFinished: false })
         };
         const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 
@@ -483,11 +469,10 @@ describe('GameController', () => {
       it('should finish game successfully', async () => {
         const gameDto = {
           id: 'game-1',
-          type: GameTypeLength.BO3,
           usersIds: ['user-1'],
           rounds: [],
           isFinished: true,
-          toJSON: () => ({ id: 'game-1', type: GameTypeLength.BO3, usersIds: ['user-1'], rounds: [], isFinished: true })
+          toJSON: () => ({ id: 'game-1', usersIds: ['user-1'], rounds: [], isFinished: true })
         };
         const metadata = { etag: 'etag-123', size: 1024, lastModified: '2023-10-12T18:30:00.000Z' };
 

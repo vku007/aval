@@ -103,7 +103,6 @@ describe('Game API Routes Integration', () => {
     it('should handle POST /apiv2/internal/games (create game)', async () => {
       const event = createApiGatewayEvent('POST', '/apiv2/internal/games', {
         id: 'test-game',
-        type: 'BO3',
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false
@@ -133,7 +132,6 @@ describe('Game API Routes Integration', () => {
 
     it('should handle PUT /apiv2/internal/games/:id (update game)', async () => {
       const event = createApiGatewayEvent('PUT', '/apiv2/internal/games/test-game', {
-        type: 'BO5',
         usersIds: ['user-1'],
         rounds: [],
         isFinished: false
@@ -179,10 +177,12 @@ describe('Game API Routes Integration', () => {
 
     it('should handle POST /apiv2/internal/games/:gameId/rounds/:roundId/moves (add move)', async () => {
       const event = createApiGatewayEvent('POST', '/apiv2/internal/games/test-game/rounds/round-1/moves', {
-        id: 'move-1',
         userId: 'user-1',
-        value: 10,
-        valueDecorated: 'ten'
+        context: {
+          moveType: 'Stone',
+          size: 10,
+          decorId: 1
+        }
       });
       
       const response = await handler(event);

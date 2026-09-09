@@ -59,9 +59,9 @@ const userFactory = (id: string, name: string, externalId: number, etag?: string
   User.create(id, name, externalId, etag, metadata);
 
 // Game factory for GameEntity
-const gameFactory = (id: string, type: string, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => {
+const gameFactory = (id: string, usersIds: string[], rounds: Round[], isFinished: boolean, etag?: string, metadata?: EntityMetadata) => {
   const status = isFinished ? GameStatus.Finished : GameStatus.Created;
-  return GameEntity.create(id, type, usersIds, rounds, status, etag, metadata);
+  return GameEntity.create(id, usersIds, rounds, status, etag, metadata);
 };
 
 // Infrastructure layer - S3Client created inside handler for testability

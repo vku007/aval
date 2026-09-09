@@ -1,30 +1,33 @@
 import { Game } from '../../domain/entity/Game.js';
 import { Action } from '../../domain/value-object/Action.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
-import { ActionContext } from '../../domain/value-object/ActionContext.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
-import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
-import { SimpleGameResolver } from './SimpleGameResolver.js';
+import { Move } from '../../domain/value-object/Move.js';
 import { ValidationError } from '../../shared/errors/index.js';
 import { Logger } from '../../shared/logging/Logger.js';
-import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
+import type { GameResolver } from './GameResolver.js';
+import { NpcActor } from './NpcActor.js';
 
 /**
- * Processor for simple game operations.
+ * Processes player actions: rounds, surrender, and victory.
+ * Win rules come from GameResolver. NPC throws come from NpcActor.
  */
-export class SimpleGameProcessor {
+export class GameProcessor {
   private readonly logger: Logger;
+  private readonly npcActor: NpcActor;
 
   constructor(
-    private readonly resolver: SimpleGameResolver,
-    logger?: Logger
+    private readonly resolver: GameResolver,
+    logger?: Logger,
+    npcActor?: NpcActor
   ) {
     this.logger = logger ?? new Logger();
+    this.npcActor = npcActor ?? new NpcActor(this.logger);
   }
 
   /**
@@ -306,142 +309,37 @@ export class SimpleGameProcessor {
   }
 
   /**
-   * Performs an NPC action (move) for the NPC player in a PVE game.
-   * Finds the NPC player, checks if it's their turn, generates a random move, and processes it.
+   * Applies the NPC throw if NpcActor says it is their turn.
    * Modifies the game in place.
-   * @param game - The game to perform the NPC action on
    */
   doNpcAction(game: Game): void {
-    this.logger.debug('Attempting NPC action', { gameId: game.id, gameStatus: game.status });
-
-    // Validate game state - cannot process actions on finished or broken games
-    if (game.status === GameStatus.Finished || game.status === GameStatus.Broken) {
-      this.logger.warn('Cannot perform NPC action: game is finished or broken', {
-        gameId: game.id,
-        gameStatus: game.status
-      });
+    const action = this.npcActor.nextAction(game);
+    const move = action?.context.move;
+    if (!action || !move) {
       return;
     }
 
-    // Find the NPC player (typically 'NPC_1')
-    const npcId = game.usersIds.find(id => id.startsWith('NPC_'));
-    if (!npcId) {
-      this.logger.debug('No NPC player found in game', {
-        gameId: game.id,
-        usersIds: game.usersIds
-      });
-      return;
-    }
-
-    this.logger.debug('NPC player found', { gameId: game.id, npcId });
-
-    // Find the current active round
-    const currentRound = game.getLastRound();
-    if (!currentRound || currentRound.status === RoundStatus.Finished) {
-      this.logger.debug('No active round available for NPC action', {
-        gameId: game.id,
-        npcId,
-        hasRound: !!currentRound,
-        roundStatus: currentRound?.status
-      });
-      return;
-    }
-
-    this.logger.debug('Active round found', {
-      gameId: game.id,
-      npcId,
-      roundId: currentRound.id,
-      roundStatus: currentRound.status
-    });
-
-    // Get the last subRound from the current round
-    const lastSubRound = currentRound.getLastSubRound();
-    if (!lastSubRound) {
-      this.logger.debug('No subround found in current round', {
-        gameId: game.id,
-        npcId,
-        roundId: currentRound.id
-      });
-      return;
-    }
-
-    this.logger.debug('Subround found', {
-      gameId: game.id,
-      npcId,
-      roundId: currentRound.id,
-      subRoundIdNum: lastSubRound.idNum,
-      subRoundStatus: lastSubRound.status,
-      existingMoves: lastSubRound.moves.length
-    });
-
-    // Check if NPC has already made a move in this subround
-    const npcMove = lastSubRound.moves.find(m => m.userId === npcId);
-    if (npcMove) {
-      this.logger.debug('NPC has already moved in this subround', {
-        gameId: game.id,
-        npcId,
-        roundId: currentRound.id,
-        subRoundIdNum: lastSubRound.idNum
-      });
-      return;
-    }
-
-    // Check if subround is waiting for a player move
-    if (lastSubRound.status !== SubRoundStatus.Init && lastSubRound.status !== SubRoundStatus.WaitPlayer) {
-      this.logger.debug('Subround is not in a state that accepts moves', {
-        gameId: game.id,
-        npcId,
-        roundId: currentRound.id,
-        subRoundIdNum: lastSubRound.idNum,
-        subRoundStatus: lastSubRound.status
-      });
-      return;
-    }
-
-    // Generate a random move for the NPC (Stone, Paper, or Scissors)
-    const moveTypes = [MoveType.Stone, MoveType.Paper, MoveType.Scissors];
-    const randomMoveType = moveTypes[Math.floor(Math.random() * moveTypes.length)];
-    
-    this.logger.info('Generating NPC move', {
-      gameId: game.id,
-      npcId,
-      roundId: currentRound.id,
-      subRoundIdNum: lastSubRound.idNum,
-      moveType: randomMoveType
-    });
-
-    const currentTime = Date.now();
-    const npcMoveContext = new MoveContext(randomMoveType, 0, 0);
-    const npcMoveObj = new Move(npcId, npcMoveContext, currentTime);
-
-    // Create an Action with the NPC move
-    const actionContext = new ActionContext(npcMoveObj);
-    const action = new Action(ActionType.Move, actionContext);
-
-    // Process the action
     try {
-      this.processAction(game, action, npcId);
-      
-      // Log the result
-      const updatedSubRound = currentRound.getLastSubRound();
+      this.processAction(game, action, move.userId);
+
+      const currentRound = game.getLastRound();
+      const updatedSubRound = currentRound?.getLastSubRound();
       this.logger.info('NPC action completed successfully', {
         gameId: game.id,
-        npcId,
-        roundId: currentRound.id,
+        npcId: move.userId,
+        roundId: currentRound?.id,
         subRoundIdNum: updatedSubRound?.idNum,
-        moveType: randomMoveType,
+        moveType: move.context.moveType,
         subRoundStatus: updatedSubRound?.status,
         subRoundMoves: updatedSubRound?.moves.length,
-        roundStatus: currentRound.status,
+        roundStatus: currentRound?.status,
         gameStatus: game.status
       });
     } catch (error: any) {
       this.logger.error('Failed to process NPC action', {
         gameId: game.id,
-        npcId,
-        roundId: currentRound.id,
-        subRoundIdNum: lastSubRound.idNum,
-        moveType: randomMoveType,
+        npcId: move.userId,
+        moveType: move.context.moveType,
         error: error.message
       });
       throw error;

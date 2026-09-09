@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GameResponseDto, RoundResponseDto, MoveResponseDto } from './GameResponseDto.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
@@ -11,12 +10,11 @@ import { GameStatus } from '../../domain/value-object/GameStatus.js';
 describe('GameResponseDto', () => {
   describe('fromGameEntity', () => {
     it('should create response DTO from game entity', () => {
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [], GameStatus.Created);
+      const gameEntity = new GameEntity('game-1', ['user-1', 'user-2'], [], GameStatus.Created);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
       expect(responseDto.id).toBe('game-1');
-      expect(responseDto.type).toBe(GameTypeLength.BO3);
       expect(responseDto.usersIds).toEqual(['user-1', 'user-2']);
       expect(responseDto.rounds).toEqual([]);
       expect(responseDto.isFinished).toBe(false);
@@ -30,7 +28,7 @@ describe('GameResponseDto', () => {
       subRound.moves = [move];
       const round = new Round('round-1', RoundStatus.Finished, startTime);
       round.subRounds = [subRound];
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [round], GameStatus.Finished);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [round], GameStatus.Finished);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -44,7 +42,7 @@ describe('GameResponseDto', () => {
 
     it('should include etag and metadata', () => {
       const metadata = { size: 100, lastModified: new Date().toISOString() };
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1'], [], GameStatus.Created, 'etag-123', metadata);
+      const gameEntity = new GameEntity('game-1', ['user-1'], [], GameStatus.Created, 'etag-123', metadata);
       
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
@@ -62,14 +60,13 @@ describe('GameResponseDto', () => {
       subRound.moves = [move];
       const round = new Round('round-1', RoundStatus.Finished, startTime);
       round.subRounds = [subRound];
-      const gameEntity = new GameEntity('game-1', GameTypeLength.BO3, ['user-1', 'user-2'], [round], GameStatus.Finished);
+      const gameEntity = new GameEntity('game-1', ['user-1', 'user-2'], [round], GameStatus.Finished);
       const responseDto = GameResponseDto.fromGameEntity(gameEntity);
       
       const json = responseDto.toJSON();
       
       expect(json).toEqual({
         id: 'game-1',
-        type: GameTypeLength.BO3,
         usersIds: ['user-1', 'user-2'],
         rounds: [{
           id: 'round-1',

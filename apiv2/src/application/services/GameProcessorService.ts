@@ -8,12 +8,15 @@ import { InitGameContext } from '../dto/processor/response/context/InitGameConte
 import { PlayerContext } from '../dto/processor/response/context/PlayerContext.js';
 import { EnemyContext } from '../dto/processor/response/context/EnemyContext.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
-import { Game, GameTypeLength } from '../../domain/entity/Game.js';
+import { Game } from '../../domain/entity/Game.js';
 import { Action } from '../../domain/value-object/Action.js';
 import { Logger } from '../../shared/logging/Logger.js';
-import { SimpleGameProcessor } from '../utils/SimpleGameProcessor.js';
-import { SimpleGameResolver } from '../utils/SimpleGameResolver.js';
+import { GameProcessor } from '../utils/GameProcessor.js';
+import { ClassicGameResolver } from '../utils/ClassicGameResolver.js';
+import { ExtendedGameResolver } from '../utils/ExtendedGameResolver.js';
 import { SimpleGameOutcomeResolver } from '../utils/SimpleGameOutcomeResolver.js';
+import type { GameResolver } from '../utils/GameResolver.js';
+import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import type { IGameRepository } from './GameService.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { NotFoundError } from '../../shared/errors/index.js';
@@ -26,14 +29,23 @@ import { SubRoundState } from '../dto/processor/SubRoundState.js';
 export class GameProcessorService {
   private readonly logger: Logger;
   private readonly gameRepository?: IGameRepository;
-  private readonly simpleGameProcessor: SimpleGameProcessor;
+  private readonly outcomeResolver: SimpleGameOutcomeResolver;
 
   constructor(gameRepository?: IGameRepository) {
     this.logger = new Logger();
     this.gameRepository = gameRepository;
-    this.simpleGameProcessor = new SimpleGameProcessor(
-      new SimpleGameResolver(new SimpleGameOutcomeResolver())
-    );
+    this.outcomeResolver = new SimpleGameOutcomeResolver();
+  }
+
+  private resolverFor(kind?: KindOfGame): GameResolver {
+    if (kind === KindOfGame.Extended) {
+      return new ExtendedGameResolver(this.outcomeResolver);
+    }
+    return new ClassicGameResolver(this.outcomeResolver);
+  }
+
+  private processorFor(game: Game): GameProcessor {
+    return new GameProcessor(this.resolverFor(game.createContext?.kind), this.logger);
   }
 
   /**
@@ -58,10 +70,9 @@ export class GameProcessorService {
       // Create usersIds array with the request userId and NPC_1
       const usersIds = [request.userId, 'NPC_1'];
       
-      // Create a new Game instance with BO7 type, empty rounds, and Created status
+      // Create a new Game instance with empty rounds and Created status
       const game = new Game(
         gameId,
-        GameTypeLength.BO7,
         usersIds,
         GameStatus.Created, // status = Created
         request.gameCreateContext // Pass the createContext from the request
@@ -74,7 +85,6 @@ export class GameProcessorService {
           // Convert Game to GameEntity and save
           const gameEntity = new GameEntity(
             game.id,
-            game.type,
             game.usersIds,
             game.rounds,
             game.status,
@@ -215,7 +225,8 @@ export class GameProcessorService {
       }
 
       // Process action and get updated game
-      const updatedGame = this.simpleGameProcessor.processAction(testGame, action, userId);
+      const processor = this.processorFor(testGame);
+      const updatedGame = processor.processAction(testGame, action, userId);
 
       const initGameContext = updatedGame.createContext 
         ? InitGameContext.fromGameCreateContext(updatedGame.createContext)
@@ -282,21 +293,21 @@ export class GameProcessorService {
       const game = gameEntity.toGame();
 
       // Process action and get updated game
-      const updatedGame = this.simpleGameProcessor.processAction(game, action, userId);
+      const processor = this.processorFor(game);
+      const updatedGame = processor.processAction(game, action, userId);
 
       // check if game is finished 
       // todo check for end of game is already done in processAction
-      if (this.simpleGameProcessor.isVictoryAchieved(updatedGame)) {
-        this.simpleGameProcessor.endingGame(updatedGame);
+      if (processor.isVictoryAchieved(updatedGame)) {
+        processor.endingGame(updatedGame);
       } else {
         // if we in pve, lets make a move for pve player
-        this.simpleGameProcessor.doNpcAction(updatedGame);
+        processor.doNpcAction(updatedGame);
       }
 
       // Convert updated Game back to GameEntity and save
       const updatedGameEntity = new GameEntity(
         updatedGame.id,
-        updatedGame.type,
         updatedGame.usersIds,
         updatedGame.rounds,
         updatedGame.status,

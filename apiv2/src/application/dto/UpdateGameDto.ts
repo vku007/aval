@@ -1,14 +1,8 @@
 import { z } from 'zod';
 import { ValidationError } from '../../shared/errors/index.js';
-import { GameTypeLength } from '../../domain/entity/Game.js';
 
 // Schema for updating a game (all fields optional)
 const UpdateGameSchema = z.object({
-  type: z.enum(['BO1', 'BO3', 'BO5', 'BO7', 'BO9', 'BO11', 'BO19'], {
-    errorMap: () => ({ message: `Game type must be one of: ${Object.values(GameTypeLength).join(', ')}` })
-  })
-    .optional(),
-  
   usersIds: z.array(z.string()
     .min(1, 'User ID cannot be empty')
     .max(128, 'User ID must be 128 characters or less')
@@ -81,7 +75,6 @@ export type UpdateGameDtoType = z.infer<typeof UpdateGameSchema>;
 
 export class UpdateGameDto {
   constructor(
-    public readonly type?: string,
     public readonly usersIds?: string[],
     public readonly rounds?: RoundDto[],
     public readonly isFinished?: boolean
@@ -91,7 +84,6 @@ export class UpdateGameDto {
     try {
       const validated = UpdateGameSchema.parse(body);
       return new UpdateGameDto(
-        validated.type,
         validated.usersIds,
         validated.rounds,
         validated.isFinished
