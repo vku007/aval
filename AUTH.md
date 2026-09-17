@@ -84,7 +84,7 @@ Lambda needs IAM `CognitoUserManagement` on `vkp-api2-service-role` for those ad
 
 ## API v2 authorization
 
-Router: [`apiv2/src/index.ts`](apiv2/src/index.ts). Middleware: [`auth.ts`](apiv2/src/presentation/middleware/auth.ts), [`requireRole.ts`](apiv2/src/presentation/middleware/requireRole.ts).
+Router: [`apiv2/src/app.ts`](apiv2/src/app.ts). Middleware: [`auth.ts`](apiv2/src/presentation/middleware/auth.ts), [`requireRole.ts`](apiv2/src/presentation/middleware/requireRole.ts).
 
 | Prefix | Gateway JWT | Lambda | Who |
 |--------|-------------|--------|-----|
@@ -92,7 +92,7 @@ Router: [`apiv2/src/index.ts`](apiv2/src/index.ts). Middleware: [`auth.ts`](apiv
 | `/apiv2/external/*` | yes | `authMiddleware` (any role) | guest, user, admin |
 | `/apiv2/internal/*` | yes | `authMiddleware` + `requireRole('admin')` | admin only |
 
-`requireGroup` and `requireOwnership` exist but are unused on the live router. `SKIP_AUTH=true` (tests) skips JWT and injects a fake admin.
+`requireGroup` and `requireOwnership` exist but are unused on the live router. `SKIP_AUTH=true` (Vitest and `npm run dev`) skips JWT and injects a fake admin. Never set it on the deployed Lambda. The local HTTP server has no API Gateway JWT authorizer; `SKIP_AUTH` is what lets `/external` and `/internal` work without a Cognito token. See [apiv2/plans/local_dev.md](apiv2/plans/local_dev.md).
 
 ### External vs internal
 
@@ -116,6 +116,7 @@ API Gateway JWT does not look at groups. A guest with a valid token can call `/a
 
 ## Tests and ops
 
+- Local host (`SKIP_AUTH`, filesystem store): [apiv2/plans/local_dev.md](apiv2/plans/local_dev.md)
 - Walkthrough: [scripts/INTEGRATION_TEST_QUICKSTART.md](scripts/INTEGRATION_TEST_QUICKSTART.md)
 - Cognito helpers: [scripts/README.md](scripts/README.md)
 - Static site: [site/README.md](site/README.md)
@@ -124,4 +125,4 @@ API Gateway JWT does not look at groups. A guest with a valid token can call `/a
 
 ---
 
-**Last updated**: August 2026
+**Last updated**: September 2026

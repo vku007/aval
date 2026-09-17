@@ -9,7 +9,8 @@
         "build": "node esbuild.config.mjs",
         "zip": "cd dist && zip -r ../lambda.zip .",
         "lint": "echo 'add your linter here' && exit 0",
-        "test": "vitest run"
+        "test": "vitest run",
+        "dev": "SKIP_AUTH=true DATA_DIR=./.local-data CORS_ORIGIN=* tsx src/local.ts"
     },
     "dependencies": {
         "@aws-sdk/client-cognito-identity-provider": "^3.927.0",
@@ -23,6 +24,7 @@
         "@types/jsonwebtoken": "^9.0.5",
         "@types/node": "^20.14.10",
         "esbuild": "^0.23.0",
+        "tsx": "^4.23.13",
         "typescript": "^5.6.3",
         "vitest": "^2.0.5"
     }

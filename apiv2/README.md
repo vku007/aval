@@ -18,7 +18,7 @@ apiv2/
 
 CLI bootstrap, pre-DDD sources, and unauthenticated curl tests live in [`../obsolete/apiv2/`](../obsolete/apiv2/).
 
-## Routes (from `src/index.ts`)
+## Routes (from `src/app.ts`)
 
 | Prefix | Auth | Role |
 |--------|------|------|
@@ -30,9 +30,22 @@ Internal resources: `files`, `users`, `games` (CRUD + ETag). Games also have rou
 
 ## Local
 
+HTTP server + filesystem store (no AWS). Design: [plans/local_dev.md](plans/local_dev.md).
+
 ```bash
 cd apiv2
 npm ci
+npm run dev
+# http://localhost:3000  — SKIP_AUTH=true, data in ./.local-data
+```
+
+```bash
+curl http://localhost:3000/apiv2/internal/games
+```
+
+Tests and Lambda zip (unchanged):
+
+```bash
 npm test
 npm run build
 npm run zip

@@ -10,7 +10,7 @@ npm test
 
 Coverage is the `src/**/*.test.ts` suite (controllers, services, entities, `src/integration/`). There is no `npm run test:coverage` or `npm run test:integration` script.
 
-Handler tests mock S3 and send HTTP API v2 events at `src/index.ts`. They do not call AWS.
+Handler tests mock S3 and send HTTP API v2 events at `src/index.ts`. They do not call AWS. Local HTTP + filesystem store: [plans/local_dev.md](plans/local_dev.md) (`npm run dev`).
 
 ## Live API (Cognito)
 

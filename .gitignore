@@ -22,3 +22,10 @@ apiv2/node_modules/
 apiv2/dist/
 apiv2/lambda.zip
 
+# Local API data (npm run dev)
+.local-data/
+**/.local-data/
+
+# Local game-play dumps
+testresult/
+
