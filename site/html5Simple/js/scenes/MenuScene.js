@@ -13,8 +13,6 @@ class MenuScene extends Phaser.Scene {
         fxEnter(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        this._starting = false;
-
         // Get user from registry
         const user = this.registry.get('currentUser');
         console.log('[MenuScene] User from registry:', user);
@@ -139,74 +137,19 @@ class MenuScene extends Phaser.Scene {
     }
 
     onLogoutClick() {
-        console.log('[MenuScene] Logout button clicked');
-        
-        // Clear the token from localStorage
-        localStorage.removeItem('idToken');
-        console.log('[MenuScene] Token cleared from localStorage');
-        
-        // Clear the current user from registry
+        if (typeof gameAPI !== 'undefined' && typeof gameAPI.clearAuth === 'function') {
+            gameAPI.clearAuth();
+        } else {
+            localStorage.removeItem('aval_auth_token');
+            localStorage.removeItem('idToken');
+        }
         this.registry.set('currentUser', null);
-        
-        // Reload the page to start fresh as a new guest user
-        console.log('[MenuScene] Reloading page...');
         window.location.reload();
     }
 
-    async onStartGameClick() {
+    onStartGameClick() {
         console.log('[MenuScene] Start Game button clicked');
-        if (this._starting) return;
-        this._starting = true;
-        if (this.startGameBtn && this.startGameBtn.buttonText) {
-            this.startGameBtn.buttonText.setText('STARTING...');
-        }
-        
-        try {
-            if (typeof gameClient === 'undefined') {
-                console.error('[MenuScene] gameClient not available');
-                this.resetStartGame();
-                alert('Game client not initialized');
-                return;
-            }
-            
-            console.log('[MenuScene] Creating new game...');
-            
-            const gameContext = {
-                gameType: 'PVE',
-                rounds: 'BO3',
-                kind: 'classic',
-                level: {
-                    name: 'Level1'
-                },
-                episode: {
-                    name: 'Episode1'
-                }
-            };
-            
-            const response = await gameClient.createGame(gameContext);
-            console.log('[MenuScene] Game created:', response);
-            
-            if (response.gameId) {
-                console.log('[MenuScene] Starting SimpleGameScene with gameId:', response.gameId);
-                fxGoTo(this, 'SimpleGameScene', { gameId: response.gameId }, { flash: true });
-            } else {
-                console.error('[MenuScene] No gameId in response');
-                this.resetStartGame();
-                alert('Failed to create game: No game ID returned');
-            }
-            
-        } catch (error) {
-            console.error('[MenuScene] Failed to create game:', error);
-            this.resetStartGame();
-            alert(`Failed to create game: ${error.message}`);
-        }
-    }
-
-    resetStartGame() {
-        this._starting = false;
-        if (this.startGameBtn && this.startGameBtn.buttonText) {
-            this.startGameBtn.buttonText.setText('START GAME');
-        }
+        fxGoTo(this, 'GameSelectScene', undefined, { flash: true });
     }
 
     updatePlayerPanel(user) {

@@ -259,7 +259,9 @@ function fxGoTo(scene, key, data, options = {}) {
 }
 
 function fxEnter(scene, options = {}) {
-    if (!scene || !scene.cameras || !scene.cameras.main) return;
+    if (!scene) return;
+    scene._fxGoing = false;
+    if (!scene.cameras || !scene.cameras.main) return;
     const cam = scene.cameras.main;
     const ms = fxSceneFadeMs();
     if (!ms || typeof cam.fadeIn !== 'function') return;

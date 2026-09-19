@@ -2,7 +2,7 @@
  * Game configuration — logical size 390×844, Scale.FIT into the viewport.
  */
 
-console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, LoginModalScene, RegisterModalScene, SimpleGameScene, ErrorModalScene]);
+console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, ErrorModalScene]);
 
 applyGameFrame(fitGameFrame());
 
@@ -18,7 +18,7 @@ const config = {
         width: GAME_WIDTH,
         height: GAME_HEIGHT
     },
-    scene: [BootScene, MenuScene, LoginModalScene, RegisterModalScene, SimpleGameScene, ErrorModalScene]
+    scene: [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, ErrorModalScene]
 };
 
 console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);

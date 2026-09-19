@@ -42,8 +42,9 @@ UI.layouts = {
         structure: 'hud-status-play',
         fonts: { title: 32, heading: 22, body: 16, small: 13 },
         hud: 0.18,
-        status: 0.22,
-        play: 0.60,
+        stage: 0.14,
+        status: 0.16,
+        play: 0.52,
         roundSize: 40,
         showPanelLabels: false,
         goFullWidth: true,
@@ -65,8 +66,9 @@ UI.layouts = {
         fonts: { title: 28, heading: 20, body: 16, small: 13 },
         characters: 0.10,
         results: 0.12,
-        currentMove: 0.28,
-        actions: 0.50,
+        stage: 0.14,
+        currentMove: 0.18,
+        actions: 0.46,
         roundSize: 36,
         showPanelLabels: false,
         goFullWidth: false,
@@ -87,8 +89,9 @@ UI.layouts = {
         structure: 'hud-arena-grid',
         fonts: { title: 28, heading: 22, body: 16, small: 13 },
         hud: 0.12,
-        arena: 0.50,
-        actions: 0.38,
+        stage: 0.14,
+        arena: 0.38,
+        actions: 0.36,
         roundSize: 36,
         showPanelLabels: false,
         goFullWidth: false,
@@ -96,8 +99,8 @@ UI.layouts = {
         goH: 80,
         moveH: 80,
         cancelH: 48,
-        backW: 44,
-        backH: 44,
+        backW: 48,
+        backH: 48,
         backPlacement: 'hud',
         sideColumnRatio: 0.28,
         statusFont: 'heading',
@@ -318,6 +321,12 @@ function isUiDebug() {
         return new URLSearchParams(window.location.search).get('debug') === '1';
     } catch (e) {
         return false;
+    }
+}
+
+function uiLog(...args) {
+    if (isUiDebug()) {
+        console.log(...args);
     }
 }
 

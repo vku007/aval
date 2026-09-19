@@ -34,6 +34,7 @@ Living documentation for the VKP Consulting infrastructure and APIs.
 - [scripts/INTEGRATION_TEST_QUICKSTART.md](scripts/INTEGRATION_TEST_QUICKSTART.md) — auth/authorization test walkthrough
 - [site/README.md](site/README.md) — static site map, auth pages, deploy
 - [site/html5Simple/SCENES.md](site/html5Simple/SCENES.md) — Phaser scene copy and transitions
+- [site/html5Simple/UI schema.md](site/html5Simple/UI%20schema.md) — Play-screen panels and layouts (including StagePanel)
 
 ## Historical notes
 
