@@ -116,10 +116,27 @@ class SimpleGameSceneUtil {
         }
         const type = move.context?.moveType || '—';
         const size = move.context?.size;
-        if (typeof size === 'number' && size > 0) {
-            return `${type} ${size}`;
+        let label = typeof size === 'number' && size > 0 ? `${type} ${size}` : String(type);
+        const tags = this.formatEffectTags(move);
+        return tags ? `${label} ${tags}` : label;
+    }
+
+    /**
+     * @param {object} move
+     * @returns {string}
+     */
+    static formatEffectTags(move) {
+        const effects = move?.context?.effects;
+        if (!Array.isArray(effects) || effects.length === 0) {
+            return '';
         }
-        return String(type);
+        const labels = {
+            NegateSize: 'NEG',
+            Overpower: 'OVER',
+            Protection: 'PROT',
+            SizeOnly: 'SIZE'
+        };
+        return effects.map((effect) => labels[effect.kind] || effect.kind).filter(Boolean).join(' ');
     }
 
     /**

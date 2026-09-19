@@ -11,6 +11,15 @@ class ExtendedGameScene extends GamePlayScene {
         super({ key: 'ExtendedGameScene' });
     }
 
+    getEffects() {
+        return [
+            { kind: 'NegateSize', label: 'NEG', category: 'size' },
+            { kind: 'Overpower', label: 'OVER', category: 'size' },
+            { kind: 'Protection', label: 'PROT', category: 'type' },
+            { kind: 'SizeOnly', label: 'SIZE', category: 'type' }
+        ];
+    }
+
     formatReadyStatus(action) {
         const moveType = action?.context?.move?.context?.moveType || 'Unknown';
         const size = action?.context?.move?.context?.size;

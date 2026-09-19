@@ -77,6 +77,7 @@ export class MoveResponseDto {
       moveType: string;
       size: number;
       decorId: number;
+      effects: { kind: string }[];
     },
     public readonly time: number
   ) {}
@@ -84,7 +85,12 @@ export class MoveResponseDto {
   static fromMove(move: Move): MoveResponseDto {
     return new MoveResponseDto(
       move.userId,
-      move.context.toJSON() as { moveType: string; size: number; decorId: number },
+      move.context.toJSON() as {
+        moveType: string;
+        size: number;
+        decorId: number;
+        effects: { kind: string }[];
+      },
       move.time
     );
   }

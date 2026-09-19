@@ -115,6 +115,11 @@ classDiagram
         +moveType: MoveType
         +size: number
         +decorId: number
+        +effects: MoveEffect[]
+    }
+
+    class MoveEffect {
+        +kind: MoveEffectKind
     }
 
     class GameEntity {
@@ -128,6 +133,7 @@ classDiagram
     Round "1" *-- "*" SubRound
     SubRound "1" *-- "*" Move
     Move "1" *-- "1" MoveContext
+    MoveContext "1" *-- "*" MoveEffect
     Game "1" *-- "1" GameOutcome
     GameEntity ..> Game
     GameEntity o-- JsonEntity
@@ -142,10 +148,11 @@ classDiagram
 | `RoundStatus` | `pending`, `current`, `finished` |
 | `SubRoundStatus` | `init`, `wait_player`, `done`, `surrendered` |
 | `MoveType` | `Stone`, `Paper`, `Scissors` |
+| `MoveEffectKind` | `NegateSize`, `Overpower`, `Protection`, `SizeOnly` |
 | `ActionType` (player update) | `Move`, `Surrender` |
 | `GameType` (create context) | `PVP`, `PVE` |
 | `RoundsLength` (create context) | `BO1`, `BO3`, `BO7` |
-| `KindOfGame` | `classic` (same `MoveType` is always a draw; `size` unused), `extended` (same `MoveType`: higher `size` wins, equal `size` is a draw; different types ignore `size`) |
+| `KindOfGame` | `classic` (same `MoveType` is always a draw; `size` and `effects` unused), `extended` (same `MoveType`: higher `size` wins, equal `size` is a draw; different types ignore `size`; optional `effects` on one throw can alter type and size comparison) |
 
 Two HTTP shapes for the same aggregate:
 
@@ -218,7 +225,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 |-------|------|----------|--------|
 | `gameType` | string | Yes | `PVP`, `PVE` |
 | `rounds` | string | Yes | `BO1`, `BO3`, `BO7` |
-| `kind` | string | Yes | `classic` (same type is a draw; `size` unused), `extended` (same type compares `size`; different types ignore `size`) |
+| `kind` | string | Yes | `classic` (same type is a draw; `size` and `effects` unused), `extended` (same type compares `size`; different types ignore `size`; optional `effects` on one throw) |
 | `level.name` | string | Yes | non-empty |
 | `episode.name` | string | Yes | non-empty |
 
@@ -273,7 +280,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 }
 ```
 
-`roundStates` / `subRoundStates` are presentation objects (`RoundState`, `SubRoundState`). Move objects use `userId`, `context.moveType` (`Stone` \| `Paper` \| `Scissors`), `context.size`, `context.decorId`, `time`.
+`roundStates` / `subRoundStates` are presentation objects (`RoundState`, `SubRoundState`). Move objects use `userId`, `context.moveType` (`Stone` \| `Paper` \| `Scissors`), `context.size`, `context.decorId`, `context.effects` (`{ kind }` objects; omitted is `[]`), `time`.
 
 #### Update game (action)
 
@@ -285,7 +292,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
   "context": {
     "move": {
       "userId": "<jwt-sub>",
-      "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
+      "context": { "moveType": "Stone", "size": 0, "decorId": 0, "effects": [] },
       "time": 1697123456789
     }
   }
@@ -1017,7 +1024,7 @@ Retrieve a specific game by ID. Response is the flattened admin DTO (`isFinished
       "moves": [
         {
           "userId": "user-001",
-          "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
+          "context": { "moveType": "Stone", "size": 0, "decorId": 0, "effects": [] },
           "time": 1697123456789
         }
       ],
@@ -1121,6 +1128,7 @@ Create a new game with the specified ID, users, rounds, and finished flag.
 | `context.moveType` | string | Yes | `Stone`, `Paper`, `Scissors` |
 | `context.size` | number | Yes | Non-negative integer |
 | `context.decorId` | number | Yes | Non-negative integer |
+| `context.effects` | object[] | No | `{ kind }` values: `NegateSize`, `Overpower`, `Protection`, `SizeOnly`. Default `[]`. At most one size kind and one type kind |
 | `time` | number | No | Unix timestamp in milliseconds (default: now) |
 
 #### Headers
@@ -1410,7 +1418,7 @@ This route still exists, but `Game.addMoveToRound` throws: moves must be added o
 ```json
 {
   "userId": "user-001",
-  "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
+  "context": { "moveType": "Stone", "size": 0, "decorId": 0, "effects": [] },
   "time": 1697123456789
 }
 ```
@@ -1434,7 +1442,7 @@ curl -X POST "https://vkp-consulting.fr/apiv2/internal/games/game-123/rounds/rou
   -H "If-Match: \"abc123\"" \
   -d '{
     "userId": "user-001",
-    "context": { "moveType": "Stone", "size": 0, "decorId": 0 }
+    "context": { "moveType": "Stone", "size": 0, "decorId": 0, "effects": [] }
   }'
 ```
 
@@ -1472,7 +1480,7 @@ Mark a specific round as finished (`RoundStatus.finished`).
       "moves": [
         {
           "userId": "user-001",
-          "context": { "moveType": "Stone", "size": 0, "decorId": 0 },
+          "context": { "moveType": "Stone", "size": 0, "decorId": 0, "effects": [] },
           "time": 1697123456789
         }
       ],
@@ -1877,6 +1885,7 @@ curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/files/config" \
 - ✅ **Admin game DTO**: Stone/Paper/Scissors `MoveContext`; legacy flattened `moves` + `isFinished` on responses
 - ✅ **Round.winnerId**: string user id in domain (admin write still accepts a number and stringifies it)
 - ✅ **Admin add-move**: route present; domain rejects moves on `Round` (use `SubRound` / processor)
+- ✅ **Move effects**: `MoveContext.effects` is a list of `{ kind }` value objects; Extended resolver applies size/type mechanics from one throw
 
 ### Version 2.1
 

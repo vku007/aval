@@ -237,6 +237,11 @@ classDiagram
         +moveType: MoveType
         +size: number
         +decorId: number
+        +effects: MoveEffect[]
+    }
+
+    class MoveEffect {
+        +kind: MoveEffectKind
     }
 
     class Action {
@@ -303,6 +308,14 @@ classDiagram
         Scissors
     }
 
+    class MoveEffectKind {
+        <<enumeration>>
+        NegateSize
+        Overpower
+        Protection
+        SizeOnly
+    }
+
     class ActionType {
         <<enumeration>>
         Surrender
@@ -346,6 +359,8 @@ classDiagram
     SubRound --> SubRoundStatus
     Move "1" *-- "1" MoveContext
     MoveContext --> MoveType
+    MoveContext "1" *-- "*" MoveEffect
+    MoveEffect --> MoveEffectKind
     Action "1" *-- "1" ActionContext
     Action --> ActionType
     ActionContext --> Move

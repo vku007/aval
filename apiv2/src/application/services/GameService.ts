@@ -2,9 +2,9 @@ import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
-import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
+import { Move } from '../../domain/value-object/Move.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
-import { CreateGameDto } from '../dto/CreateGameDto.js';
+import { CreateGameDto, type MoveDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { GameResponseDto } from '../dto/GameResponseDto.js';
 import { ListResponseDto } from '../dto/ListResponseDto.js';
@@ -57,14 +57,7 @@ export class GameService {
     // Convert DTO rounds to Round objects
     // Note: Legacy DTOs have moves directly in rounds. We wrap them in a SubRound for compatibility.
     const rounds = dto.rounds.map(roundDto => {
-      const moves = roundDto.moves.map(moveDto => {
-        const context = new MoveContext(
-          moveDto.context.moveType as MoveType,
-          moveDto.context.size,
-          moveDto.context.decorId
-        );
-        return new Move(moveDto.userId, context, moveDto.time || Date.now());
-      });
+      const moves = roundDto.moves.map(moveDto => this.moveFromDto(moveDto));
       const startTime = roundDto.startTime || Date.now();
       const endTime = roundDto.endTime || startTime;
       // Create a single SubRound containing all moves (migration approach)
@@ -275,14 +268,7 @@ export class GameService {
     // Convert DTO rounds to Round objects if provided
     // Note: Legacy DTOs have moves directly in rounds. We wrap them in a SubRound for compatibility.
     const rounds = dto.rounds ? dto.rounds.map(roundDto => {
-      const moves = roundDto.moves.map(moveDto => {
-        const context = new MoveContext(
-          moveDto.context.moveType as MoveType,
-          moveDto.context.size,
-          moveDto.context.decorId
-        );
-        return new Move(moveDto.userId, context, moveDto.time || Date.now());
-      });
+      const moves = roundDto.moves.map(moveDto => this.moveFromDto(moveDto));
       const startTime = roundDto.startTime || Date.now();
       const endTime = roundDto.endTime || startTime;
       // Create a single SubRound containing all moves (migration approach)
@@ -330,14 +316,7 @@ export class GameService {
     // Convert DTO rounds to Round objects
     // Note: Legacy DTOs have moves directly in rounds. We wrap them in a SubRound for compatibility.
     const rounds = dto.rounds.map(roundDto => {
-      const moves = roundDto.moves.map(moveDto => {
-        const context = new MoveContext(
-          moveDto.context.moveType as MoveType,
-          moveDto.context.size,
-          moveDto.context.decorId
-        );
-        return new Move(moveDto.userId, context, moveDto.time || Date.now());
-      });
+      const moves = roundDto.moves.map(moveDto => this.moveFromDto(moveDto));
       const startTime = roundDto.startTime || Date.now();
       const endTime = roundDto.endTime || startTime;
       // Create a single SubRound containing all moves (migration approach)
@@ -371,5 +350,18 @@ export class GameService {
       existingGame.endTime,
       existingGame.outcome
     );
+  }
+
+  private moveFromDto(moveDto: MoveDto): Move {
+    return Move.fromJSON({
+      userId: moveDto.userId,
+      context: {
+        moveType: moveDto.context.moveType,
+        size: moveDto.context.size,
+        decorId: moveDto.context.decorId,
+        effects: moveDto.context.effects
+      },
+      time: moveDto.time || Date.now()
+    });
   }
 }

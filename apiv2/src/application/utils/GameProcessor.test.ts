@@ -10,6 +10,7 @@ import { Action } from '../../domain/value-object/Action.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
 import { ActionContext } from '../../domain/value-object/ActionContext.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
+import { MoveEffect, MoveEffectKind } from '../../domain/value-object/MoveEffect.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { GameCreateContext } from '../dto/processor/GameCreateContext.js';
@@ -777,8 +778,13 @@ describe('GameProcessor Extended kind', () => {
     return new Game(id, usersIds, status, createContext);
   }
 
-  function createMoveAction(userId: string, moveType: MoveType, size: number): Action {
-    const moveContext = new MoveContext(moveType, size, 1);
+  function createMoveAction(
+    userId: string,
+    moveType: MoveType,
+    size: number,
+    effects: MoveEffect[] = []
+  ): Action {
+    const moveContext = new MoveContext(moveType, size, 1, effects);
     const move = new Move(userId, moveContext, Date.now());
     return new Action(ActionType.Move, new ActionContext(move));
   }
@@ -827,6 +833,18 @@ describe('GameProcessor Extended kind', () => {
     expect(npcMove).toBeDefined();
     expect(npcMove!.context.size).toBeGreaterThanOrEqual(0);
     expect(npcMove!.context.size).toBeLessThanOrEqual(NPC_EXTENDED_MAX_SIZE);
+  });
+
+  it('human effects persist and NPC has none', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    const effects = [new MoveEffect(MoveEffectKind.Overpower)];
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 5, effects), USER_1);
+    processor.doNpcAction(game);
+
+    const humanMove = game.rounds[0].subRounds[0].moves.find(m => m.userId === USER_1);
+    const npcMove = game.rounds[0].subRounds[0].moves.find(m => m.userId === NPC_1);
+    expect(humanMove!.context.effects.map(e => e.kind)).toEqual([MoveEffectKind.Overpower]);
+    expect(npcMove!.context.effects).toEqual([]);
   });
 });
 

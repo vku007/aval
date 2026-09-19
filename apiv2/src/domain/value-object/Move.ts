@@ -1,4 +1,5 @@
 import { ValidationError } from "../../shared/errors/index.js";
+import { MoveEffect, MoveEffectKind, moveEffectCategory } from './MoveEffect.js';
 
 export enum MoveType {
     Stone = 'Stone',
@@ -7,14 +8,23 @@ export enum MoveType {
 }
 
 export class  MoveContext {
+    public readonly effects: readonly MoveEffect[];
+
     constructor(
         public readonly moveType: MoveType,
         public readonly size: number,
-        public readonly decorId: number
+        public readonly decorId: number,
+        effects: readonly MoveEffect[] = []
     ) {
+        this.effects = Object.freeze([...effects]);
         this.validateMoveType(moveType);
         this.validateSize(size);
         this.validateDecorId(decorId);
+        this.validateEffects(this.effects);
+    }
+
+    hasKind(kind: MoveEffectKind): boolean {
+        return this.effects.some(effect => effect.kind === kind);
     }
 
     /**
@@ -24,7 +34,8 @@ export class  MoveContext {
         return {
             moveType: this.moveType,
             size: this.size,
-            decorId: this.decorId
+            decorId: this.decorId,
+            effects: this.effects.map(effect => effect.toJSON())
         };
     }
 
@@ -52,7 +63,15 @@ export class  MoveContext {
             throw new ValidationError('MoveContext decorId must be a number');
         }
 
-        return new MoveContext(data.moveType as MoveType, data.size, data.decorId);
+        let effects: MoveEffect[] = [];
+        if (data.effects !== undefined) {
+            if (!Array.isArray(data.effects)) {
+                throw new ValidationError('MoveContext effects must be an array');
+            }
+            effects = data.effects.map((effectData: any) => MoveEffect.fromJSON(effectData));
+        }
+
+        return new MoveContext(data.moveType as MoveType, data.size, data.decorId, effects);
     }
 
     private validateMoveType(moveType: MoveType): void {
@@ -98,6 +117,41 @@ export class  MoveContext {
 
         if (decorId < 0) {
             throw new ValidationError('MoveContext decorId must be a non-negative integer');
+        }
+    }
+
+    private validateEffects(effects: readonly MoveEffect[]): void {
+        if (!Array.isArray(effects)) {
+            throw new ValidationError('MoveContext effects must be an array');
+        }
+
+        const seenKinds = new Set<MoveEffectKind>();
+        let sizeCount = 0;
+        let typeCount = 0;
+
+        for (const effect of effects) {
+            if (!(effect instanceof MoveEffect)) {
+                throw new ValidationError('MoveContext effects must contain MoveEffect instances');
+            }
+
+            if (seenKinds.has(effect.kind)) {
+                throw new ValidationError(`MoveContext effects cannot contain duplicate kind: ${effect.kind}`);
+            }
+            seenKinds.add(effect.kind);
+
+            if (moveEffectCategory(effect.kind) === 'size') {
+                sizeCount += 1;
+            } else {
+                typeCount += 1;
+            }
+        }
+
+        if (sizeCount > 1) {
+            throw new ValidationError('MoveContext effects can include at most one size-category effect');
+        }
+
+        if (typeCount > 1) {
+            throw new ValidationError('MoveContext effects can include at most one type-category effect');
         }
     }
 }

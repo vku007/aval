@@ -6,7 +6,7 @@ import { Round } from '../value-object/Round.js';
 import { RoundStatus } from '../value-object/RoundStatus.js';
 import { SubRound } from '../value-object/SubRound.js';
 import { SubRoundStatus } from '../value-object/SubRoundStatus.js';
-import { Move, MoveContext, MoveType } from '../value-object/Move.js';
+import { Move } from '../value-object/Move.js';
 import { GameStatus } from '../value-object/GameStatus.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
 import { GameOutcome } from '../value-object/GameOutcome.js';
@@ -47,6 +47,7 @@ interface MoveData {
     moveType: string;
     size: number;
     decorId: number;
+    effects?: { kind: string }[];
   };
   time?: number;
 }
@@ -331,18 +332,17 @@ export class GameEntity {
   private moveToData(move: Move): MoveData {
     return {
       userId: move.userId,
-      context: move.context.toJSON() as { moveType: string; size: number; decorId: number },
+      context: move.context.toJSON() as MoveData['context'],
       time: move.time
     };
   }
 
   private dataToMove(moveData: MoveData): Move {
-    const context = new MoveContext(
-      moveData.context.moveType as MoveType,
-      moveData.context.size,
-      moveData.context.decorId
-    );
-    return new Move(moveData.userId, context, moveData.time || Date.now());
+    return Move.fromJSON({
+      userId: moveData.userId,
+      context: moveData.context,
+      time: moveData.time || Date.now()
+    });
   }
 
   // JSON serialization

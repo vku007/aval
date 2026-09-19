@@ -2,7 +2,7 @@
 
 Panel names and on-screen layout for [`ExtendedGameScene`](js/scenes/ExtendedGameScene.js). Canvas is always **390×844**. Switch layout with `?layout=thumb|balanced|arena`. Default is **Thumb**.
 
-Classic game uses the same panel set and the same three layouts.
+Classic game uses the same panel set and the same three layouts, except **EffectsPanel** (extended only).
 
 ## All panel names
 
@@ -18,9 +18,10 @@ Classic game uses the same panel set and the same three layouts.
 | **RoundsResultPanel** | `createRoundsResultPanel` | Label `ROUNDS` + round tiles |
 | **RoundResultPanel** | `createRoundResultPanel` | One finished/in-progress round tile |
 | **PlaceholderRoundPanel** | `createPlaceholderRoundPanel` | Empty future round tile |
-| **CurrentMovePanel** | `createCurrentMovePanel` | Pending pick (READY) / status / waiting opponent (NEXT) |
+| **CurrentMovePanel** | `createCurrentMovePanel` | Pending pick (READY) / status / waiting opponent (NEXT); extended also nests EffectsPanel |
 | **MainPanel** | `createMainPanel` | Status text (`Loading match...`, `STONE 1 ready — tap GO`, …) |
 | **SidePlaceholder** | `createSidePlaceholder` | READY = move you will send; NEXT = `…` until GO |
+| **EffectsPanel** | `createEffectsPanel` | Extended only. Label `EFFECTS` + four buttons (`NEG` / `OVER` / `PROT` / `SIZE`) that set `effects[]` |
 | **ThumbPlayPanel** | `createThumbPlayPanel` | GO, STONE/SCISSORS/PAPER, CANCEL, BACK |
 | **TwoRowActionPanel** | `createTwoRowActionPanel` | CANCEL + GO on top, three moves below |
 | **GridActionPanel** | `createGridActionPanel` | 2×2 move grid + CANCEL |
@@ -58,6 +59,10 @@ Before the first completed subround it shows `WAIT`. If a draw opens a new empty
 │   │  "Pick Stone, Scissors,       │     │
 │   │   or Paper"                   │     │
 │   └───────────────────────────────┘     │
+│   ┌───────────────────────────────┐     │
+│   │ EffectsPanel (extended)       │     │
+│   │ EFFECTS [NEG] [OVER] [PROT] [SIZE] │     │
+│   └───────────────────────────────┘     │
 ├─────────────────────────────────────────┤
 │ ThumbPlayPanel                    52%   │
 │                                         │
@@ -74,7 +79,7 @@ Before the first completed subround it shows `WAIT`. If a draw opens a new empty
 ```
 
 HudPanel **contains** PlayerScorePanel + RoundsResultPanel + EnemyScorePanel.  
-StatusCard **contains** MainPanel.
+StatusCard **contains** MainPanel, plus EffectsPanel in extended.
 
 ## Balanced (`four-panel`) — 10% / 12% / 14% / 18% / 46%
 
@@ -100,6 +105,9 @@ StatusCard **contains** MainPanel.
 │ │ READY  │ │ MainPanel   │ │ NEXT   │   │
 │ │ Stone 5│ │  status     │ │   …    │   │
 │ └────────┘ └─────────────┘ └────────┘   │
+│ ┌───────────────────────────────────┐   │
+│ │ EFFECTS  [ NEG ] [ OVER ] [ PROT ] [ SIZE ] │   │
+│ └───────────────────────────────────┘   │
 ├─────────────────────────────────────────┤
 │ TwoRowActionPanel                 46%   │
 │                                         │
@@ -134,6 +142,9 @@ StatusCard **contains** MainPanel.
 │ │ READY  │ │ MainPanel   │ │ NEXT   │   │
 │ │ Stone 5│ │  status     │ │   …    │   │
 │ └────────┘ └─────────────┘ └────────┘   │
+│ ┌───────────────────────────────────┐   │
+│ │ EFFECTS  [ NEG ] [ OVER ] [ PROT ] [ SIZE ] │   │
+│ └───────────────────────────────────┘   │
 ├─────────────────────────────────────────┤
 │ GridActionPanel                   36%   │
 │                                         │
@@ -166,7 +177,14 @@ StagePanel
 CurrentMovePanel
  ├── SidePlaceholder READY    (left, pending move)
  ├── MainPanel                (center, status text)
- └── SidePlaceholder NEXT     (right, … until GO)
+ ├── SidePlaceholder NEXT     (right, … until GO)
+ └── EffectsPanel             (extended only; NEG/OVER/PROT/SIZE)
+
+StatusCard (Thumb)
+ ├── MainPanel
+ └── EffectsPanel             (extended only)
+
+EffectsPanel is a multi-select of move effects. Tap a button to add that kind; tap again to clear it. Tapping a second size effect (NEG vs OVER) or type effect (PROT vs SIZE) replaces the first. Classic never shows it and always sends `effects: []`. `decorId` stays 0.
 
 StagePanel is the last resolved subround. CurrentMove READY/NEXT is the pending pick, not the result.
 ```

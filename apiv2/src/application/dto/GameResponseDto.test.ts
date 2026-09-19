@@ -75,7 +75,8 @@ describe('GameResponseDto', () => {
             context: {
               moveType: MoveType.Stone,
               size: 10,
-              decorId: 1
+              decorId: 1,
+              effects: []
             },
             time: expect.any(Number)
           }],
@@ -129,7 +130,8 @@ describe('RoundResponseDto', () => {
           context: {
             moveType: MoveType.Stone,
             size: 10,
-            decorId: 1
+            decorId: 1,
+            effects: []
           },
           time: expect.any(Number)
         }],
@@ -151,6 +153,7 @@ describe('MoveResponseDto', () => {
       expect(responseDto.context.moveType).toBe(MoveType.Stone);
       expect(responseDto.context.size).toBe(10);
       expect(responseDto.context.decorId).toBe(1);
+      expect(responseDto.context.effects).toEqual([]);
     });
   });
 
@@ -167,7 +170,8 @@ describe('MoveResponseDto', () => {
         context: {
           moveType: MoveType.Stone,
           size: 10,
-          decorId: 1
+          decorId: 1,
+          effects: []
         },
         time: expect.any(Number)
       });

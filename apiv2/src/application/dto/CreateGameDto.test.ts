@@ -45,6 +45,34 @@ describe('CreateGameDto', () => {
       expect(result.rounds[0].id).toBe('round-1');
       expect(result.rounds[0].moves).toHaveLength(1);
       expect(result.rounds[0].moves[0].userId).toBe('user-1');
+      expect(result.rounds[0].moves[0].context.effects).toEqual([]);
+    });
+
+    it('should accept move effects', () => {
+      const validData = {
+        id: 'game-1',
+        usersIds: ['user-1'],
+        rounds: [{
+          id: 'round-1',
+          moves: [{
+            userId: 'user-1',
+            context: {
+              moveType: 'Stone',
+              size: 10,
+              decorId: 1,
+              effects: [{ kind: 'Overpower' }, { kind: 'Protection' }]
+            }
+          }],
+          isFinished: false
+        }],
+        isFinished: false
+      };
+
+      const result = CreateGameDtoValidator.validate(validData);
+      expect(result.rounds[0].moves[0].context.effects).toEqual([
+        { kind: 'Overpower' },
+        { kind: 'Protection' }
+      ]);
     });
 
     it('should apply default values', () => {

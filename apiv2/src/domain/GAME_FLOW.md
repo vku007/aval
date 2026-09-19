@@ -99,8 +99,9 @@ One throw pair:
 ### `Move`
 
 - `userId`, `time`
-- `MoveContext`: `moveType` (`Stone` | `Paper` | `Scissors`), `size`, and `decorId`
+- `MoveContext`: `moveType` (`Stone` | `Paper` | `Scissors`), `size`, `decorId`, and `effects`
 - `size` is unused in Classic. In Extended, equal `MoveType` compares `size` (higher wins; equal is a draw). Different types ignore `size`. `decorId` is visual only.
+- `effects` is a list of `MoveEffect` value objects (`kind`: `NegateSize`, `Overpower`, `Protection`, `SizeOnly`). Omitted `effects` is `[]`. At most one size-category kind (`NegateSize` or `Overpower`) and one type-category kind (`Protection` or `SizeOnly`). Classic ignores effects. Extended applies effects from the single throw that has any (NPC throws none).
 
 ### `Action`
 

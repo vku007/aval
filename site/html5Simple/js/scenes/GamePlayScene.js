@@ -1,7 +1,7 @@
 /**
  * GamePlayScene
  * Shared play layout: HUD, Stage, CurrentMove / status, actions, scores, rounds.
- * ClassicGameScene and ExtendedGameScene only override size / cancel rules.
+ * ClassicGameScene and ExtendedGameScene only override size / cancel / effects rules.
  */
 class GamePlayScene extends Phaser.Scene {
     constructor(config) {
@@ -14,13 +14,15 @@ class GamePlayScene extends Phaser.Scene {
         this.layout = UI.layout;
         this.sceneState = {
             currentAction: null,
-            isActionReady: false
+            isActionReady: false,
+            selectedEffects: []
         };
         this.roundKeys = null;
         this.lastPlayerScore = undefined;
         this.lastEnemyScore = undefined;
         this.lastStageKey = null;
         this.cancelButton = null;
+        this.effectButtons = null;
         if (typeof uiLog === 'function') {
             uiLog('[GamePlayScene] Scene state initialized', this.scene.key, this.currentGameId);
         }
@@ -451,7 +453,55 @@ class GamePlayScene extends Phaser.Scene {
                 this.enableButton(btn);
             }
         });
+        if (this.effectButtons) {
+            this.effectButtons.forEach((btn) => {
+                if (isFinished) {
+                    this.disableButton(btn);
+                } else {
+                    this.enableButton(btn);
+                }
+            });
+            this.updateEffectSelection();
+        }
         this.updateCancelButton();
+    }
+
+    updateEffectSelection() {
+        if (!this.effectButtons) {
+            return;
+        }
+        const selected = this.sceneState.selectedEffects || [];
+        this.effectButtons.forEach((btn) => {
+            fxSelectMove(btn, selected.includes(btn.effectKind));
+        });
+    }
+
+    onSelectEffect(kind, category) {
+        if (this.gameData && SimpleGameSceneUtil.isGameFinished(this.gameData)) {
+            return;
+        }
+        const selected = this.sceneState.selectedEffects || [];
+        if (selected.includes(kind)) {
+            this.sceneState.selectedEffects = selected.filter((k) => k !== kind);
+        } else {
+            const defs = this.getEffects();
+            this.sceneState.selectedEffects = selected.filter((k) => {
+                const def = defs.find((d) => d.kind === k);
+                return def && def.category !== category;
+            });
+            this.sceneState.selectedEffects.push(kind);
+        }
+        const move = this.sceneState.currentAction?.context?.move?.context;
+        if (move) {
+            move.effects = this.selectedEffectPayload();
+            move.decorId = 0;
+        }
+        this.updateEffectSelection();
+        this.updatePendingMoveDisplay();
+    }
+
+    selectedEffectPayload() {
+        return (this.sceneState.selectedEffects || []).map((kind) => ({ kind }));
     }
 
     updateCancelButton() {
@@ -736,26 +786,100 @@ class GamePlayScene extends Phaser.Scene {
         }
     }
 
+    getEffects() {
+        return [];
+    }
+
+    showsEffectsPanel() {
+        return this.getEffects().length > 0;
+    }
+
     createStatusCard(x, y, width, height) {
         this.strokePanel(x, y, width, height);
         const pad = 10;
-        this.createMainPanel(x + pad, y + pad, width - pad * 2, height - pad * 2);
+        const gap = 8;
+        const innerX = x + pad;
+        const innerY = y + pad;
+        const innerW = width - pad * 2;
+        const innerH = height - pad * 2;
+        const effectsH = this.effectsPanelHeight(innerH);
+        const mainH = innerH - (effectsH ? effectsH + gap : 0);
+        this.createMainPanel(innerX, innerY, innerW, mainH);
+        if (effectsH) {
+            this.createEffectsPanel(innerX, innerY + mainH + gap, innerW, effectsH);
+        }
     }
 
     createCurrentMovePanel(x, y, width, height) {
         this.strokePanel(x, y, width, height);
-        const panelContentY = y + 8;
-        const panelContentHeight = height - 16;
+        const pad = 8;
+        const gap = 8;
+        const panelContentY = y + pad;
+        const panelContentHeight = height - pad * 2;
+        const effectsH = this.effectsPanelHeight(panelContentHeight);
+        const topH = panelContentHeight - (effectsH ? effectsH + gap : 0);
         const sideRatio = this.layout.sideColumnRatio || 0.22;
         const sidePanelWidth = Math.max(64, Math.floor(width * sideRatio));
         const leftPanelX = x + 10;
-        this.createSidePlaceholder(leftPanelX, panelContentY, sidePanelWidth, panelContentHeight, 'READY', 'leftPanelText');
+        this.createSidePlaceholder(leftPanelX, panelContentY, sidePanelWidth, topH, 'READY', 'leftPanelText');
         const enemyPanelX = x + width - sidePanelWidth - 10;
-        this.createSidePlaceholder(enemyPanelX, panelContentY, sidePanelWidth, panelContentHeight, 'NEXT', 'enemyPanelText');
+        this.createSidePlaceholder(enemyPanelX, panelContentY, sidePanelWidth, topH, 'NEXT', 'enemyPanelText');
         const movePanelX = leftPanelX + sidePanelWidth + 10;
         const movePanelWidth = enemyPanelX - movePanelX - 10;
-        this.createMainPanel(movePanelX, panelContentY, movePanelWidth, panelContentHeight);
+        this.createMainPanel(movePanelX, panelContentY, movePanelWidth, topH);
+        if (effectsH) {
+            this.createEffectsPanel(x + 10, panelContentY + topH + gap, width - 20, effectsH);
+        }
         this.updatePendingMoveDisplay();
+    }
+
+    effectsPanelHeight(availableHeight) {
+        if (!this.showsEffectsPanel()) {
+            return 0;
+        }
+        return Math.max(48, Math.min(64, Math.floor(availableHeight * 0.35)));
+    }
+
+    createEffectsPanel(x, y, width, height) {
+        const bg = this.add.graphics();
+        bg.fillStyle(0xf5f5f5, 1);
+        bg.fillRect(x, y, width, height);
+        bg.lineStyle(1, 0x666666, 1);
+        bg.strokeRect(x, y, width, height);
+
+        const labelW = 72;
+        this.add.text(x + 8, y + height / 2, 'EFFECTS', {
+            font: `bold ${UI.small}px monospace`,
+            fill: '#333333'
+        }).setOrigin(0, 0.5);
+
+        const pad = 6;
+        const gap = 6;
+        const defs = this.getEffects();
+        const areaX = x + labelW;
+        const areaW = width - labelW - pad;
+        const btnH = Math.max(28, height - pad * 2);
+        const btnW = Math.max(28, Math.floor((areaW - gap * (defs.length - 1)) / defs.length));
+        const startX = areaX + btnW / 2;
+        const btnY = y + height / 2;
+
+        this.effectButtons = [];
+        defs.forEach((def, index) => {
+            const btn = this.createActionButton(
+                startX + (btnW + gap) * index,
+                btnY,
+                def.label,
+                () => this.onSelectEffect(def.kind, def.category),
+                btnW,
+                btnH
+            );
+            btn.effectKind = def.kind;
+            btn.effectCategory = def.category;
+            btn.isEffect = true;
+            btn.buttonText.setFont(`${UI.small}px monospace`);
+            this.effectButtons.push(btn);
+        });
+        this.updateEffectSelection();
     }
 
     createSidePlaceholder(x, y, width, height, label, textKey) {
@@ -1006,7 +1130,8 @@ class GamePlayScene extends Phaser.Scene {
                     context: {
                         moveType: moveType,
                         size: size,
-                        decorId: 0
+                        decorId: 0,
+                        effects: this.selectedEffectPayload()
                     },
                     time: Date.now()
                 }

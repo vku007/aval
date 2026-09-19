@@ -34,7 +34,12 @@ const UpdateGameSchema = z.object({
           .nonnegative('Size must be non-negative'),
         decorId: z.number()
           .int('DecorId must be an integer')
-          .nonnegative('DecorId must be non-negative')
+          .nonnegative('DecorId must be non-negative'),
+        effects: z.array(z.object({
+          kind: z.enum(['NegateSize', 'Overpower', 'Protection', 'SizeOnly'])
+        }))
+          .optional()
+          .default([])
       }),
       
       time: z.number()
@@ -115,6 +120,7 @@ export interface MoveDto {
     moveType: 'Stone' | 'Paper' | 'Scissors';
     size: number;
     decorId: number;
+    effects?: { kind: 'NegateSize' | 'Overpower' | 'Protection' | 'SizeOnly' }[];
   };
   time?: number;
 }

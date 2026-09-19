@@ -5,6 +5,7 @@ import { SubRound } from '../../domain/value-object/SubRound.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { GameOutcome } from '../../domain/value-object/GameOutcome.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
+import { MoveEffect, MoveEffectKind } from '../../domain/value-object/MoveEffect.js';
 
 describe('ExtendedGameResolver.calculateSubRoundResult', () => {
   const resolver = new ExtendedGameResolver(new SimpleGameOutcomeResolver());
@@ -15,15 +16,21 @@ describe('ExtendedGameResolver.calculateSubRoundResult', () => {
     type1: MoveType,
     size1: number,
     type2: MoveType,
-    size2: number
+    size2: number,
+    effects1: MoveEffect[] = [],
+    effects2: MoveEffect[] = []
   ): SubRound {
     const now = Date.now();
     const subRound = new SubRound(1, now, null, now);
     subRound.moves = [
-      new Move(USER_1, new MoveContext(type1, size1, 0), now),
-      new Move(USER_2, new MoveContext(type2, size2, 0), now),
+      new Move(USER_1, new MoveContext(type1, size1, 0, effects1), now),
+      new Move(USER_2, new MoveContext(type2, size2, 0, effects2), now),
     ];
     return subRound;
+  }
+
+  function effect(kind: MoveEffectKind): MoveEffect[] {
+    return [new MoveEffect(kind)];
   }
 
   it('same type + larger size wins', () => {
@@ -72,5 +79,139 @@ describe('ExtendedGameResolver.calculateSubRoundResult', () => {
     expect(() => resolver.calculateSubRoundResult(subRound, new GameOutcome())).toThrow(
       'Not enough moves to calculate sub-round result'
     );
+  });
+
+  describe('effects (actor is USER_1)', () => {
+    it('NegateSize: same type different sizes is a draw', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone, 8, MoveType.Stone, 3, effect(MoveEffectKind.NegateSize)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBeUndefined();
+    });
+
+    it('NegateSize: different types still use RPS', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Paper, 1, MoveType.Stone, 100, effect(MoveEffectKind.NegateSize)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_1);
+    });
+
+    it('Overpower: same type wins even with a smaller size', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone, 1, MoveType.Stone, 9, effect(MoveEffectKind.Overpower)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_1);
+    });
+
+    it('Overpower: unused when types differ', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone, 9, MoveType.Paper, 1, effect(MoveEffectKind.Overpower)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_2);
+    });
+
+    it('Protection: type loss becomes a draw', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone, 5, MoveType.Paper, 1, effect(MoveEffectKind.Protection)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBeUndefined();
+    });
+
+    it('Protection: type win is still a win', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Paper, 1, MoveType.Stone, 9, effect(MoveEffectKind.Protection)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_1);
+    });
+
+    it('Protection: does not change a size loss', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone, 1, MoveType.Stone, 9, effect(MoveEffectKind.Protection)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_2);
+    });
+
+    it('SizeOnly: different types compare size', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Paper, 1, MoveType.Stone, 100, effect(MoveEffectKind.SizeOnly)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_2);
+    });
+
+    it('SizeOnly + Overpower: actor wins regardless of type or size', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Paper,
+        1,
+        MoveType.Stone,
+        100,
+        [new MoveEffect(MoveEffectKind.SizeOnly), new MoveEffect(MoveEffectKind.Overpower)]
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_1);
+    });
+
+    it('SizeOnly + NegateSize: different types become a draw', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Paper,
+        1,
+        MoveType.Stone,
+        100,
+        [new MoveEffect(MoveEffectKind.SizeOnly), new MoveEffect(MoveEffectKind.NegateSize)]
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBeUndefined();
+    });
+
+    it('Protection + Overpower: type loss is still a draw', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone,
+        1,
+        MoveType.Paper,
+        9,
+        [new MoveEffect(MoveEffectKind.Protection), new MoveEffect(MoveEffectKind.Overpower)]
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBeUndefined();
+    });
+
+    it('Protection + Overpower: same type smaller size wins', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone,
+        1,
+        MoveType.Stone,
+        9,
+        [new MoveEffect(MoveEffectKind.Protection), new MoveEffect(MoveEffectKind.Overpower)]
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_1);
+    });
+
+    it('Protection + NegateSize: same type is a draw', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone,
+        8,
+        MoveType.Stone,
+        3,
+        [new MoveEffect(MoveEffectKind.Protection), new MoveEffect(MoveEffectKind.NegateSize)]
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBeUndefined();
+    });
+
+    it('Overpower on USER_2: smaller size still wins', () => {
+      const subRound = subRoundWithMoves(
+        MoveType.Stone, 9, MoveType.Stone, 1, [], effect(MoveEffectKind.Overpower)
+      );
+      resolver.calculateSubRoundResult(subRound, new GameOutcome());
+      expect(subRound.winnerId).toBe(USER_2);
+    });
   });
 });

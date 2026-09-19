@@ -124,7 +124,8 @@ describe('Round', () => {
             context: {
               moveType: MoveType.Stone,
               size: 10,
-              decorId: 1
+              decorId: 1,
+              effects: []
             },
             time: expect.any(Number)
           }],

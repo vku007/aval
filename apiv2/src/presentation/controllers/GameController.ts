@@ -203,15 +203,19 @@ export class GameController {
       const { Round } = await import('../../domain/value-object/Round.js');
       const { RoundStatus } = await import('../../domain/value-object/RoundStatus.js');
       const { SubRound } = await import('../../domain/value-object/SubRound.js');
-      const { Move, MoveContext, MoveType } = await import('../../domain/value-object/Move.js');
+      const { Move } = await import('../../domain/value-object/Move.js');
       
       const moves = roundData.moves?.map((moveData: any) => {
-        const context = new MoveContext(
-          (moveData.context?.moveType || 'Stone') as any,
-          moveData.context?.size || 0,
-          moveData.context?.decorId || 0
-        );
-        return new Move(moveData.userId, context, moveData.time || Date.now());
+        return Move.fromJSON({
+          userId: moveData.userId,
+          context: {
+            moveType: moveData.context?.moveType || 'Stone',
+            size: moveData.context?.size || 0,
+            decorId: moveData.context?.decorId || 0,
+            effects: moveData.context?.effects
+          },
+          time: moveData.time || Date.now()
+        });
       }) || [];
       
       const startTime = roundData.startTime || Date.now();
@@ -267,14 +271,18 @@ export class GameController {
 
     try {
       const moveData = request.body as any;
-      const { Move, MoveContext, MoveType } = await import('../../domain/value-object/Move.js');
+      const { Move } = await import('../../domain/value-object/Move.js');
       
-      const context = new MoveContext(
-        (moveData.context?.moveType || 'Stone') as any,
-        moveData.context?.size || 0,
-        moveData.context?.decorId || 0
-      );
-      const move = new Move(moveData.userId, context, moveData.time || Date.now());
+      const move = Move.fromJSON({
+        userId: moveData.userId,
+        context: {
+          moveType: moveData.context?.moveType || 'Stone',
+          size: moveData.context?.size || 0,
+          decorId: moveData.context?.decorId || 0,
+          effects: moveData.context?.effects
+        },
+        time: moveData.time || Date.now()
+      });
       const gameDto = await this.gameService.addMoveToGameRound(gameId, roundId, move, ifMatch);
       const metadata = await this.gameService.getGameMetadata(gameId);
       
