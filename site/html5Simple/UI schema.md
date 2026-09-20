@@ -192,3 +192,29 @@ StagePanel is the last resolved subround. CurrentMove READY/NEXT is the pending 
 Panels are stacked full-width from top to bottom. Nested score/side panels sit left-to-right inside their parent.
 
 Layout fractions live in [`js/frameSize.js`](js/frameSize.js) (`UI.layouts`). Shared panel code lives in [`js/scenes/GamePlayScene.js`](js/scenes/GamePlayScene.js).
+
+## TestsScene
+
+Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI PLAZMA BALL**, **HOT MAP BALL**, **BACK**.
+
+## UITestScene
+
+Sandbox from Tests **UI PLAZMA BALL**. Not a play layout.
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **TestPanel** | `createTestPanel` | Deep blue field with a moving yellow plasma ball (`attachPlasmaBall`). Tap to orbit around that point (radius = 3 ball sizes). The orbit center eases to the new tap so the ball flies. |
+
+BACK under the panel returns to Tests.
+
+## HotMapBallScene
+
+Sandbox from Tests **HOT MAP BALL**. Not a play layout.
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **TestPanel** | `createTestPanel` | Starts black. Tap drops a hot dot (`attachHeatMap`). Heat diffuses into neighboring pixels; hotter cells are brighter (black → red → yellow → white). |
+| **SettingsPanel** | `createSettingsPanel` | Live **− / +** steppers: **DIFFUSE** (spread), **COOL** (fade), **DOT SIZE** (click radius), **DOT HEAT** (click energy). Changes apply to the running field immediately. |
+
+BACK under the panel returns to Tests.
+

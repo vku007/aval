@@ -2,7 +2,7 @@
  * Game configuration — logical size 390×844, Scale.FIT into the viewport.
  */
 
-console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, ErrorModalScene]);
+console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, TestsScene, UITestScene, HotMapBallScene, ErrorModalScene]);
 
 applyGameFrame(fitGameFrame());
 
@@ -12,13 +12,17 @@ const config = {
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
     backgroundColor: '#ffffff',
+    render: {
+        antialias: true,
+        powerPreference: 'high-performance'
+    },
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: GAME_WIDTH,
         height: GAME_HEIGHT
     },
-    scene: [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, ErrorModalScene]
+    scene: [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, TestsScene, UITestScene, HotMapBallScene, ErrorModalScene]
 };
 
 console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);

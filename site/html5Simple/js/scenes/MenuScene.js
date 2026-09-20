@@ -51,6 +51,7 @@ class MenuScene extends Phaser.Scene {
             { label: 'LOGOUT', onClick: () => this.onLogoutClick(), height: UI.menuBtnH },
             { label: 'INVENTORY', onClick: () => console.log('Inventory Clicked'), height: UI.menuBtnH },
             { label: 'START GAME', onClick: () => this.onStartGameClick(), height: UI.menuPrimaryH },
+            { label: 'UI TESTS', onClick: () => this.onUiTestsClick(), height: UI.menuBtnH },
             { label: 'EXIT', onClick: () => console.log('Exit Clicked'), height: UI.menuBtnH },
         ];
         const gap = 16;
@@ -150,6 +151,11 @@ class MenuScene extends Phaser.Scene {
     onStartGameClick() {
         console.log('[MenuScene] Start Game button clicked');
         fxGoTo(this, 'GameSelectScene', undefined, { flash: true });
+    }
+
+    onUiTestsClick() {
+        console.log('[MenuScene] UI Tests button clicked');
+        fxGoTo(this, 'TestsScene');
     }
 
     updatePlayerPanel(user) {
