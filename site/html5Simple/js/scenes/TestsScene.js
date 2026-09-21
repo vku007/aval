@@ -8,7 +8,12 @@ class TestsScene extends Phaser.Scene {
         console.log('[TestsScene] Constructor called');
     }
 
+    init() {
+        enterTestsCanvas(this);
+    }
+
     create() {
+        enterTestsCanvas(this);
         console.log('[TestsScene] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;
@@ -25,8 +30,12 @@ class TestsScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         const buttons = [
+            { label: 'UI EDITOR', onClick: () => this.onUiEditorClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'UI PLAZMA BALL', onClick: () => this.onPlasmaClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'HOT MAP BALL', onClick: () => this.onHotMapClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'ROTATED HOT MAP BALL', onClick: () => this.onRotatedHotMapClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'MOVE HOT ROD', onClick: () => this.onMoveHotRodClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'MOVE HOT CIRCLE', onClick: () => this.onMoveHotCircleClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BACK', onClick: () => this.onBackClick(), height: UI.menuBtnH, strong: false }
         ];
         const gap = 16;
@@ -50,6 +59,11 @@ class TestsScene extends Phaser.Scene {
         });
     }
 
+    onUiEditorClick() {
+        console.log('[TestsScene] UI Editor clicked');
+        fxGoTo(this, 'UIEditorScene');
+    }
+
     onPlasmaClick() {
         console.log('[TestsScene] UI plazma ball clicked');
         fxGoTo(this, 'UITestScene');
@@ -58,6 +72,21 @@ class TestsScene extends Phaser.Scene {
     onHotMapClick() {
         console.log('[TestsScene] Hot map ball clicked');
         fxGoTo(this, 'HotMapBallScene');
+    }
+
+    onRotatedHotMapClick() {
+        console.log('[TestsScene] Rotated hot map ball clicked');
+        fxGoTo(this, 'RotatedHotMapBallScene');
+    }
+
+    onMoveHotRodClick() {
+        console.log('[TestsScene] Move hot rod clicked');
+        fxGoTo(this, 'MoveHotRodScene');
+    }
+
+    onMoveHotCircleClick() {
+        console.log('[TestsScene] Move hot circle clicked');
+        fxGoTo(this, 'MoveHotCircleScene');
     }
 
     onBackClick() {

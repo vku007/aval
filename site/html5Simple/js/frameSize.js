@@ -1,10 +1,23 @@
 /**
- * Logical game size is always 390×844 (phone-m). Phaser Scale.FIT
- * scales that into a same-aspect box that fills the viewport.
+ * Logical game size is 390×844 (phone-m). Tests hub and its sandboxes
+ * switch to 780×844 (2× width). Phaser Scale.FIT scales the current
+ * size into a same-aspect box that fills the viewport.
  */
 const GAME_WIDTH = 390;
 const GAME_HEIGHT = 844;
+const GAME_WIDTH_WIDE = GAME_WIDTH * 2;
 const GAME_ASPECT = GAME_WIDTH / GAME_HEIGHT;
+
+let logicalWidth = GAME_WIDTH;
+let logicalHeight = GAME_HEIGHT;
+
+function getGameAspect() {
+    return logicalWidth / logicalHeight;
+}
+
+function getLogicalGameSize() {
+    return { width: logicalWidth, height: logicalHeight };
+}
 
 const LAYOUT_KEYS = ['thumb', 'balanced', 'arena'];
 const LAYOUT_STORAGE_KEY = 'uiLayout';
@@ -336,16 +349,59 @@ applyUiFx(resolveFxKey());
 function fitGameFrame(availW, availH) {
   const width = availW ?? window.innerWidth;
   const height = availH ?? window.innerHeight;
+  const aspect = getGameAspect();
   let w;
   let h;
-  if (width / height > GAME_ASPECT) {
+  if (width / height > aspect) {
     h = height;
-    w = Math.floor(h * GAME_ASPECT);
+    w = Math.floor(h * aspect);
   } else {
     w = width;
-    h = Math.floor(w / GAME_ASPECT);
+    h = Math.floor(w / aspect);
   }
-  return { w: Math.max(1, w), h: Math.max(1, h), name: 'phone-m' };
+  const name = logicalWidth === GAME_WIDTH_WIDE ? 'phone-wide' : 'phone-m';
+  return { w: Math.max(1, w), h: Math.max(1, h), name: name };
+}
+
+function syncSceneCameras(width, height, scene) {
+  if (scene && scene.cameras && typeof scene.cameras.resize === 'function') {
+    scene.cameras.resize(width, height);
+    return;
+  }
+  if (!window.game || !window.game.scene || !Array.isArray(window.game.scene.scenes)) {
+    return;
+  }
+  window.game.scene.scenes.forEach((s) => {
+    if (s && s.sys && s.sys.isActive() && s.cameras && typeof s.cameras.resize === 'function') {
+      s.cameras.resize(width, height);
+    }
+  });
+}
+
+function setGameLogicalSize(width, height, scene) {
+  const changed = logicalWidth !== width || logicalHeight !== height;
+  logicalWidth = width;
+  logicalHeight = height;
+  applyGameFrame(fitGameFrame());
+  if (window.game && window.game.scale) {
+    if (changed && typeof window.game.scale.setGameSize === 'function') {
+      window.game.scale.setGameSize(width, height);
+    }
+    window.game.scale.refresh();
+  }
+  if (changed) {
+    syncSceneCameras(width, height, scene);
+  } else if (scene && scene.cameras && typeof scene.cameras.resize === 'function') {
+    scene.cameras.resize(width, height);
+  }
+}
+
+function enterTestsCanvas(scene) {
+  setGameLogicalSize(GAME_WIDTH_WIDE, GAME_HEIGHT, scene);
+}
+
+function exitTestsCanvas(scene) {
+  setGameLogicalSize(GAME_WIDTH, GAME_HEIGHT, scene);
 }
 
 function applyGameFrame(frame) {

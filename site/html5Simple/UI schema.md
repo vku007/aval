@@ -195,7 +195,33 @@ Layout fractions live in [`js/frameSize.js`](js/frameSize.js) (`UI.layouts`). Sh
 
 ## TestsScene
 
-Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI PLAZMA BALL**, **HOT MAP BALL**, **BACK**.
+Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**, **MOVE HOT CIRCLE**, **BACK**.
+
+## UIEditorScene
+
+Sandbox from Tests **UI EDITOR**. Not a play layout. Canvas is the Tests width **780×844**.
+
+```
+┌──────────────────┬──────────────────┐
+│ STAGE            │ EFFECTS          │
+│ UiHeatMap        │ DIFFUSE / COOL   │
+│ + UiHotBall ×3   │                  │
+│ + UiHotRod ×3    │                  │
+├──────────────────┼──────────────────┤
+│ OBJECTS          │ PROPS            │
+│ Hot Ball 1–3     │ ball: HEAT / GEO │
+│ Hot Rod 1–3      │ rod: HEAT / GEO  │
+└──────────────────┴──────────────────┘
+```
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **STAGE** | `createEditorPanel` + `new UiHeatMap` | One shared heat field ([`UiHeatMap`](js/ui/UiHeatMap.js) / `attachRotatedHeatField`). Three [`UiHotBall`](js/ui/UiHotBall.js) and three [`UiHotRod`](js/ui/UiHotRod.js) emitters stamp into it. Tap moves the **selected** object (orbit a ball, slide a rod along its normal). |
+| **EFFECTS** | `UiHeatMap.createEffectsEditor` | **HEAT**: DIFFUSE, COOL. **VIEW**: shared 3/4 camera (VIEW X/Y/Z) applied after each ball’s own plane tilts. Bottom **PLAY** / **STEP** / **STOP**. |
+| **OBJECTS** | `createObjectsList` | Select **Hot Ball 1–3** or **Hot Rod 1–3**. Bottom **SAVE** downloads a timestamped JSON preset to Downloads; **LOAD** opens a file chooser. |
+| **PROPS** | `UiPropEditor` on selected object | **Ball**: **HEAT** VISIBLE, DOT SIZE, DOT HEAT. **GEO** ANG SPEED, PHASE, RADIUS, CENTER X/Y, TILT X/Y/Z. **Rod**: **HEAT** VISIBLE, LINE HEAT. **GEO** THICKNESS, NOISE, GRAIN, FLICKER. **MOVE** SPEED, DELAY (hold at end, seconds), GAP (hold at start after snap, seconds), START/END X% Y% (−200 to 200, panel = 100%), START ANG, END ANG. The rod eases start pose → end pose, waits DELAY, snaps to start, waits GAP, then repeats. Tap Stage sets the selected rod’s end point. |
+
+BACK under the grid returns to Tests.
 
 ## UITestScene
 
@@ -215,6 +241,39 @@ Sandbox from Tests **HOT MAP BALL**. Not a play layout.
 |---|---|---|
 | **TestPanel** | `createTestPanel` | Starts black. Tap drops a hot dot (`attachHeatMap`). Heat diffuses into neighboring pixels; hotter cells are brighter (black → red → yellow → white). |
 | **SettingsPanel** | `createSettingsPanel` | Live **− / +** steppers: **DIFFUSE** (spread), **COOL** (fade), **DOT SIZE** (click radius), **DOT HEAT** (click energy). Changes apply to the running field immediately. |
+
+BACK under the panel returns to Tests.
+
+## RotatedHotMapBallScene
+
+Sandbox from Tests **ROTATED HOT MAP BALL**. Not a play layout.
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **TestPanel** | `createTestPanel` | Heat field with a moving hot ball (`attachRotatedHeatMap`). The ball wanders until a tap, then orbits that point in a plane tilted with **TILT X / Y / Z** (path looks like an ellipse). The orbit center eases like plasma. Heat trails from the path. |
+| **SettingsPanel** | `createSettingsPanel` | Two tabs. **HEAT**: DIFFUSE, COOL, DOT SIZE, DOT HEAT. **GEO**: ANG SPEED, RADIUS, TILT X, TILT Y, TILT Z (degrees). Live **− / +** steppers. |
+
+BACK under the panel returns to Tests.
+
+## MoveHotRodScene
+
+Sandbox from Tests **MOVE HOT ROD**. Not a play layout.
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **TestPanel** | `createTestPanel` | Heat field with a hot line (`attachHotRod`). The rod looks infinite: it always spans the panel. A tap eases it along the direction **orthogonal to ANGLE**. **ANGLE** rotates it in the view plane. Heat trails as it moves. Emission along the rod is noisy. |
+| **SettingsPanel** | `createSettingsPanel` | Two tabs. **HEAT**: DIFFUSE, COOL, LINE HEAT. **GEO**: THICKNESS, ANGLE (2D degrees), SPEED, NOISE, GRAIN, FLICKER. Live **− / +** steppers. |
+
+BACK under the panel returns to Tests.
+
+## MoveHotCircleScene
+
+Sandbox from Tests **MOVE HOT CIRCLE**. Not a play layout.
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **TestPanel** | `createTestPanel` | Heat field with a hot **ring** (`attachHotCircle`). A tap eases the center to the tap. **TILT X / Y / Z** rotate the circle's plane in 3D (path looks like an ellipse). |
+| **SettingsPanel** | `createSettingsPanel` | Three tabs. **HEAT**: DIFFUSE, COOL, CIRCLE HEAT, NOISE, GRAIN, FLICKER. **GEO**: RADIUS, THICKNESS, TILT X, TILT Y, TILT Z (degrees), SPEED. **WIND**: FORCE, DIR (degrees, 0 = right), GUST (curl-noise swirls and drifting vortices), X SPEED (scrolls the whole field horizontally; wraps). Live **− / +** steppers. |
 
 BACK under the panel returns to Tests.
 

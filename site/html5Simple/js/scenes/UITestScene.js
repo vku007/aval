@@ -8,7 +8,12 @@ class UITestScene extends Phaser.Scene {
         console.log('[UITestScene] Constructor called');
     }
 
+    init() {
+        enterTestsCanvas(this);
+    }
+
     create() {
+        enterTestsCanvas(this);
         console.log('[UITestScene] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;

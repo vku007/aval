@@ -8,7 +8,12 @@ class MenuScene extends Phaser.Scene {
         console.log('[MenuScene] Constructor called');
     }
 
+    init() {
+        exitTestsCanvas(this);
+    }
+
     create() {
+        exitTestsCanvas(this);
         console.log('[MenuScene] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;
