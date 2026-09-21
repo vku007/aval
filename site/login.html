@@ -235,14 +235,29 @@
     const COGNITO_DOMAIN = 'vkp-auth.auth.eu-north-1.amazoncognito.com';
     const CLIENT_ID = '77e2cmbthjul60ui7guh514u50';
 
+    function safeAppPath(value) {
+      const next = String(value || '');
+      if (!next.startsWith('/') || next.startsWith('//') || next.indexOf('\\') !== -1) return '/aval/';
+      if (next.indexOf('://') !== -1) return '/aval/';
+      if (next.startsWith('/login') || next.startsWith('/callback') || next.startsWith('/logout')) return '/aval/';
+      return next;
+    }
+
+    function afterLoginPath() {
+      const params = new URLSearchParams(window.location.search);
+      return safeAppPath(params.get('next') || sessionStorage.getItem('aval_after_login'));
+    }
+
     function loginWithAccount() {
-      // Redirect to Cognito Hosted UI
+      const next = afterLoginPath();
+      sessionStorage.setItem('aval_after_login', next);
       const loginUrl = `https://${COGNITO_DOMAIN}/login?` +
         `client_id=${CLIENT_ID}&` +
         `response_type=code&` +
         `scope=email+openid+profile&` +
-        `redirect_uri=${encodeURIComponent(API_BASE + '/callback.html')}`;
-      
+        `redirect_uri=${encodeURIComponent(API_BASE + '/callback.html')}&` +
+        `state=${encodeURIComponent(next)}`;
+
       window.location.href = loginUrl;
     }
 
@@ -277,8 +292,7 @@
         // Store tokens in cookies
         storeTokens(data.tokens);
 
-        // Redirect to app
-        window.location.href = '/';
+        window.location.href = afterLoginPath();
 
       } catch (error) {
         console.error('Failed to create guest user:', error);
@@ -315,8 +329,7 @@
     function checkExistingAuth() {
       const idToken = document.cookie.split('; ').find(row => row.startsWith('idToken='));
       if (idToken) {
-        // Already logged in, redirect to app
-        window.location.href = '/';
+        window.location.href = afterLoginPath();
       }
     }
 

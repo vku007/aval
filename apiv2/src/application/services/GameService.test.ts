@@ -17,6 +17,7 @@ const mockRepository = {
   save: vi.fn(),
   delete: vi.fn(),
   findAll: vi.fn(),
+  listIds: vi.fn(),
   getMetadata: vi.fn()
 };
 
@@ -234,12 +235,9 @@ describe('GameService', () => {
   });
 
   describe('listGames', () => {
-    it('should return list of games', async () => {
-      const game1 = new GameEntity('game-1', ['user-1'], [], GameStatus.Created);
-      const game2 = new GameEntity('game-2', ['user-2'], [], GameStatus.Created);
-      
-      mockRepository.findAll.mockResolvedValueOnce({
-        items: [game1, game2],
+    it('should return list of games from keys without loading entities', async () => {
+      mockRepository.listIds.mockResolvedValueOnce({
+        names: ['game-1', 'game-2'],
         nextCursor: undefined
       });
 
@@ -248,17 +246,38 @@ describe('GameService', () => {
       expect(result.names).toHaveLength(2);
       expect(result.names[0]).toBe('game-1');
       expect(result.names[1]).toBe('game-2');
+      expect(mockRepository.findAll).not.toHaveBeenCalled();
     });
 
-    it('should pass pagination parameters', async () => {
-      mockRepository.findAll.mockResolvedValueOnce({
-        items: [],
+    it('should pass pagination parameters and default limit to 100', async () => {
+      mockRepository.listIds.mockResolvedValueOnce({
+        names: [],
         nextCursor: undefined
       });
 
       await gameService.listGames('game-', 10, 'cursor-123');
+      expect(mockRepository.listIds).toHaveBeenCalledWith('game-', 10, 'cursor-123');
 
-      expect(mockRepository.findAll).toHaveBeenCalledWith('game-', 10, 'cursor-123');
+      mockRepository.listIds.mockResolvedValueOnce({ names: [] });
+      await gameService.listGames();
+      expect(mockRepository.listIds).toHaveBeenLastCalledWith(undefined, 100, undefined);
+    });
+  });
+
+  describe('findGamesByUserId', () => {
+    it('returns games whose usersIds include the user and reports truncated', async () => {
+      const mine = new GameEntity('game-1', ['sub-ada', 'NPC_1'], [], GameStatus.Created);
+      const other = new GameEntity('game-2', ['someone-else'], [], GameStatus.Created);
+      mockRepository.findAll.mockResolvedValueOnce({
+        items: [mine, other],
+        nextCursor: 'more'
+      });
+
+      const result = await gameService.findGamesByUserId('sub-ada', 2);
+
+      expect(result.games).toHaveLength(1);
+      expect(result.games[0].id).toBe('game-1');
+      expect(result.truncated).toBe(true);
     });
   });
 

@@ -58,6 +58,11 @@ The API supports CORS with the following configuration:
 | **Users** | `/apiv2/internal/users` | GET, POST | admin |
 | **User** | `/apiv2/internal/users/{id}` | GET, PUT, PATCH, DELETE | admin |
 | **User Meta** | `/apiv2/internal/users/{id}/meta` | GET | admin |
+| **Cognito users** | `/apiv2/internal/cognito-users` | GET, POST | admin |
+| **Cognito user** | `/apiv2/internal/cognito-users/{username}` | GET, PATCH, DELETE | admin |
+| **Game profile** | `/apiv2/internal/cognito-users/{username}/game-profile` | PUT, PATCH | admin |
+| **User games** | `/apiv2/internal/cognito-users/{username}/games` | GET | admin |
+| **Audit logs** | `/apiv2/internal/audit-logs` | GET | admin |
 | **Games** | `/apiv2/internal/games` | GET, POST | admin |
 | **Game** | `/apiv2/internal/games/{id}` | GET, PUT, PATCH, DELETE | admin |
 | **Game Meta** | `/apiv2/internal/games/{id}/meta` | GET | admin |
@@ -955,6 +960,119 @@ Delete a user permanently.
 curl -X DELETE "https://vkp-consulting.fr/apiv2/internal/users/user-123" \
   -H "If-Match: \"abc123\""
 ```
+
+---
+
+## Cognito Users Admin API (`/apiv2/internal/cognito-users`)
+
+Admin-only management of Cognito pool users, joined to S3 game profiles (`id` = Cognito `sub`). `username` is the Cognito username (email), URL-encoded. Delete is Cognito-only: the S3 profile and games are left in place. Admins cannot delete, disable, or demote themselves.
+
+UI: https://vkp-consulting.fr/users/
+
+### List Cognito users
+
+**GET** `/apiv2/internal/cognito-users`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `limit` | number | Page size, max 60 (default 20) |
+| `cursor` | string | Cognito pagination token |
+| `emailPrefix` | string | Filter `email ^= "..."` |
+| `group` | string | `admin`, `user`, or `guest` |
+
+```json
+{
+  "users": [
+    {
+      "username": "ada@vkp-test.local",
+      "sub": "…",
+      "email": "ada@vkp-test.local",
+      "displayName": "Ada",
+      "group": "user",
+      "enabled": true,
+      "status": "CONFIRMED",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-02T00:00:00.000Z",
+      "gameProfile": { "id": "…", "name": "Ada", "externalId": 123 }
+    }
+  ],
+  "nextCursor": "…"
+}
+```
+
+`gameProfile` is `null` when there is no S3 object.
+
+```bash
+curl -X GET "https://vkp-consulting.fr/apiv2/internal/cognito-users?limit=20" \
+  -H "Authorization: Bearer $ID_TOKEN"
+```
+
+### Create Cognito user
+
+**POST** `/apiv2/internal/cognito-users`
+
+```json
+{
+  "email": "ada@vkp-test.local",
+  "password": "SecurePass12",
+  "displayName": "Ada",
+  "group": "user",
+  "createGameProfile": true
+}
+```
+
+Password: min 12 characters, at least one letter and one number. Optional `gameName` / `externalId` when creating a profile (otherwise name = displayName and `externalId` is hashed from `sub`).
+
+**201** with the same shape as GET (includes `recentAudit`).
+
+### Get Cognito user
+
+**GET** `/apiv2/internal/cognito-users/{username}`
+
+Same list item plus `recentAudit` (up to 20 events for that `sub`).
+
+### Update Cognito user
+
+**PATCH** `/apiv2/internal/cognito-users/{username}`
+
+Any of `displayName`, `group`, `password`, `enabled`. Group change removes the user from `admin`/`user`/`guest` then adds the chosen group.
+
+### Delete Cognito user
+
+**DELETE** `/apiv2/internal/cognito-users/{username}`
+
+**204**. Does not delete `/apiv2/internal/users/{sub}` or games.
+
+### Game profile
+
+**PUT** `/apiv2/internal/cognito-users/{username}/game-profile` — create or replace `{ "name", "externalId?" }` with `id = sub`.
+
+**PATCH** `/apiv2/internal/cognito-users/{username}/game-profile` — merge `name` / `externalId` (404 if no profile).
+
+### Games for a user
+
+**GET** `/apiv2/internal/cognito-users/{username}/games`
+
+Scans up to 100 game objects and returns those whose `usersIds` include the user's `sub`.
+
+```json
+{
+  "games": [{ "id": "g1", "status": "created", "isFinished": false, "usersIds": ["sub", "NPC_1"] }],
+  "truncated": false
+}
+```
+
+### Audit logs
+
+**GET** `/apiv2/internal/audit-logs`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `targetSub` | string | Limit to one user’s folder |
+| `limit` | number | Default 50, max 200 |
+| `cursor` | string | S3 continuation token |
+
+Actions: `create`, `update`, `delete`, `set-group`, `set-password`, `enable`, `disable`, `upsert-game-profile`.
 
 ---
 

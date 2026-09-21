@@ -210,4 +210,17 @@ describe('UserService', () => {
       expect(mockRepository.findAll).toHaveBeenCalledWith('user-', 10, 'cursor-123');
     });
   });
+
+  describe('findUserOrNull', () => {
+    it('returns a DTO when found', async () => {
+      vi.mocked(mockRepository.findById).mockResolvedValue(User.create('user-123', 'John Doe', 1001));
+      const result = await userService.findUserOrNull('user-123');
+      expect(result).toEqual({ id: 'user-123', name: 'John Doe', externalId: 1001 });
+    });
+
+    it('returns null when missing', async () => {
+      vi.mocked(mockRepository.findById).mockResolvedValue(null);
+      await expect(userService.findUserOrNull('missing')).resolves.toBeNull();
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -67,5 +67,31 @@ describe('FileGameRepository', () => {
 
   it('throws NotFoundError for missing metadata', async () => {
     await expect(repository.getMetadata('missing')).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('listIds includes unreadable objects and findAll skips them', async () => {
+    await repository.save(
+      GameEntity.create('ok-game', ['user-1'], [], GameStatus.Created),
+      { ifNoneMatch: '*' }
+    );
+    await writeFile(
+      path.join(dir, 'json/games/legacy.json'),
+      JSON.stringify({
+        type: 'test',
+        usersIds: ['user1', 'user2'],
+        rounds: [{
+          id: 'round1',
+          moves: [{ userId: 'user1', value: 1, valueDecorated: '1 desc' }],
+          isFinished: false
+        }],
+        isFinished: true
+      })
+    );
+
+    const ids = await repository.listIds();
+    expect(ids.names.sort()).toEqual(['legacy', 'ok-game']);
+
+    const loaded = await repository.findAll();
+    expect(loaded.items.map((game) => game.id)).toEqual(['ok-game']);
   });
 });

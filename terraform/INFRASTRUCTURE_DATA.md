@@ -21,7 +21,7 @@ Live IDs for operators. Prefer `terraform output` when in doubt.
 
 | Function Name | Runtime | Memory | Timeout | Architecture | Role |
 |---------------|---------|--------|---------|--------------|------|
-| vkp-api2-service | nodejs20.x | 128 MB | 3s | arm64 | vkp-api2-service-role |
+| vkp-api2-service | nodejs20.x | 128 MB | 15s | arm64 | vkp-api2-service-role |
 | vkp-simple-service | nodejs20.x | 128 MB | 3s | arm64 | vkp-simple-service-role |
 | vkp-cognito-pre-signup | nodejs18.x | 256 MB | 10s | - | Cognito trigger role |
 | vkp-cognito-post-confirmation | nodejs18.x | 256 MB | 10s | - | Cognito trigger role |
@@ -156,7 +156,7 @@ Plus ACM validation CNAME records.
 - Trust Policy: Lambda service
 - Managed Policies: AWSLambdaBasicExecutionRole
 - Inline Policy: S3JsonAccess-data-1-088455116440 (`json/*`)
-- Inline Policy: CognitoUserManagement (when Cognito enabled) — AdminCreateUser, AdminSetUserPassword, group add/remove, AdminGetUser, ListUsers, InitiateAuth
+- Inline Policy: CognitoUserManagement (when Cognito enabled) — AdminCreateUser, AdminSetUserPassword, group add/remove, AdminGetUser, ListUsers, ListUsersInGroup, AdminListGroupsForUser, AdminDeleteUser, AdminEnableUser, AdminDisableUser, InitiateAuth
 
 **vkp-simple-service-role**:
 - Same S3 pattern against `vkp-consulting.fr/json/*`

@@ -136,43 +136,48 @@ export class S3GameRepository implements IGameRepository {
     }
   }
 
-  async findAll(prefix?: string, limit?: number, cursor?: string): Promise<{ items: GameEntity[]; nextCursor?: string }> {
-    const searchPrefix = prefix ? `${this.gamePrefix}${prefix}` : this.gamePrefix;
+  async listIds(prefix?: string, limit?: number, cursor?: string): Promise<{ names: string[]; nextCursor?: string }> {
+    const listed = await this.listKeys(prefix, limit, cursor);
+    return {
+      names: listed.keys.map((key) => this.idFromKey(key)).filter(Boolean),
+      nextCursor: listed.nextCursor
+    };
+  }
 
-    const command = new ListObjectsV2Command({
+  async findAll(prefix?: string, limit?: number, cursor?: string): Promise<{ items: GameEntity[]; nextCursor?: string }> {
+    const listed = await this.listKeys(prefix, limit, cursor);
+    const games: GameEntity[] = [];
+    for (const key of listed.keys) {
+      const gameId = this.idFromKey(key);
+      if (!gameId) continue;
+      try {
+        const game = await this.findById(gameId);
+        if (game) games.push(game);
+      } catch {
+        // Legacy or invalid JSON must not fail the whole listing.
+      }
+    }
+    return { items: games, nextCursor: listed.nextCursor };
+  }
+
+  private async listKeys(prefix?: string, limit?: number, cursor?: string): Promise<{ keys: string[]; nextCursor?: string }> {
+    const searchPrefix = prefix ? `${this.gamePrefix}${prefix}` : this.gamePrefix;
+    const response = await this.s3Client.send(new ListObjectsV2Command({
       Bucket: this.config.s3.bucket,
       Prefix: searchPrefix,
-      MaxKeys: limit,
+      MaxKeys: limit ?? 100,
       ContinuationToken: cursor ? Buffer.from(cursor, 'base64url').toString('utf8') : undefined
-    });
+    }));
 
-    try {
-      const response = await this.s3Client.send(command);
-      
-      if (!response.Contents || response.Contents.length === 0) {
-        return { items: [] };
-      }
+    const keys = (response.Contents || [])
+      .map((object) => object.Key)
+      .filter((key): key is string => Boolean(key) && key.endsWith('.json'));
 
-      // Load each game entity
-      const games: GameEntity[] = [];
-      for (const object of response.Contents) {
-        if (object.Key) {
-          const gameId = this.idFromKey(object.Key);
-          const game = await this.findById(gameId);
-          if (game) {
-            games.push(game);
-          }
-        }
-      }
+    const nextCursor = response.NextContinuationToken
+      ? Buffer.from(response.NextContinuationToken, 'utf8').toString('base64url')
+      : undefined;
 
-      const nextCursor = response.NextContinuationToken
-        ? Buffer.from(response.NextContinuationToken, 'utf8').toString('base64url')
-        : undefined;
-
-      return { items: games, nextCursor };
-    } catch (error: any) {
-      throw error;
-    }
+    return { keys, nextCursor };
   }
 
   async getMetadata(id: string): Promise<EntityMetadata> {

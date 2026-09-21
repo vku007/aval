@@ -74,4 +74,12 @@ export class UserService {
     this.logger.info('Listed users', { count: names.length, hasMore: !!result.nextCursor });
     return { names, nextCursor: result.nextCursor };
   }
+
+  async findUserOrNull(id: string): Promise<UserResponseDto | null> {
+    const user = await this.repository.findById(id);
+    if (!user) {
+      return null;
+    }
+    return UserResponseDto.fromUser(user);
+  }
 }

@@ -174,7 +174,7 @@ Zone `Z094077718N53LUC7MTBL`: apex and `www` A/AAAA aliases to CloudFront.
 - Identity Pool: `vkp_identity_pool` (authenticated / unauthenticated roles; group → IAM role mapping)
 - OAuth callbacks: `https://vkp-consulting.fr/callback.html`, `https://vkp-consulting.fr/`
 - Logout URLs: `https://vkp-consulting.fr/`, `https://vkp-consulting.fr/logout.html`
-- API v2 Lambda also has inline policy `CognitoUserManagement` (AdminCreateUser, groups, InitiateAuth) when `enable_cognito_auth` is true
+- API v2 Lambda timeout is 15s. Inline policy `CognitoUserManagement` (when `enable_cognito_auth` is true) covers guest create/promote and admin Cognito user management: AdminCreateUser, password, groups, AdminGetUser, ListUsers, ListUsersInGroup, AdminListGroupsForUser, AdminDeleteUser, AdminEnableUser, AdminDisableUser, InitiateAuth
 
 Trigger behavior:
 

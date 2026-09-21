@@ -4,355 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Manager - VKP API</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      min-height: 100vh;
-      padding: 2rem;
-      color: #1f2937;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: #f3f4f6;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      overflow: hidden;
-    }
-
-    header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      color: white;
-      padding: 2rem;
-      text-align: center;
-      position: relative;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-
-    header p {
-      opacity: 0.9;
-      font-size: 0.95rem;
-    }
-
-    .user-info-bar {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      backdrop-filter: blur(10px);
-    }
-
-    .user-name {
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    .user-role {
-      font-size: 0.75rem;
-      opacity: 0.8;
-      text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .logout-btn {
-      background: rgba(239, 68, 68, 0.9);
-      color: white;
-      border: none;
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: background 0.3s;
-    }
-
-    .logout-btn:hover {
-      background: rgba(220, 38, 38, 1);
-    }
-
-    .content {
-      padding: 2rem;
-    }
-
-    .section {
-      margin-bottom: 2rem;
-    }
-
-    .section-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: #1e3a8a;
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-      color: #374151;
-    }
-
-    .form-group input,
-    .form-group textarea,
-    .form-group select {
-      width: 100%;
-      padding: 0.75rem;
-      border: 2px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 1rem;
-      transition: border-color 0.3s;
-    }
-
-    .form-group input:focus,
-    .form-group textarea:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #1e3a8a;
-      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .btn {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn-secondary {
-      background: #6b7280;
-    }
-
-    .btn-danger {
-      background: #dc2626;
-    }
-
-    .btn-small {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-    }
-
-    .users-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1rem;
-    }
-
-    .user-card {
-      background: white;
-      border: 2px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 1.5rem;
-      transition: all 0.3s;
-      cursor: pointer;
-    }
-
-    .user-card:hover {
-      border-color: #1e3a8a;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    }
-
-    .user-card.selected {
-      border-color: #1e3a8a;
-      background: #eff6ff;
-    }
-
-    .user-name {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: #1e3a8a;
-      margin-bottom: 0.5rem;
-    }
-
-    .user-id {
-      font-size: 0.875rem;
-      color: #6b7280;
-      font-family: 'Monaco', 'Courier New', monospace;
-      margin-bottom: 0.5rem;
-    }
-
-    .user-meta {
-      font-size: 0.875rem;
-      color: #6b7280;
-      margin-bottom: 1rem;
-      line-height: 1.4;
-    }
-
-    .user-actions {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .alert {
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      font-weight: 500;
-    }
-
-    .alert-error {
-      background: #fef2f2;
-      color: #dc2626;
-      border: 1px solid #fecaca;
-    }
-
-    .alert-success {
-      background: #f0fdf4;
-      color: #16a34a;
-      border: 1px solid #bbf7d0;
-    }
-
-    .alert-info {
-      background: #d1ecf1;
-      color: #0c5460;
-      border: 1px solid #bee5eb;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 2rem;
-      color: #6b7280;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 40px;
-      height: 40px;
-      border: 4px solid #d1d5db;
-      border-top: 4px solid #1e3a8a;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .tabs {
-      display: flex;
-      border-bottom: 2px solid #d1d5db;
-      margin-bottom: 1.5rem;
-    }
-
-    .tab {
-      padding: 0.75rem 1.5rem;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.3s;
-      font-weight: 500;
-      color: #6b7280;
-    }
-
-    .tab:hover {
-      color: #1e3a8a;
-    }
-
-    .tab.active {
-      color: #1e3a8a;
-      border-bottom-color: #1e3a8a;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: #1e3a8a;
-      text-decoration: none;
-      font-weight: 500;
-      margin-bottom: 1rem;
-      transition: color 0.3s;
-    }
-
-    .back-link:hover {
-      color: #1e40af;
-    }
-
-    code {
-      background: #e5e7eb;
-      padding: 0.2rem 0.4rem;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Courier New', monospace;
-      font-size: 0.9rem;
-      color: #1e3a8a;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-
-    .external-id-display {
-      font-size: 0.875rem;
-      color: #6b7280;
-      background: #f3f4f6;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      display: inline-block;
-      margin-top: 0.25rem;
-    }
-  </style>
+  <link rel="stylesheet" href="/js/admin-common.css">
 </head>
 <body>
   <div class="container">
@@ -362,460 +14,668 @@
           <div class="user-name" id="user-display-name">Loading...</div>
           <div class="user-role" id="user-role">...</div>
         </div>
-        <button class="logout-btn" onclick="app.logout()">🚪 Logout</button>
+        <button class="logout-btn" type="button" id="logout-btn">Logout</button>
       </div>
-      <h1>👥 User Manager</h1>
-      <p>Manage User entities via VKP API</p>
+      <h1>User Manager</h1>
+      <p>Cognito accounts, game profiles, games, and audit. Bad rows are flagged, not fatal.</p>
     </header>
-
     <div class="content">
-      <a href="../entities/index.html" class="back-link">
-        ← Back to Entity Manager
-      </a>
-
+      <div class="nav-links">
+        <a href="/aval/">Hub</a>
+        <a href="/entities/">Files</a>
+        <a href="/users/" class="active">Users</a>
+        <a href="/games/">Games</a>
+      </div>
       <div id="alert-container"></div>
-
       <div class="tabs">
         <div class="tab active" data-tab="browse">Browse</div>
         <div class="tab" data-tab="create">Create</div>
-        <div class="tab" data-tab="edit">Edit</div>
+        <div class="tab" data-tab="orphans">Orphans</div>
+        <div class="tab" data-tab="audit">Audit</div>
       </div>
 
-      <!-- Browse Tab -->
-      <div class="tab-content active" data-content="browse">
-        <div class="section">
-          <div class="section-title">Users</div>
+      <div class="tab-content active workspace" data-content="browse">
+        <div class="filters">
           <div class="form-group">
-            <input type="text" id="search-prefix" placeholder="Filter by prefix...">
+            <label for="filter-email">Email prefix</label>
+            <input id="filter-email" type="text" placeholder="ada@">
           </div>
-          <button class="btn" onclick="app.loadUsers()">🔄 Refresh</button>
-          <div id="users-list" class="users-list">
-            <div class="loading">
-              <div class="spinner"></div>
-              <p>Loading users...</p>
+          <div class="form-group">
+            <label for="filter-group">Group</label>
+            <select id="filter-group">
+              <option value="">All</option>
+              <option value="admin">admin</option>
+              <option value="user">user</option>
+              <option value="guest">guest</option>
+            </select>
+          </div>
+          <button class="btn" type="button" id="refresh-btn">Refresh</button>
+        </div>
+        <div class="split">
+          <div class="split-left">
+            <div class="pane-title">Users</div>
+            <div id="table-wrap" class="pane-body"></div>
+            <div class="pager">
+              <span class="page-label" id="page-label">Page 1</span>
+              <button class="btn btn-secondary btn-small" type="button" id="prev-page" disabled>Previous</button>
+              <button class="btn btn-secondary btn-small" type="button" id="next-page" disabled>Next</button>
+            </div>
+          </div>
+          <div class="split-right">
+            <div class="pane-title">Details</div>
+            <div id="detail-panel" class="pane-body">
+              <div class="empty-detail">Select a user in the list.</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Create Tab -->
       <div class="tab-content" data-content="create">
-        <div class="section">
-          <div class="section-title">Create New User</div>
-          <form id="create-form" onsubmit="app.createUser(event)">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="create-id">User ID</label>
-                <input type="text" id="create-id" required 
-                       placeholder="e.g., user-123" 
-                       pattern="^[a-zA-Z0-9._-]{1,128}$"
-                       title="User ID must contain only alphanumeric characters, dots, hyphens, and underscores (1-128 characters)">
-              </div>
-              <div class="form-group">
-                <label for="create-external-id">External ID</label>
-                <input type="number" id="create-external-id" required 
-                       min="1" 
-                       placeholder="e.g., 1001">
-              </div>
+        <div class="section-title">Create Cognito user</div>
+        <form id="create-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="create-email">Email</label>
+              <input id="create-email" type="email" required>
             </div>
             <div class="form-group">
-              <label for="create-name">Name</label>
-              <input type="text" id="create-name" required 
-                     placeholder="e.g., John Doe"
-                     minlength="2" maxlength="100">
+              <label for="create-password">Password (min 12, letter + number)</label>
+              <input id="create-password" type="password" required minlength="12">
             </div>
-            <div class="form-actions">
-              <button type="submit" class="btn">👤 Create User</button>
-              <button type="button" class="btn btn-secondary" onclick="app.switchTab('browse')">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Edit Tab -->
-      <div class="tab-content" data-content="edit">
-        <div class="section">
-          <div class="section-title">Edit User</div>
-          <div id="edit-placeholder" class="alert alert-info">
-            Select a user from the Browse tab to edit it.
           </div>
-          <form id="edit-form" class="hidden" onsubmit="app.updateUser(event)">
+          <div class="form-row">
             <div class="form-group">
-              <label for="edit-id">User ID</label>
-              <input type="text" id="edit-id" readonly>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="edit-name">Name</label>
-                <input type="text" id="edit-name" required 
-                       minlength="2" maxlength="100">
-              </div>
-              <div class="form-group">
-                <label for="edit-external-id">External ID</label>
-                <input type="number" id="edit-external-id" required 
-                       min="1">
-              </div>
+              <label for="create-display-name">Display name</label>
+              <input id="create-display-name" required minlength="2" maxlength="100">
             </div>
             <div class="form-group">
-              <label for="update-mode">Update Mode</label>
-              <select id="update-mode">
-                <option value="replace">Replace (Full Update)</option>
-                <option value="merge">Merge (Partial Update)</option>
+              <label for="create-group">Group</label>
+              <select id="create-group">
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+                <option value="guest">guest</option>
               </select>
             </div>
-            <div class="form-actions">
-              <button type="submit" class="btn">💾 Update User</button>
-              <button type="button" class="btn btn-danger" onclick="app.deleteUser()">🗑️ Delete User</button>
-              <button type="button" class="btn btn-secondary" onclick="app.switchTab('browse')">Cancel</button>
+          </div>
+          <div class="form-group">
+            <label><input type="checkbox" id="create-profile" checked> Also create game profile</label>
+          </div>
+          <div class="form-actions">
+            <button class="btn" type="submit">Create user</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="tab-content workspace" data-content="orphans">
+        <p class="muted" style="margin-bottom:0.75rem;">S3 profiles whose id is not a current Cognito sub.</p>
+        <div class="filters">
+          <button class="btn" type="button" id="orphans-btn">Find orphans</button>
+        </div>
+        <div class="split">
+          <div class="split-left">
+            <div class="pane-title">Orphans</div>
+            <div id="orphans-wrap" class="pane-body"></div>
+          </div>
+          <div class="split-right">
+            <div class="pane-title">Details</div>
+            <div id="orphans-detail" class="pane-body">
+              <div class="empty-detail">Find orphans, then select a profile.</div>
             </div>
-          </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content workspace" data-content="audit">
+        <div class="filters">
+          <div class="form-group">
+            <label for="audit-sub">Target sub</label>
+            <input id="audit-sub" type="text">
+          </div>
+          <button class="btn" type="button" id="audit-btn">Refresh audit</button>
+        </div>
+        <div class="split">
+          <div class="split-left">
+            <div class="pane-title">Audit</div>
+            <div id="audit-wrap" class="pane-body"></div>
+            <div class="pager">
+              <span class="page-label" id="audit-page-label">Page 1</span>
+              <button class="btn btn-secondary btn-small" type="button" id="audit-prev" disabled>Previous</button>
+              <button class="btn btn-secondary btn-small" type="button" id="audit-next" disabled>Next</button>
+            </div>
+          </div>
+          <div class="split-right">
+            <div class="pane-title">Details</div>
+            <div id="audit-detail" class="pane-body">
+              <div class="empty-detail">Select an audit event in the list.</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
-
+  <script src="/js/admin-common.js"></script>
   <script>
-    // Helper to get cookie value
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-      return null;
-    }
-
-    // Helper to decode JWT token
-    function decodeJWT(token) {
-      try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(jsonPayload);
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // Initialize user info display
-    function initUserInfo() {
-      const idToken = getCookie('idToken');
-      if (idToken) {
-        const payload = decodeJWT(idToken);
-        if (payload) {
-          const displayName = payload.display_name || payload['custom:display_name'] || payload.email || 'User';
-          const role = payload.role || payload['custom:role'] || payload['cognito:groups']?.[0] || 'user';
-          
-          document.getElementById('user-display-name').textContent = displayName;
-          document.getElementById('user-role').textContent = role;
-          document.getElementById('user-info-bar').style.display = 'flex';
-        }
-      }
-    }
-
+    const A = window.Admin;
     const app = {
-      apiBase: 'https://vkp-consulting.fr/apiv2/internal',
       users: [],
-      selectedUser: null,
+      cursors: [undefined],
+      pageIndex: 0,
+      nextCursor: undefined,
+      orphanRows: [],
+      selectedOrphan: null,
+      selectedAudit: null,
+      auditRows: [],
+      auditCursors: [undefined],
+      auditPageIndex: 0,
+      auditNext: undefined,
+      selectedUsername: null,
 
-      escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-      },
-
-      async request(method, path, body = null, headers = {}) {
-        // Get ID token from cookie for authentication
-        const idToken = getCookie('idToken');
-        
-        const url = `${this.apiBase}${path}`;
-        const options = {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            ...headers
-          }
-        };
-
-        // Add Authorization header if token exists
-        if (idToken) {
-          options.headers['Authorization'] = `Bearer ${idToken}`;
-        }
-
-        if (body) {
-          options.body = JSON.stringify(body);
-        }
-
-        const response = await fetch(url, options);
-        
-        if (!response.ok) {
-          // If unauthorized, redirect to custom login page
-          if (response.status === 401) {
-            if (confirm('Authentication required. Redirect to login?')) {
-              window.location.href = '/login.html';
-            }
-            throw new Error('Authentication required');
-          }
-          
-          // If forbidden, show access denied message
-          if (response.status === 403) {
-            alert('Access Denied: You do not have permission to access this resource. Admin role required for User Manager.');
-            window.location.href = '/';
-            throw new Error('Access denied - Admin role required');
-          }
-          
-          const errorText = await response.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-            throw new Error(errorData.detail || errorData.title || `HTTP ${response.status}`);
-          } catch {
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-          }
-        }
-
-        const data = response.status === 204 ? null : await response.json();
-        return {
-          data,
-          status: response.status,
-          headers: Object.fromEntries(response.headers.entries())
-        };
-      },
-
-      showAlert(message, type = 'info') {
-        const container = document.getElementById('alert-container');
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type}`;
-        alert.textContent = message;
-        container.appendChild(alert);
-        setTimeout(() => alert.remove(), 5000);
-      },
-
-      switchTab(tabName) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
-      },
-
-      async loadUsers() {
-        const list = document.getElementById('users-list');
-        list.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading users...</p></div>';
-
+      async load(direction) {
+        const wrap = document.getElementById('table-wrap');
+        A.setLoading(wrap, 'Loading users...');
         try {
-          const prefix = document.getElementById('search-prefix').value;
-          const params = new URLSearchParams();
-          if (prefix) params.set('prefix', prefix);
-          
-          const result = await this.request('GET', `/users?${params}`);
-          // Backend returns {names: [id1, id2, ...], nextCursor: ...}
-          const userIds = result.data.names || [];
-
-          if (userIds.length === 0) {
-            list.innerHTML = '<div class="alert alert-info">No users found. Create your first user using the Create tab!</div>';
+          const params = new URLSearchParams({ limit: String(A.PAGE_SIZE) });
+          const emailPrefix = document.getElementById('filter-email').value.trim();
+          const group = document.getElementById('filter-group').value;
+          if (emailPrefix) params.set('emailPrefix', emailPrefix);
+          if (group) params.set('group', group);
+          if (direction === 'next' && this.nextCursor) {
+            this.pageIndex += 1;
+            this.cursors[this.pageIndex] = this.nextCursor;
+          } else if (direction === 'prev') {
+            this.pageIndex = Math.max(0, this.pageIndex - 1);
+          } else if (direction !== 'page') {
+            this.pageIndex = 0;
+            this.cursors = [undefined];
+          }
+          const cursor = this.cursors[this.pageIndex];
+          if (cursor) params.set('cursor', cursor);
+          const result = await A.request('GET', `/cognito-users?${params}`);
+          if (!result.ok) {
+            wrap.replaceChildren();
+            const err = document.createElement('div');
+            err.className = 'alert alert-error';
+            err.textContent = result.error;
+            wrap.appendChild(err);
             return;
           }
-
-          // Fetch full user data for each user
-          const userDetails = await Promise.all(
-            userIds.map(async (id) => {
-              try {
-                const user = await this.request('GET', `/users/${id}`);
-                const meta = await this.request('GET', `/users/${id}/meta`);
-                return {
-                  id,
-                  name: user.data.name,
-                  externalId: user.data.externalId,
-                  etag: meta.data.etag,
-                  size: meta.data.size,
-                  lastModified: meta.data.lastModified
-                };
-              } catch {
-                return { id, name: 'Unknown', externalId: 0, etag: null, size: null, lastModified: null };
-              }
-            })
-          );
-
-          this.users = userDetails;
-
-          list.innerHTML = this.users.map(u => `
-            <div class="user-card" onclick="app.selectUser('${u.id}')">
-              <div class="user-name">${this.escapeHtml(u.name)}</div>
-              <div class="user-id">ID: ${this.escapeHtml(u.id)}</div>
-              <div class="external-id-display">External ID: ${u.externalId}</div>
-              <div class="user-meta">
-                ${u.lastModified ? `Modified: ${new Date(u.lastModified).toLocaleString()}` : ''}
-              </div>
-              <div class="user-actions">
-                <button class="btn btn-small" onclick="event.stopPropagation(); app.viewUser('${u.id}')">👁️ View</button>
-                <button class="btn btn-small" onclick="event.stopPropagation(); app.editUser('${u.id}')">✏️ Edit</button>
-              </div>
-            </div>
-          `).join('');
-        } catch (err) {
-          list.innerHTML = `<div class="alert alert-error">Error: ${this.escapeHtml(err.message)}</div>`;
-        }
-      },
-
-      selectUser(id) {
-        document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
-        event.currentTarget.classList.add('selected');
-        this.selectedUser = id;
-      },
-
-      async viewUser(id) {
-        try {
-          const result = await this.request('GET', `/users/${id}`);
-          const user = result.data;
-          const meta = await this.request('GET', `/users/${id}/meta`);
-          
-          const details = `
-User Details:
-
-👤 Name: ${user.name}
-🆔 ID: ${user.id}
-🔢 External ID: ${user.externalId}
-📅 Last Modified: ${meta.data.lastModified ? new Date(meta.data.lastModified).toLocaleString() : 'Unknown'}
-📏 Size: ${meta.data.size ? Math.round(meta.data.size / 1024 * 10) / 10 + ' KB' : 'Unknown'}
-🏷️ ETag: ${meta.data.etag || 'N/A'}
-          `.trim();
-          
-          alert(details);
-        } catch (err) {
-          this.showAlert(`Error viewing user ${id}: ${err.message}`, 'error');
-        }
-      },
-
-      async editUser(id) {
-        try {
-          const result = await this.request('GET', `/users/${id}`);
-          const user = result.data;
-          
-          document.getElementById('edit-id').value = user.id;
-          document.getElementById('edit-name').value = user.name;
-          document.getElementById('edit-external-id').value = user.externalId;
-          document.getElementById('edit-placeholder').classList.add('hidden');
-          document.getElementById('edit-form').classList.remove('hidden');
-          
-          // Store only the ID since we don't need ETag anymore
-          this.selectedUser = { id: user.id };
-          this.switchTab('edit');
-        } catch (err) {
-          this.showAlert(`Error loading user ${id}: ${err.message}`, 'error');
-        }
-      },
-
-      async createUser(event) {
-        event.preventDefault();
-        
-        const id = document.getElementById('create-id').value;
-        const name = document.getElementById('create-name').value;
-        const externalId = parseInt(document.getElementById('create-external-id').value);
-
-        try {
-          await this.request('POST', '/users', {
-            id,
-            name,
-            externalId
+          this.users = A.collection(result.data, ['users']).map((item, i) => {
+            try {
+              return A.normalizeCognitoUser(item);
+            } catch (error) {
+              return { unreadable: true, username: `#${i}`, error: error.message };
+            }
           });
-          
-          this.showAlert(`User "${id}" created successfully!`, 'success');
-          
-          // Clear form
-          document.getElementById('create-form').reset();
-          this.switchTab('browse');
-          this.loadUsers();
-        } catch (err) {
-          this.showAlert(`Error creating user: ${err.message}`, 'error');
+          this.nextCursor = A.nextCursorOf(result.data);
+          A.setPager({ pageIndex: this.pageIndex, nextCursor: this.nextCursor });
+          this.renderTable();
+        } catch (error) {
+          wrap.replaceChildren();
+          const err = document.createElement('div');
+          err.className = 'alert alert-error';
+          err.textContent = error.message || String(error);
+          wrap.appendChild(err);
         }
       },
 
-      async updateUser(event) {
-        event.preventDefault();
-        
-        const id = this.selectedUser.id;
-        const name = document.getElementById('edit-name').value;
-        const externalId = parseInt(document.getElementById('edit-external-id').value);
-        const mode = document.getElementById('update-mode').value;
-        
-        const updateData = {
-          name,
-          externalId
+      renderTable() {
+        A.mountTable(document.getElementById('table-wrap'), {
+          empty: 'No Cognito users on this page.',
+          selectedKey: this.selectedUsername,
+          getKey: (row, i) => {
+            const name = A.asString(row.username);
+            return name && name !== '?' ? name : `idx-${i}`;
+          },
+          onSelect: (row) => this.open(row.username),
+          columns: [
+            { title: 'Email', render: (u) => u.email || u.username },
+            { title: 'Group', render: (u) => A.badge(u.group || 'none', u.group || 'guest') },
+            { title: 'Enabled', render: (u) => u.unreadable ? A.badge('unreadable', 'bad') : A.badge(u.enabled ? 'yes' : 'no', u.enabled ? 'on' : 'off') }
+          ],
+          rows: this.users
+        });
+      },
+
+      async open(username) {
+        this.selectedUsername = username;
+        this.renderTable();
+        const panel = document.getElementById('detail-panel');
+        A.setLoading(panel, 'Loading user...');
+        try {
+          const encoded = A.pathId(username);
+          const detail = await A.request('GET', `/cognito-users/${encoded}`);
+          const games = await A.request('GET', `/cognito-users/${encoded}/games`);
+          if (!detail.ok) {
+            panel.replaceChildren();
+            const err = document.createElement('div');
+            err.className = 'alert alert-error';
+            err.textContent = 'Could not load user: ' + detail.error;
+            panel.appendChild(err);
+            return;
+          }
+          const u = A.normalizeCognitoUser(detail.data);
+          this.renderDetail(panel, u, games);
+        } catch (error) {
+          panel.replaceChildren();
+          const err = document.createElement('div');
+          err.className = 'alert alert-error';
+          err.textContent = error.message || String(error);
+          panel.appendChild(err);
+        }
+      },
+
+      renderDetail(panel, u, gamesResult) {
+        panel.replaceChildren();
+        const box = document.createElement('div');
+        box.className = 'detail';
+        const h = document.createElement('h3');
+        h.textContent = u.email || u.username;
+        box.appendChild(h);
+        if (u.unreadable) {
+          const warn = document.createElement('div');
+          warn.className = 'warn';
+          warn.textContent = 'User payload was not in the expected shape.';
+          box.appendChild(warn);
+        }
+        const dl = document.createElement('dl');
+        dl.className = 'detail-grid';
+        addDl(dl, 'Username', u.username);
+        addDl(dl, 'Sub', u.sub || '—');
+        addDl(dl, 'Group', u.group || '—');
+        addDl(dl, 'Status', `${u.status} / ${u.enabled ? 'enabled' : 'disabled'}`);
+        addDl(dl, 'Created', A.formatDate(u.createdAt));
+        addDl(dl, 'Updated', A.formatDate(u.updatedAt));
+        box.appendChild(dl);
+
+        box.insertAdjacentHTML('beforeend', `
+          <div class="form-row">
+            <div class="form-group"><label>Display name</label><input id="detail-display-name"></div>
+            <div class="form-group">
+              <label>Group</label>
+              <select id="detail-group">
+                <option value="admin">admin</option>
+                <option value="user">user</option>
+                <option value="guest">guest</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>New password</label><input id="detail-password" type="password" minlength="12"></div>
+          <div class="form-actions">
+            <button class="btn" type="button" id="save-cognito">Save Cognito changes</button>
+            <button class="btn btn-secondary" type="button" id="toggle-enabled">${u.enabled ? 'Disable' : 'Enable'}</button>
+          </div>
+          <h3>Game profile</h3>
+          <div class="form-row">
+            <div class="form-group"><label>Name</label><input id="profile-name"></div>
+            <div class="form-group"><label>External ID</label><input id="profile-external-id" type="number" min="1"></div>
+          </div>
+          <p class="muted" id="profile-hint"></p>
+          <div class="form-actions">
+            <button class="btn" type="button" id="save-profile">Save profile</button>
+          </div>
+        `);
+        box.querySelector('#detail-display-name').value = A.asString(u.displayName);
+        const groupSelect = box.querySelector('#detail-group');
+        if (u.group && !['admin', 'user', 'guest'].includes(u.group)) {
+          const opt = document.createElement('option');
+          opt.value = u.group;
+          opt.textContent = u.group + ' (unknown)';
+          groupSelect.appendChild(opt);
+        }
+        groupSelect.value = u.group || 'user';
+        box.querySelector('#profile-name').value = (u.gameProfile && u.gameProfile.name) || u.displayName || '';
+        if (u.gameProfile && u.gameProfile.externalId != null) {
+          box.querySelector('#profile-external-id').value = String(u.gameProfile.externalId);
+        }
+        box.querySelector('#profile-hint').textContent = u.gameProfile
+          ? 'Linked S3 user id = sub'
+          : 'No S3 profile yet.';
+        const hasProfile = Boolean(u.gameProfile);
+        box.querySelector('#save-cognito').addEventListener('click', () => this.saveCognito());
+        box.querySelector('#toggle-enabled').addEventListener('click', () => this.setEnabled(!u.enabled));
+        box.querySelector('#save-profile').addEventListener('click', () => this.saveProfile(!hasProfile));
+
+        const gh = document.createElement('h3');
+        gh.textContent = 'Games' + (gamesResult.ok && A.asObject(gamesResult.data).truncated ? ' (scan truncated)' : '');
+        box.appendChild(gh);
+        const gamesWrap = document.createElement('div');
+        box.appendChild(gamesWrap);
+        if (!gamesResult.ok) {
+          const gerr = document.createElement('div');
+          gerr.className = 'alert alert-warn';
+          gerr.textContent = 'Games could not be loaded: ' + gamesResult.error;
+          gamesWrap.appendChild(gerr);
+        } else {
+          A.mountTable(gamesWrap, {
+            empty: 'No games in the scanned set.',
+            columns: [
+              { title: 'ID', render: (g) => A.asString(g.id) },
+              { title: 'Status', render: (g) => A.asString(g.status) },
+              { title: 'Finished', render: (g) => A.asBool(g.isFinished) ? 'yes' : 'no' }
+            ],
+            rows: A.collection(gamesResult.data, ['games']),
+            getKey: (g) => A.asString(g.id)
+          });
+        }
+
+        const ah = document.createElement('h3');
+        ah.textContent = 'Recent audit';
+        box.appendChild(ah);
+        const auditWrap = document.createElement('div');
+        box.appendChild(auditWrap);
+        A.mountTable(auditWrap, {
+          empty: 'No audit events.',
+          columns: [
+            { title: 'When', render: (a) => A.formatDate(a.timestamp) },
+            { title: 'Action', render: (a) => A.asString(a.action) },
+            { title: 'Actor', render: (a) => A.asString(a.actorEmail) }
+          ],
+          rows: A.asArray(u.recentAudit),
+          getKey: (a, i) => A.asString(a.id, String(i))
+        });
+
+        const warn = document.createElement('div');
+        warn.className = 'warn';
+        warn.textContent = 'Delete removes the Cognito account only. The game profile and games stay as orphans.';
+        box.appendChild(warn);
+        const confirmGroup = document.createElement('div');
+        confirmGroup.className = 'form-group';
+        confirmGroup.innerHTML = '<label>Type the email to confirm delete</label>';
+        const confirmInput = document.createElement('input');
+        confirmInput.id = 'delete-confirm';
+        confirmGroup.appendChild(confirmInput);
+        box.appendChild(confirmGroup);
+        const del = document.createElement('button');
+        del.className = 'btn btn-danger';
+        del.type = 'button';
+        del.textContent = 'Delete Cognito user';
+        del.addEventListener('click', () => this.remove());
+        box.appendChild(del);
+        panel.appendChild(box);
+      },
+
+      async saveCognito() {
+        const username = this.selectedUsername;
+        const body = {
+          displayName: document.getElementById('detail-display-name').value.trim(),
+          group: document.getElementById('detail-group').value
         };
+        const password = document.getElementById('detail-password').value;
+        if (password) body.password = password;
+        const result = await A.request('PATCH', `/cognito-users/${A.pathId(username)}`, body);
+        if (!result.ok) { A.showAlert(result.error, 'error'); return; }
+        A.showAlert('Cognito user updated', 'success');
+        await this.load('page');
+        await this.open(username);
+      },
 
+      async setEnabled(enabled) {
+        const result = await A.request('PATCH', `/cognito-users/${A.pathId(this.selectedUsername)}`, { enabled });
+        if (!result.ok) { A.showAlert(result.error, 'error'); return; }
+        A.showAlert(enabled ? 'User enabled' : 'User disabled', 'success');
+        await this.load('page');
+        await this.open(this.selectedUsername);
+      },
+
+      async saveProfile(create) {
+        const name = document.getElementById('profile-name').value.trim();
+        const externalRaw = document.getElementById('profile-external-id').value;
+        const body = { name };
+        if (externalRaw) body.externalId = Number.parseInt(externalRaw, 10);
+        const result = await A.request(
+          create ? 'PUT' : 'PATCH',
+          `/cognito-users/${A.pathId(this.selectedUsername)}/game-profile`,
+          body
+        );
+        if (!result.ok) { A.showAlert(result.error, 'error'); return; }
+        A.showAlert('Game profile saved', 'success');
+        await this.load('page');
+        await this.open(this.selectedUsername);
+      },
+
+      async remove() {
+        const username = this.selectedUsername;
+        const typed = document.getElementById('delete-confirm').value.trim();
+        if (typed !== username) {
+          A.showAlert('Type the exact email/username to confirm delete', 'error');
+          return;
+        }
+        if (!confirm('Delete this Cognito user? Game profile and games will remain.')) return;
+        const result = await A.request('DELETE', `/cognito-users/${A.pathId(username)}`);
+        if (!result.ok) { A.showAlert(result.error, 'error'); return; }
+        A.showAlert('Cognito user deleted', 'success');
+        this.selectedUsername = null;
+        A.showEmptyDetail(document.getElementById('detail-panel'), 'Select a user in the list.');
+        await this.load('page');
+      },
+
+      async create(event) {
+        event.preventDefault();
+        const result = await A.request('POST', '/cognito-users', {
+          email: document.getElementById('create-email').value.trim(),
+          password: document.getElementById('create-password').value,
+          displayName: document.getElementById('create-display-name').value.trim(),
+          group: document.getElementById('create-group').value,
+          createGameProfile: document.getElementById('create-profile').checked
+        });
+        if (!result.ok) { A.showAlert(result.error, 'error'); return; }
+        A.showAlert('User created', 'success');
+        event.target.reset();
+        A.switchTab('browse');
+        await this.load();
+      },
+
+      async loadOrphans() {
+        const wrap = document.getElementById('orphans-wrap');
+        A.setLoading(wrap, 'Comparing S3 profiles to Cognito...');
         try {
-          // No ETag headers - force update without concurrency control
-          const method = mode === 'replace' ? 'PUT' : 'PATCH';
-          
-          await this.request(method, `/users/${id}`, updateData);
-          
-          this.showAlert(`User "${id}" updated successfully!`, 'success');
-          this.switchTab('browse');
-          this.loadUsers();
-        } catch (err) {
-          this.showAlert(`Error updating user: ${err.message}`, 'error');
+        const cognitoSubs = new Set();
+        let cursor;
+        let pages = 0;
+        do {
+          const params = new URLSearchParams({ limit: '60' });
+          if (cursor) params.set('cursor', cursor);
+          const page = await A.request('GET', `/cognito-users?${params}`);
+          if (!page.ok) {
+            wrap.replaceChildren();
+            const err = document.createElement('div');
+            err.className = 'alert alert-error';
+            err.textContent = page.error;
+            wrap.appendChild(err);
+            return;
+          }
+          A.collection(page.data, ['users']).forEach((u) => {
+            const sub = A.asString(A.asObject(u).sub);
+            if (sub) cognitoSubs.add(sub);
+          });
+          cursor = A.asObject(page.data).nextCursor;
+          pages += 1;
+        } while (cursor && pages < 20);
+
+        const s3Ids = [];
+        let s3Cursor;
+        let s3Pages = 0;
+        do {
+          const params = new URLSearchParams();
+          if (s3Cursor) params.set('cursor', s3Cursor);
+          const page = await A.request('GET', `/users?${params}`);
+          if (!page.ok) break;
+          s3Ids.push(...A.listNames(page.data));
+          s3Cursor = A.asObject(page.data).nextCursor;
+          s3Pages += 1;
+        } while (s3Cursor && s3Pages < 20);
+
+        const orphans = s3Ids.filter((id) => !cognitoSubs.has(id));
+        this.orphanRows = await A.mapPool(orphans, 6, async (id) => {
+          const got = await A.request('GET', `/users/${A.pathId(id)}`);
+          if (!got.ok) return { id, unreadable: true, error: got.error, name: '—', externalId: null, raw: got.rawText };
+          return A.normalizeS3User(id, got.data);
+        });
+        A.mountTable(wrap, {
+          empty: 'No orphan game profiles.',
+          selectedKey: this.selectedOrphan,
+          getKey: (r) => r.id,
+          onSelect: (row) => this.openOrphan(row),
+          columns: [
+            { title: 'S3 user id', render: (r) => r.id },
+            { title: 'Status', render: (r) => r.unreadable ? A.badge('unreadable', 'bad') : A.badge('ok', 'ok') }
+          ],
+          rows: this.orphanRows
+        });
+        } catch (error) {
+          wrap.replaceChildren();
+          const err = document.createElement('div');
+          err.className = 'alert alert-error';
+          err.textContent = error.message || String(error);
+          wrap.appendChild(err);
         }
       },
 
-      async deleteUser() {
-        if (!this.selectedUser) {
-          this.showAlert('No user selected', 'error');
-          return;
+      openOrphan(row) {
+        this.selectedOrphan = row && row.id;
+        const panel = document.getElementById('orphans-detail');
+        panel.replaceChildren();
+        const box = document.createElement('div');
+        box.className = 'detail';
+        const h = document.createElement('h3');
+        h.textContent = row.id;
+        box.appendChild(h);
+        const dl = document.createElement('dl');
+        dl.className = 'detail-grid';
+        addDl(dl, 'Name', row.name || '—');
+        addDl(dl, 'External ID', row.externalId == null ? '—' : String(row.externalId));
+        box.appendChild(dl);
+        if (row.unreadable) {
+          const warn = document.createElement('div');
+          warn.className = 'warn';
+          warn.textContent = row.error || 'Profile is not in the expected format.';
+          box.appendChild(warn);
         }
+        const pre = document.createElement('pre');
+        pre.className = 'raw-box';
+        pre.textContent = A.prettyJson(row.raw != null ? row.raw : row);
+        box.appendChild(pre);
+        panel.appendChild(box);
+        A.mountTable(document.getElementById('orphans-wrap'), {
+          empty: 'No orphan game profiles.',
+          selectedKey: this.selectedOrphan,
+          getKey: (r) => r.id,
+          onSelect: (r) => this.openOrphan(r),
+          columns: [
+            { title: 'S3 user id', render: (r) => r.id },
+            { title: 'Status', render: (r) => r.unreadable ? A.badge('unreadable', 'bad') : A.badge('ok', 'ok') }
+          ],
+          rows: this.orphanRows
+        });
+      },
 
-        if (!confirm(`Are you sure you want to delete user "${this.selectedUser.id}"?`)) {
-          return;
-        }
-
+      async loadAudit(direction) {
+        const wrap = document.getElementById('audit-wrap');
+        A.setLoading(wrap, 'Loading audit...');
         try {
-          // No ETag headers - force delete without concurrency control
-          await this.request('DELETE', `/users/${this.selectedUser.id}`, null);
-          
-          this.showAlert(`User "${this.selectedUser.id}" deleted successfully!`, 'success');
-          this.switchTab('browse');
-          this.loadUsers();
-        } catch (err) {
-          this.showAlert(`Error deleting user: ${err.message}`, 'error');
+          const params = new URLSearchParams({ limit: String(A.PAGE_SIZE) });
+          const targetSub = document.getElementById('audit-sub').value.trim();
+          if (targetSub) params.set('targetSub', targetSub);
+          if (direction === 'next' && this.auditNext) {
+            this.auditPageIndex += 1;
+            this.auditCursors[this.auditPageIndex] = this.auditNext;
+          } else if (direction === 'prev') {
+            this.auditPageIndex = Math.max(0, this.auditPageIndex - 1);
+          } else if (direction !== 'page') {
+            this.auditPageIndex = 0;
+            this.auditCursors = [undefined];
+          }
+          const cursor = this.auditCursors[this.auditPageIndex];
+          if (cursor) params.set('cursor', cursor);
+          const result = await A.request('GET', `/audit-logs?${params}`);
+          if (!result.ok) {
+            wrap.replaceChildren();
+            const err = document.createElement('div');
+            err.className = 'alert alert-error';
+            err.textContent = result.error;
+            wrap.appendChild(err);
+            return;
+          }
+          this.auditRows = A.collection(result.data, ['items']).map((item) => A.asObject(item));
+          this.auditNext = A.nextCursorOf(result.data);
+          A.setPager({
+            pageIndex: this.auditPageIndex,
+            nextCursor: this.auditNext,
+            prevId: 'audit-prev',
+            nextId: 'audit-next',
+            labelId: 'audit-page-label'
+          });
+          A.mountTable(wrap, {
+            empty: 'No audit events.',
+            selectedKey: this.selectedAudit,
+            columns: [
+              { title: 'When', render: (a) => A.formatDate(a.timestamp) },
+              { title: 'Action', render: (a) => A.asString(a.action) }
+            ],
+            rows: this.auditRows,
+            getKey: (a, i) => A.asString(a.id, String(i)),
+            onSelect: (row, key) => this.openAudit(row, key)
+          });
+        } catch (error) {
+          wrap.replaceChildren();
+          const err = document.createElement('div');
+          err.className = 'alert alert-error';
+          err.textContent = error.message || String(error);
+          wrap.appendChild(err);
         }
       },
 
-      logout() {
-        if (confirm('Are you sure you want to logout?')) {
-          // Clear all auth cookies
-          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          
-          // Redirect to Cognito logout
-          const logoutUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/logout?client_id=77e2cmbthjul60ui7guh514u50&logout_uri=https://vkp-consulting.fr/';
-          window.location.href = logoutUrl;
-        }
+      openAudit(row, key) {
+        this.selectedAudit = key;
+        const panel = document.getElementById('audit-detail');
+        panel.replaceChildren();
+        const box = document.createElement('div');
+        box.className = 'detail';
+        const h = document.createElement('h3');
+        h.textContent = A.asString(row.action, 'Audit event');
+        box.appendChild(h);
+        const dl = document.createElement('dl');
+        dl.className = 'detail-grid';
+        addDl(dl, 'When', A.formatDate(row.timestamp));
+        addDl(dl, 'Actor', A.asString(row.actorEmail));
+        addDl(dl, 'Target', A.asString(row.targetUsername));
+        addDl(dl, 'Sub', A.asString(row.targetSub));
+        box.appendChild(dl);
+        const pre = document.createElement('pre');
+        pre.className = 'raw-box';
+        pre.textContent = A.prettyJson(row);
+        box.appendChild(pre);
+        panel.appendChild(box);
       }
     };
 
-    // Initialize the app
-    document.addEventListener('DOMContentLoaded', () => {
-      // Initialize user info
-      initUserInfo();
-      
-      app.loadUsers();
-      
-      // Tab switching
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          const tabName = tab.dataset.tab;
-          app.switchTab(tabName);
-        });
-      });
+    function addDl(dl, dtText, ddText) {
+      const wrap = document.createElement('div');
+      const dt = document.createElement('dt');
+      dt.textContent = dtText;
+      const dd = document.createElement('dd');
+      dd.textContent = ddText;
+      wrap.appendChild(dt);
+      wrap.appendChild(dd);
+      dl.appendChild(wrap);
+    }
 
-      // Search functionality
-      document.getElementById('search-prefix').addEventListener('input', () => {
-        clearTimeout(window.searchTimeout);
-        window.searchTimeout = setTimeout(() => {
-          app.loadUsers();
-        }, 500);
+    if (A.initAuth()) {
+      A.bindTabs((tab) => {
+        if (tab === 'orphans') app.loadOrphans();
+        if (tab === 'audit') app.loadAudit();
       });
-    });
+      document.getElementById('logout-btn').addEventListener('click', A.logout);
+      document.getElementById('refresh-btn').addEventListener('click', () => app.load());
+      document.getElementById('prev-page').addEventListener('click', () => app.load('prev'));
+      document.getElementById('next-page').addEventListener('click', () => app.load('next'));
+      document.getElementById('create-form').addEventListener('submit', (e) => app.create(e));
+      document.getElementById('orphans-btn').addEventListener('click', () => app.loadOrphans());
+      document.getElementById('audit-btn').addEventListener('click', () => app.loadAudit());
+      document.getElementById('audit-prev').addEventListener('click', () => app.loadAudit('prev'));
+      document.getElementById('audit-next').addEventListener('click', () => app.loadAudit('next'));
+      app.load();
+    }
   </script>
 </body>
 </html>

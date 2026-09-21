@@ -20,6 +20,7 @@ const mockRepository = {
   save: vi.fn(),
   delete: vi.fn(),
   findAll: vi.fn(),
+  listIds: vi.fn(),
   getMetadata: vi.fn()
 };
 

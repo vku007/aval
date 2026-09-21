@@ -184,7 +184,6 @@ export class GameController {
 
     try {
       const result = await this.gameService.listGames(prefix, limit, cursor);
-      
       return HttpResponse.ok(result)
         .withCacheControl('private, must-revalidate');
     } catch (error: any) {

@@ -109,7 +109,7 @@ Cognito User Pool (vkp-auth)
 | **Cognito Domain** | `vkp-auth` | Hosted UI | Terraform |
 | **Cognito Groups** | `admin`, `user`, `guest` | Role mapping | Terraform |
 | **Cognito Identity Pool** | `vkp_identity_pool` | IAM role assumption | Terraform |
-| **IAM Policy** | `CognitoUserManagement` | API v2 guest/user admin APIs | Terraform |
+| **IAM Policy** | `CognitoUserManagement` | API v2 guest/promote and admin Cognito user management | Terraform |
 
 ### Monitoring (3 resources)
 

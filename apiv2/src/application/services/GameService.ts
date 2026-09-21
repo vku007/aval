@@ -20,6 +20,7 @@ export interface IGameRepository {
   save(game: GameEntity, opts?: { ifMatch?: string; ifNoneMatch?: string }): Promise<GameEntity>;
   delete(id: string, opts?: { ifMatch?: string }): Promise<void>;
   findAll(prefix?: string, limit?: number, cursor?: string): Promise<{ items: GameEntity[]; nextCursor?: string }>;
+  listIds(prefix?: string, limit?: number, cursor?: string): Promise<{ names: string[]; nextCursor?: string }>;
   getMetadata(id: string): Promise<EntityMetadata>;
 }
 
@@ -155,16 +156,16 @@ export class GameService {
   }
 
   async listGames(prefix?: string, limit?: number, cursor?: string): Promise<ListResponseDto> {
-    this.logger.info('Listing games', { prefix, limit, cursor });
+    const pageSize = limit ?? 100;
+    this.logger.info('Listing games', { prefix, limit: pageSize, cursor });
 
     try {
-      const result = await this.repository.findAll(prefix, limit, cursor);
-      
-      const gameNames = result.items.map(gameEntity => gameEntity.id);
-      
-      this.logger.info('Listed games', { count: gameNames.length, hasMore: !!result.nextCursor });
+      // Keys only: loading every GameEntity here 500s the list when one S3 object is legacy/invalid.
+      const result = await this.repository.listIds(prefix, pageSize, cursor);
 
-      return new ListResponseDto(gameNames, result.nextCursor);
+      this.logger.info('Listed games', { count: result.names.length, hasMore: !!result.nextCursor });
+
+      return new ListResponseDto(result.names, result.nextCursor);
     } catch (error: any) {
       this.logger.error('Failed to list games', { error: error.message });
       throw error;
@@ -350,6 +351,43 @@ export class GameService {
       existingGame.endTime,
       existingGame.outcome
     );
+  }
+
+  async findGamesByUserId(
+    userId: string,
+    scanLimit = 100
+  ): Promise<{ games: Array<{ id: string; status: string; isFinished: boolean; usersIds: string[] }>; truncated: boolean }> {
+    const matches: Array<{ id: string; status: string; isFinished: boolean; usersIds: string[] }> = [];
+    let scanned = 0;
+    let cursor: string | undefined;
+    let truncated = false;
+
+    while (scanned < scanLimit) {
+      const remaining = scanLimit - scanned;
+      const result = await this.repository.findAll(undefined, remaining, cursor);
+      scanned += result.items.length;
+      for (const game of result.items) {
+        if (game.usersIds.includes(userId)) {
+          matches.push({
+            id: game.id,
+            status: game.status,
+            isFinished: game.isFinished,
+            usersIds: [...game.usersIds]
+          });
+        }
+      }
+      if (!result.nextCursor || result.items.length === 0) {
+        truncated = false;
+        break;
+      }
+      if (scanned >= scanLimit) {
+        truncated = true;
+        break;
+      }
+      cursor = result.nextCursor;
+    }
+
+    return { games: matches, truncated };
   }
 
   private moveFromDto(moveDto: MoveDto): Move {

@@ -526,7 +526,7 @@
         // Redirect to Cognito logout with proper redirect_uri
         const logoutUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/logout?' +
           'client_id=77e2cmbthjul60ui7guh514u50&' +
-          'logout_uri=' + encodeURIComponent('https://vkp-consulting.fr/');
+          'logout_uri=' + encodeURIComponent('https://vkp-consulting.fr/logout.html');
         window.location.href = logoutUrl;
       }
     }

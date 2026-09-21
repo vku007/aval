@@ -137,7 +137,7 @@ module "lambda_api2" {
   runtime            = "nodejs20.x"
   architectures      = ["arm64"]
   lambda_zip_path    = "../apiv2/lambda.zip"
-  timeout            = 3
+  timeout            = 15
   memory_size        = 128
   log_retention_days = 7
 
@@ -185,7 +185,12 @@ resource "aws_iam_role_policy" "lambda_cognito_access" {
           "cognito-idp:AdminUpdateUserAttributes",
           "cognito-idp:AdminGetUser",
           "cognito-idp:ListUsers",
-          "cognito-idp:InitiateAuth"
+          "cognito-idp:InitiateAuth",
+          "cognito-idp:AdminDeleteUser",
+          "cognito-idp:AdminDisableUser",
+          "cognito-idp:AdminEnableUser",
+          "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:ListUsersInGroup"
         ]
         Resource = module.cognito[0].user_pool_arn
       }

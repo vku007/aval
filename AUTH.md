@@ -71,7 +71,7 @@ Guest users created via `POST /apiv2/public/create-guest` get a dummy `@vkp.loca
 2. [`site/callback.html`](site/callback.html) exchanges the code at `/oauth2/token`.  
 3. Stores `idToken` / `accessToken` cookies (`Secure; SameSite=Strict`).  
 4. API calls send `Authorization: Bearer <idToken>` (see [`site/users/index.html`](site/users/index.html), [`site/profile.html`](site/profile.html)).  
-5. Logout: clear cookies, Hosted UI `/logout`, then [`site/logout.html`](site/logout.html) or `/`.
+5. Logout: clear cookies, Hosted UI `/logout` with `logout_uri=.../logout.html`, then [`site/logout.html`](site/logout.html) → `/login.html`. After login, the browser returns to `/aval/` (or `?next=`), not the marketing homepage.
 
 **Password API (game client)**  
 [`site/html5Simple/js/api.js`](site/html5Simple/js/api.js) calls:
@@ -80,7 +80,11 @@ Guest users created via `POST /apiv2/public/create-guest` get a dummy `@vkp.loca
 - `POST /apiv2/public/login` — `{ email, password }` → `USER_PASSWORD_AUTH`.
 - `POST /apiv2/external/promote` — authenticated; guest → regular user (Cognito attributes/groups + new tokens).
 
-Lambda needs IAM `CognitoUserManagement` on `vkp-api2-service-role` for those admin Cognito APIs.
+Lambda needs IAM `CognitoUserManagement` on `vkp-api2-service-role` for those admin Cognito APIs, plus list/delete/enable/disable/list-groups used by `/apiv2/internal/cognito-users`.
+
+### Admin Cognito user management
+
+Admins use [`site/users/index.html`](site/users/index.html) (`https://vkp-consulting.fr/users/`) against `/apiv2/internal/cognito-users` and `/apiv2/internal/audit-logs`. The join key is Cognito `sub` = S3 game profile `id`. Delete removes the pool user only. Admins cannot delete, disable, or demote themselves. S3-only CRUD remains at `/apiv2/internal/users`.
 
 ## API v2 authorization
 
@@ -97,7 +101,7 @@ Router: [`apiv2/src/app.ts`](apiv2/src/app.ts). Middleware: [`auth.ts`](apiv2/sr
 ### External vs internal
 
 - **External** — the signed-in player: `/me`, promote, create/get/update own games.
-- **Internal** — CRUD for files, users, games, rounds, moves.
+- **Internal** — CRUD for files, users, games, rounds, moves, plus Cognito user admin and audit logs.
 
 API Gateway JWT does not look at groups. A guest with a valid token can call `/apiv2/internal/files` at the gateway and still gets **403** from Lambda.
 

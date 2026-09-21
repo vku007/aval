@@ -106,6 +106,14 @@
     const REDIRECT_URI = 'https://vkp-consulting.fr/callback.html';
     const TOKEN_ENDPOINT = `https://${COGNITO_DOMAIN}/oauth2/token`;
 
+    function safeAppPath(value) {
+      const next = String(value || '');
+      if (!next.startsWith('/') || next.startsWith('//') || next.indexOf('\\') !== -1) return '/aval/';
+      if (next.indexOf('://') !== -1) return '/aval/';
+      if (next.startsWith('/login') || next.startsWith('/callback') || next.startsWith('/logout')) return '/aval/';
+      return next;
+    }
+
     // Parse URL parameters
     function getUrlParams() {
       const params = new URLSearchParams(window.location.search);
@@ -181,7 +189,7 @@
 
     // Retry login
     function retryLogin() {
-      window.location.href = '/';
+      window.location.href = '/login.html';
     }
 
     // Main authentication flow
@@ -211,7 +219,8 @@
         showSuccess();
 
         // Redirect to original page or home
-        const redirectTo = params.state || '/';
+        const redirectTo = safeAppPath(params.state || sessionStorage.getItem('aval_after_login'));
+        sessionStorage.removeItem('aval_after_login');
         setTimeout(() => {
           window.location.href = redirectTo;
         }, 1500);

@@ -60,15 +60,25 @@ export class FileGameRepository implements IGameRepository {
     await this.store.delete(this.keyFor(id), opts);
   }
 
-  async findAll(prefix?: string, limit?: number, cursor?: string): Promise<{ items: GameEntity[]; nextCursor?: string }> {
+  async listIds(prefix?: string, limit?: number, cursor?: string): Promise<{ names: string[]; nextCursor?: string }> {
     const searchPrefix = prefix ? `${this.gamePrefix}${prefix}` : this.gamePrefix;
-    const listed = await this.store.list(searchPrefix, limit, cursor);
+    const listed = await this.store.list(searchPrefix, limit ?? 100, cursor);
+    return {
+      names: listed.keys.map((obj) => this.idFromKey(obj.key)).filter(Boolean),
+      nextCursor: listed.nextCursor
+    };
+  }
+
+  async findAll(prefix?: string, limit?: number, cursor?: string): Promise<{ items: GameEntity[]; nextCursor?: string }> {
+    const listed = await this.listIds(prefix, limit, cursor);
     const items: GameEntity[] = [];
 
-    for (const obj of listed.keys) {
-      const game = await this.findById(this.idFromKey(obj.key));
-      if (game) {
-        items.push(game);
+    for (const id of listed.names) {
+      try {
+        const game = await this.findById(id);
+        if (game) items.push(game);
+      } catch {
+        // Legacy or invalid JSON must not fail the whole listing.
       }
     }
 

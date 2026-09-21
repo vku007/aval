@@ -39,8 +39,8 @@ CloudFront maps 400/403/404/500 to `/api/errors/{code}.html` (see [terraform/mai
 
 ## Auth in the browser
 
-- **Managers** (`entities/`, `users/`, `games/`, `profile.html`): `idToken` cookie, `Authorization: Bearer`. Missing token → `/login.html`. Admin APIs return 403 for `user` / `guest`.
-- **login.html**: Hosted UI (`redirect_uri=.../callback.html`) or guest create. After guest success it currently sends the browser to `/` (homepage), not `/aval/`.
+- **Managers** (`entities/`, `users/`, `games/`, `profile.html`): `idToken` cookie, `Authorization: Bearer`. Missing token → `/login.html?next=...`. Admin APIs return 403 for `user` / `guest`.
+- **login.html**: Hosted UI (`redirect_uri=.../callback.html`) or guest create. After success (or if already signed in) the browser goes to `/aval/`, or to `?next=` when that path is a same-origin app URL.
 - **html5Simple**: tokens in `localStorage` (`aval_auth_token`); login/register modals call `/apiv2/public/login` and `/apiv2/public/create-guest`.
 
 Mint a token for curl: [scripts/README.md](../scripts/README.md).
@@ -56,4 +56,4 @@ aws cloudfront create-invalidation --distribution-id EJWBLACWDMFAZ --paths "/*"
 
 ## Admin UIs
 
-Vanilla HTML/JS. Paths are `/apiv2/internal/{files|users|games}` with ETags. User manager notes: [users/README.md](users/README.md).
+Vanilla HTML/JS. Shared table chrome: [`js/admin-common.js`](js/admin-common.js) and [`js/admin-common.css`](js/admin-common.css). Paths are `/apiv2/internal/{files|users|games|cognito-users}` with admin JWT. One bad or legacy entity is a flagged row (`unreadable`), not a blank page. User manager: [users/README.md](users/README.md).

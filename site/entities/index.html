@@ -4,372 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Entity Manager - VKP API</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      min-height: 100vh;
-      padding: 2rem;
-      color: #1f2937;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: #f3f4f6;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      overflow: hidden;
-    }
-
-    header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      color: white;
-      padding: 2rem;
-      text-align: center;
-      position: relative;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-
-    header p {
-      opacity: 0.9;
-      font-size: 0.95rem;
-    }
-
-    .user-info-bar {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      backdrop-filter: blur(10px);
-    }
-
-    .user-name {
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    .user-role {
-      font-size: 0.75rem;
-      opacity: 0.8;
-      text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .logout-btn {
-      background: rgba(239, 68, 68, 0.9);
-      color: white;
-      border: none;
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: background 0.3s;
-    }
-
-    .logout-btn:hover {
-      background: rgba(220, 38, 38, 1);
-    }
-
-    .content {
-      padding: 2rem;
-    }
-
-    .section {
-      margin-bottom: 2rem;
-    }
-
-    .section-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: #1e3a8a;
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    label {
-      display: block;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      color: #374151;
-    }
-
-    input[type="text"],
-    textarea,
-    select {
-      width: 100%;
-      padding: 0.75rem;
-      border: 2px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 1rem;
-      transition: border-color 0.3s;
-      background: white;
-    }
-
-    input[type="text"]:focus,
-    textarea:focus,
-    select:focus {
-      outline: none;
-      border-color: #1e3a8a;
-    }
-
-    textarea {
-      font-family: 'Monaco', 'Courier New', monospace;
-      min-height: 150px;
-      resize: vertical;
-    }
-
-    .btn {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-      color: white;
-      border: none;
-      padding: 0.75rem 2rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-right: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn-secondary {
-      background: #6c757d;
-    }
-
-    .btn-danger {
-      background: #dc3545;
-    }
-
-    .btn-small {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-    }
-
-    .entities-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-
-    .entity-card {
-      border: 2px solid #d1d5db;
-      border-radius: 8px;
-      padding: 1rem;
-      background: white;
-      transition: border-color 0.3s, box-shadow 0.3s;
-      cursor: pointer;
-    }
-
-    .entity-card:hover {
-      border-color: #1e3a8a;
-      box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
-    }
-
-    .entity-card.selected {
-      border-color: #1e3a8a;
-      background: #eff6ff;
-    }
-
-
-    .entity-meta {
-      font-size: 0.875rem;
-      color: #6b7280;
-      margin-bottom: 0.5rem;
-    }
-
-    .entity-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-    }
-
-    .entity-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 0.5rem;
-    }
-
-    .entity-name {
-      font-weight: 600;
-      font-size: 1.1rem;
-      color: #1e3a8a;
-      word-break: break-all;
-      flex: 1;
-    }
-
-    .entity-type {
-      font-size: 0.8rem;
-      font-weight: 500;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      background: #e5e7eb;
-      color: #6b7280;
-      white-space: nowrap;
-      margin-left: 0.5rem;
-    }
-
-    /* Entity type specific styling */
-    .entity-user {
-      border-left: 4px solid #10b981;
-    }
-
-    .entity-user .entity-type {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    .entity-game {
-      border-left: 4px solid #8b5cf6;
-    }
-
-    .entity-game .entity-type {
-      background: #ede9fe;
-      color: #5b21b6;
-    }
-
-    .entity-file {
-      border-left: 4px solid #f59e0b;
-    }
-
-    .entity-file .entity-type {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .entity-generic {
-      border-left: 4px solid #6b7280;
-    }
-
-    .entity-generic .entity-type {
-      background: #f3f4f6;
-      color: #374151;
-    }
-
-    .alert {
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      font-weight: 500;
-    }
-
-    .alert-success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-
-    .alert-error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-
-    .alert-info {
-      background: #d1ecf1;
-      color: #0c5460;
-      border: 1px solid #bee5eb;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 2rem;
-      color: #6b7280;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 40px;
-      height: 40px;
-      border: 4px solid #d1d5db;
-      border-top: 4px solid #1e3a8a;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .tabs {
-      display: flex;
-      border-bottom: 2px solid #d1d5db;
-      margin-bottom: 1.5rem;
-    }
-
-    .tab {
-      padding: 0.75rem 1.5rem;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.3s;
-      font-weight: 500;
-      color: #6b7280;
-    }
-
-    .tab:hover {
-      color: #1e3a8a;
-    }
-
-    .tab.active {
-      color: #1e3a8a;
-      border-bottom-color: #1e3a8a;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    code {
-      background: #e5e7eb;
-      padding: 0.2rem 0.4rem;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Courier New', monospace;
-      font-size: 0.9rem;
-      color: #1e3a8a;
-    }
-  </style>
+  <link rel="stylesheet" href="/js/admin-common.css">
 </head>
 <body>
   <div class="container">
@@ -379,419 +14,286 @@
           <div class="user-name" id="user-display-name">Loading...</div>
           <div class="user-role" id="user-role">...</div>
         </div>
-        <button class="logout-btn" onclick="app.logout()">🚪 Logout</button>
+        <button class="logout-btn" type="button" id="logout-btn">Logout</button>
       </div>
-      <h1>📦 Entity Manager</h1>
-      <p>Manage JSON entities via VKP API</p>
+      <h1>Entity Manager</h1>
+      <p>JSON files in S3. Unreadable objects stay as flagged rows.</p>
     </header>
-
     <div class="content">
-      <div style="text-align: center; margin-bottom: 1rem;">
-        <a href="../users/index.html" class="btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; margin-right: 1rem;">
-          👥 User Manager
-        </a>
-        <a href="../games/index.html" class="btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
-          🎮 Game Manager
-        </a>
+      <div class="nav-links">
+        <a href="/aval/">Hub</a>
+        <a href="/entities/" class="active">Files</a>
+        <a href="/users/">Users</a>
+        <a href="/games/">Games</a>
       </div>
-      
       <div id="alert-container"></div>
-
       <div class="tabs">
         <div class="tab active" data-tab="browse">Browse</div>
         <div class="tab" data-tab="create">Create</div>
-        <div class="tab" data-tab="edit">Edit</div>
       </div>
 
-      <!-- Browse Tab -->
-      <div class="tab-content active" data-content="browse">
-        <div class="section">
-          <div class="section-title">Entities</div>
+      <div class="tab-content active workspace" data-content="browse">
+        <div class="filters">
           <div class="form-group">
-            <input type="text" id="search-prefix" placeholder="Filter by prefix...">
+            <label for="search-prefix">ID prefix</label>
+            <input id="search-prefix" type="text" placeholder="e.g. game-">
           </div>
-          <button class="btn" onclick="app.loadEntities()">🔄 Refresh</button>
-          <div id="entities-list" class="entities-list">
-            <div class="loading">
-              <div class="spinner"></div>
-              <p>Loading entities...</p>
+          <button class="btn" type="button" id="refresh-btn">Refresh</button>
+        </div>
+        <div class="split">
+          <div class="split-left">
+            <div class="pane-title">Files</div>
+            <div id="table-wrap" class="pane-body"></div>
+            <div class="pager">
+              <span class="page-label" id="page-label">Page 1</span>
+              <button class="btn btn-secondary btn-small" type="button" id="prev-page" disabled>Previous</button>
+              <button class="btn btn-secondary btn-small" type="button" id="next-page" disabled>Next</button>
+            </div>
+          </div>
+          <div class="split-right">
+            <div class="pane-title">Details</div>
+            <div id="detail-panel" class="pane-body">
+              <div class="empty-detail">Select a file in the list.</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Create Tab -->
       <div class="tab-content" data-content="create">
-        <div class="section">
-          <div class="section-title">Create New Entity</div>
-          <form id="create-form" onsubmit="app.createEntity(event)">
-            <div class="form-group">
-              <label for="create-id">ID <code>^[a-zA-Z0-9._-]{1,128}$</code></label>
-              <input type="text" id="create-id" required pattern="[a-zA-Z0-9._-]+" 
-                     placeholder="e.g., user.config, data-2025">
-            </div>
-            <div class="form-group">
-              <label for="create-data">JSON Data</label>
-              <textarea id="create-data" required placeholder='{"key": "value"}'></textarea>
-            </div>
-            <button type="submit" class="btn">✨ Create Entity</button>
-            <button type="button" class="btn btn-secondary" onclick="app.resetCreateForm()">Clear</button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Edit Tab -->
-      <div class="tab-content" data-content="edit">
-        <div class="section">
-          <div class="section-title">Edit Entity</div>
-          <div id="edit-placeholder" class="alert alert-info">
-            Select an entity from the Browse tab to edit
+        <div class="section-title">Create file</div>
+        <form id="create-form">
+          <div class="form-group">
+            <label for="create-id">ID <code>^[a-zA-Z0-9._-]{1,128}$</code></label>
+            <input id="create-id" required pattern="^[a-zA-Z0-9._-]{1,128}$">
           </div>
-          <form id="edit-form" class="hidden" onsubmit="app.updateEntity(event)">
-            <div class="form-group">
-              <label>ID</label>
-              <input type="text" id="edit-id" readonly style="background: #f0f0f0;">
-            </div>
-            <div class="form-group">
-              <label>ETag (current version)</label>
-              <input type="text" id="edit-etag" readonly style="background: #f0f0f0;">
-            </div>
-            <div class="form-group">
-              <label for="edit-data">JSON Data</label>
-              <textarea id="edit-data" required></textarea>
-            </div>
-            <div class="form-group">
-              <label for="update-mode">Update Mode</label>
-              <select id="update-mode">
-                <option value="replace">Replace (PUT) - Full replacement</option>
-                <option value="merge">Merge (PATCH) - Deep merge with existing</option>
-              </select>
-            </div>
-            <button type="submit" class="btn">💾 Save Changes</button>
-            <button type="button" class="btn btn-danger" onclick="app.deleteEntity()">🗑️ Delete</button>
-            <button type="button" class="btn btn-secondary" onclick="app.cancelEdit()">Cancel</button>
-          </form>
-        </div>
+          <div class="form-group">
+            <label for="create-data">JSON data</label>
+            <textarea id="create-data" required>{ }</textarea>
+          </div>
+          <div class="form-actions">
+            <button class="btn" type="submit">Create</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
-
+  <script src="/js/admin-common.js"></script>
   <script>
-    const API_BASE = 'https://vkp-consulting.fr/apiv2/internal';
-
-    // Helper to get cookie value
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-      return null;
-    }
-
-    // Helper to decode JWT token
-    function decodeJWT(token) {
-      try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(jsonPayload);
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // Initialize user info display
-    function initUserInfo() {
-      const idToken = getCookie('idToken');
-      if (idToken) {
-        const payload = decodeJWT(idToken);
-        if (payload) {
-          const displayName = payload.display_name || payload['custom:display_name'] || payload.email || 'User';
-          const role = payload.role || payload['custom:role'] || payload['cognito:groups']?.[0] || 'user';
-          
-          document.getElementById('user-display-name').textContent = displayName;
-          document.getElementById('user-role').textContent = role;
-          document.getElementById('user-info-bar').style.display = 'flex';
-        }
-      }
-    }
-
+    const A = window.Admin;
     const app = {
-      selectedEntity: null,
-      entities: [],
+      rows: [],
+      selectedId: null,
+      selected: null,
+      cursors: [undefined],
+      pageIndex: 0,
+      nextCursor: undefined,
 
-      async request(method, path, body = null, headers = {}) {
-        // Get ID token from cookie for authentication
-        const idToken = getCookie('idToken');
-        
-        const opts = {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            ...headers
-          }
-        };
-        
-        // Add Authorization header if token exists
-        if (idToken) {
-          opts.headers['Authorization'] = `Bearer ${idToken}`;
-        }
-        
-        if (body) opts.body = JSON.stringify(body);
-
-        const res = await fetch(`${API_BASE}${path}`, opts);
-        
-        if (res.status === 204) return null;
-        if (res.status === 304) return { notModified: true };
-        
-        const data = await res.json();
-        
-        if (!res.ok) {
-          // If unauthorized, redirect to custom login page
-          if (res.status === 401) {
-            if (confirm('Authentication required. Redirect to login?')) {
-              window.location.href = '/login.html';
-            }
-          }
-          
-          // If forbidden, show access denied message
-          if (res.status === 403) {
-            alert('Access Denied: You do not have permission to access this resource. Admin role required for Entity Manager.');
-            window.location.href = '/';
-            throw new Error('Access denied - Admin role required');
-          }
-          
-          throw new Error(data.detail || data.title || `HTTP ${res.status}`);
-        }
-        
-        return { data, etag: res.headers.get('ETag')?.replace(/"/g, '') };
-      },
-
-      showAlert(message, type = 'info') {
-        const container = document.getElementById('alert-container');
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type}`;
-        alert.textContent = message;
-        container.appendChild(alert);
-        setTimeout(() => alert.remove(), 5000);
-      },
-
-      switchTab(tabName) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
-      },
-
-      async loadEntities() {
-        const list = document.getElementById('entities-list');
-        list.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
-
+      async load(direction) {
+        const wrap = document.getElementById('table-wrap');
+        A.setLoading(wrap, 'Loading files...');
         try {
-          const prefix = document.getElementById('search-prefix').value;
-          const params = new URLSearchParams();
+          const prefix = document.getElementById('search-prefix').value.trim();
+          const params = new URLSearchParams({ limit: String(A.PAGE_SIZE) });
           if (prefix) params.set('prefix', prefix);
-          
-          const result = await this.request('GET', `/files?${params}`);
-          // Backend returns {names: [id1, id2, ...], nextCursor: ...}
-          const entityIds = result.data.names || [];
-
-          if (entityIds.length === 0) {
-            list.innerHTML = '<div class="alert alert-info">No entities found</div>';
+          if (direction === 'next' && this.nextCursor) {
+            this.pageIndex += 1;
+            this.cursors[this.pageIndex] = this.nextCursor;
+          } else if (direction === 'prev') {
+            this.pageIndex = Math.max(0, this.pageIndex - 1);
+          } else if (direction !== 'page') {
+            this.pageIndex = 0;
+            this.cursors = [undefined];
+          }
+          const cursor = this.cursors[this.pageIndex];
+          if (cursor) params.set('cursor', cursor);
+          const listed = await A.request('GET', `/files?${params}`);
+          if (!listed.ok) {
+            wrap.replaceChildren();
+            wrap.appendChild(alertNode('error', listed.error));
+            A.setPager({ pageIndex: this.pageIndex, nextCursor: undefined });
             return;
           }
-
-          // Fetch metadata for each entity to display size/modified date
-          const entityDetails = await Promise.all(
-            entityIds.map(async (id) => {
-              try {
-                const meta = await this.request('GET', `/files/${id}/meta`);
-                return {
-                  id,
-                  etag: meta.data.etag,
-                  size: meta.data.size,
-                  lastModified: meta.data.lastModified
-                };
-              } catch {
-                return { id, etag: null, size: null, lastModified: null };
-              }
-            })
-          );
-
-          this.entities = entityDetails;
-
-          list.innerHTML = this.entities.map(e => {
-            // Determine entity type based on ID patterns
-            let entityType = '📄 Generic';
-            let typeClass = 'entity-generic';
-            
-            if (e.id.startsWith('user')) {
-              entityType = '👥 User';
-              typeClass = 'entity-user';
-            } else if (e.id.startsWith('game') || e.id.includes('game')) {
-              entityType = '🎮 Game';
-              typeClass = 'entity-game';
-            } else if (e.id.startsWith('file')) {
-              entityType = '📄 File';
-              typeClass = 'entity-file';
+          const ids = A.listNames(listed.data);
+          this.nextCursor = A.nextCursorOf(listed.data);
+          A.setPager({ pageIndex: this.pageIndex, nextCursor: this.nextCursor });
+          this.rows = await A.mapPool(ids, 8, async (id) => {
+            const meta = await A.request('GET', `/files/${A.pathId(id)}/meta`);
+            if (!meta.ok) {
+              return { id: A.asString(id), unreadable: true, error: meta.error, size: null, lastModified: null, etag: null };
             }
-            
-            return `
-              <div class="entity-card ${typeClass}" onclick="app.selectEntity('${e.id}')">
-                <div class="entity-header">
-                  <div class="entity-name">${e.id}</div>
-                  <div class="entity-type">${entityType}</div>
-                </div>
-                <div class="entity-meta">
-                  ${e.size ? `Size: ${Math.round(e.size / 1024 * 10) / 10} KB<br>` : ''}
-                  ${e.lastModified ? `Modified: ${new Date(e.lastModified).toLocaleString()}` : ''}
-                </div>
-                <div class="entity-actions">
-                  <button class="btn btn-small" onclick="event.stopPropagation(); app.viewEntity('${e.id}')">👁️ View</button>
-                  <button class="btn btn-small" onclick="event.stopPropagation(); app.editEntity('${e.id}')">✏️ Edit</button>
-                </div>
-              </div>
-            `;
-          }).join('');
-        } catch (err) {
-          list.innerHTML = `<div class="alert alert-error">Error: ${err.message}</div>`;
+            const data = A.asObject(meta.data);
+            return {
+              id: A.asString(id),
+              unreadable: false,
+              size: A.asNumber(data.size),
+              lastModified: data.lastModified,
+              etag: A.asString(data.etag)
+            };
+          });
+          this.renderTable();
+        } catch (error) {
+          wrap.replaceChildren();
+          wrap.appendChild(alertNode('error', error.message || String(error)));
         }
       },
 
-      selectEntity(id) {
-        document.querySelectorAll('.entity-card').forEach(c => c.classList.remove('selected'));
-        event.currentTarget.classList.add('selected');
-        this.selectedEntity = id;
+      renderTable() {
+        A.mountTable(document.getElementById('table-wrap'), {
+          empty: 'No files found.',
+          selectedKey: this.selectedId,
+          getKey: (row) => row.id,
+          onSelect: (row) => this.open(row.id),
+          columns: [
+            { title: 'ID', render: (row) => row.id },
+            { title: 'Status', render: (row) => row.unreadable ? A.badge('unreadable', 'bad') : A.badge('ok', 'ok') }
+          ],
+          rows: this.rows
+        });
       },
 
-      async viewEntity(id) {
+      async open(id) {
+        this.selectedId = id;
+        this.renderTable();
+        const panel = document.getElementById('detail-panel');
+        A.setLoading(panel, 'Loading file...');
         try {
-          const result = await this.request('GET', `/files/${id}`);
-          alert(JSON.stringify(result.data, null, 2));
-        } catch (err) {
-          this.showAlert(`Error viewing ${id}: ${err.message}`, 'error');
+          const result = await A.request('GET', `/files/${A.pathId(id)}`);
+          const payload = result.ok ? A.filePayload(result.data) : { id, data: result.rawText || result.error };
+          this.selected = {
+            id,
+            etag: result.etag,
+            readable: result.ok && !result.parseError,
+            data: payload.data,
+            rawText: result.ok ? A.prettyJson(payload.data) : (result.rawText || result.error)
+          };
+          panel.replaceChildren();
+          const box = document.createElement('div');
+          box.className = 'detail';
+          const title = document.createElement('h3');
+          title.textContent = id;
+          box.appendChild(title);
+          if (!this.selected.readable) {
+            const warn = document.createElement('div');
+            warn.className = 'warn';
+            warn.textContent = 'This object could not be parsed as JSON. You can still delete it. Save is disabled until the body is valid JSON.';
+            box.appendChild(warn);
+          }
+          const etag = document.createElement('p');
+          etag.className = 'muted';
+          etag.textContent = `ETag: ${this.selected.etag || '—'}`;
+          box.appendChild(etag);
+          const label = document.createElement('label');
+          label.textContent = 'Stored JSON (PUT/PATCH body is this value)';
+          const ta = document.createElement('textarea');
+          ta.id = 'edit-data';
+          ta.value = this.selected.readable ? this.selected.rawText : A.asString(this.selected.rawText);
+          box.appendChild(label);
+          const group = document.createElement('div');
+          group.className = 'form-group';
+          group.appendChild(ta);
+          box.appendChild(group);
+          const modeGroup = document.createElement('div');
+          modeGroup.className = 'form-group';
+          modeGroup.innerHTML = '<label for="update-mode">Save mode</label>';
+          const select = document.createElement('select');
+          select.id = 'update-mode';
+          select.innerHTML = '<option value="replace">Replace (PUT)</option><option value="merge">Merge (PATCH)</option>';
+          modeGroup.appendChild(select);
+          box.appendChild(modeGroup);
+          const actions = document.createElement('div');
+          actions.className = 'form-actions';
+          const save = document.createElement('button');
+          save.className = 'btn';
+          save.type = 'button';
+          save.textContent = 'Save';
+          save.addEventListener('click', () => this.save());
+          const del = document.createElement('button');
+          del.className = 'btn btn-danger';
+          del.type = 'button';
+          del.textContent = 'Delete';
+          del.addEventListener('click', () => this.remove());
+          actions.appendChild(save);
+          actions.appendChild(del);
+          box.appendChild(actions);
+          panel.appendChild(box);
+        } catch (error) {
+          panel.replaceChildren();
+          panel.appendChild(alertNode('error', error.message || String(error)));
         }
       },
 
-      async editEntity(id) {
-        try {
-          const result = await this.request('GET', `/files/${id}`);
-          
-          document.getElementById('edit-id').value = id;
-          document.getElementById('edit-etag').value = result.etag || 'N/A';
-          document.getElementById('edit-data').value = JSON.stringify(result.data, null, 2);
-          document.getElementById('edit-placeholder').classList.add('hidden');
-          document.getElementById('edit-form').classList.remove('hidden');
-          
-          this.selectedEntity = { id, etag: result.etag };
-          this.switchTab('edit');
-        } catch (err) {
-          this.showAlert(`Error loading ${id}: ${err.message}`, 'error');
+      async save() {
+        const parsed = A.parseJsonText(document.getElementById('edit-data').value);
+        if (!parsed.ok) {
+          A.showAlert('Body is not valid JSON: ' + parsed.error, 'error');
+          return;
         }
-      },
-
-      async createEntity(event) {
-        event.preventDefault();
-        
-        const id = document.getElementById('create-id').value;
-        const dataText = document.getElementById('create-data').value;
-        
-        try {
-          const data = JSON.parse(dataText);
-          await this.request('POST', '/files', { id, data });
-          
-          this.showAlert(`Entity "${id}" created successfully!`, 'success');
-          this.resetCreateForm();
-          this.switchTab('browse');
-          this.loadEntities();
-        } catch (err) {
-          this.showAlert(`Error creating entity: ${err.message}`, 'error');
-        }
-      },
-
-      async updateEntity(event) {
-        event.preventDefault();
-        
-        const id = this.selectedEntity.id;
-        const etag = this.selectedEntity.etag;
-        const dataText = document.getElementById('edit-data').value;
         const mode = document.getElementById('update-mode').value;
-        
-        try {
-          const data = JSON.parse(dataText);
-          const method = mode === 'replace' ? 'PUT' : 'PATCH';
-          const headers = etag ? { 'If-Match': etag } : {};
-          
-          await this.request(method, `/files/${id}`, data, headers);
-          
-          this.showAlert(`Entity "${id}" updated successfully!`, 'success');
-          this.cancelEdit();
-          this.switchTab('browse');
-          this.loadEntities();
-        } catch (err) {
-          this.showAlert(`Error updating entity: ${err.message}`, 'error');
+        const method = mode === 'merge' ? 'PATCH' : 'PUT';
+        const headers = {};
+        if (this.selected && this.selected.etag) headers['If-Match'] = this.selected.etag;
+        const result = await A.request(method, `/files/${A.pathId(this.selectedId)}`, parsed.value, headers);
+        if (!result.ok) {
+          A.showAlert(result.error, 'error');
+          return;
         }
+        A.showAlert('File saved', 'success');
+        await this.load('page');
+        await this.open(this.selectedId);
       },
 
-      async deleteEntity() {
-        if (!confirm(`Delete "${this.selectedEntity.id}"?`)) return;
-        
-        const id = this.selectedEntity.id;
-        const etag = this.selectedEntity.etag;
-        
-        try {
-          const headers = etag ? { 'If-Match': etag } : {};
-          await this.request('DELETE', `/files/${id}`, null, headers);
-          
-          this.showAlert(`Entity "${id}" deleted successfully!`, 'success');
-          this.cancelEdit();
-          this.switchTab('browse');
-          this.loadEntities();
-        } catch (err) {
-          this.showAlert(`Error deleting entity: ${err.message}`, 'error');
+      async remove() {
+        if (!confirm(`Delete file "${this.selectedId}"?`)) return;
+        const headers = {};
+        if (this.selected && this.selected.etag) headers['If-Match'] = this.selected.etag;
+        const result = await A.request('DELETE', `/files/${A.pathId(this.selectedId)}`, null, headers);
+        if (!result.ok) {
+          A.showAlert(result.error, 'error');
+          return;
         }
+        A.showAlert('File deleted', 'success');
+        this.selectedId = null;
+        A.showEmptyDetail(document.getElementById('detail-panel'), 'Select a file in the list.');
+        await this.load('page');
       },
 
-      resetCreateForm() {
-        document.getElementById('create-form').reset();
-      },
-
-      cancelEdit() {
-        document.getElementById('edit-placeholder').classList.remove('hidden');
-        document.getElementById('edit-form').classList.add('hidden');
-        this.selectedEntity = null;
-      },
-
-      logout() {
-        if (confirm('Are you sure you want to logout?')) {
-          // Clear all auth cookies
-          document.cookie = 'idToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          
-          // Redirect to Cognito logout
-          const logoutUrl = 'https://vkp-auth.auth.eu-north-1.amazoncognito.com/logout?client_id=77e2cmbthjul60ui7guh514u50&logout_uri=https://vkp-consulting.fr/';
-          window.location.href = logoutUrl;
+      async create(event) {
+        event.preventDefault();
+        const id = document.getElementById('create-id').value.trim();
+        const parsed = A.parseJsonText(document.getElementById('create-data').value);
+        if (!parsed.ok) {
+          A.showAlert('JSON data is invalid: ' + parsed.error, 'error');
+          return;
         }
+        const result = await A.request('POST', '/files', { id, data: parsed.value });
+        if (!result.ok) {
+          A.showAlert(result.error, 'error');
+          return;
+        }
+        A.showAlert('File created', 'success');
+        event.target.reset();
+        A.switchTab('browse');
+        await this.load();
+        await this.open(id);
       }
     };
 
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => app.switchTab(tab.dataset.tab));
-    });
+    function alertNode(type, message) {
+      const el = document.createElement('div');
+      el.className = `alert alert-${type}`;
+      el.textContent = message;
+      return el;
+    }
 
-    // Search on enter
-    document.getElementById('search-prefix').addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') app.loadEntities();
-    });
-
-    // Initialize user info
-    initUserInfo();
-
-    // Initial load
-    app.loadEntities();
+    if (A.initAuth()) {
+      A.bindTabs();
+      document.getElementById('logout-btn').addEventListener('click', A.logout);
+      document.getElementById('refresh-btn').addEventListener('click', () => app.load());
+      document.getElementById('prev-page').addEventListener('click', () => app.load('prev'));
+      document.getElementById('next-page').addEventListener('click', () => app.load('next'));
+      document.getElementById('create-form').addEventListener('submit', (e) => app.create(e));
+      app.load();
+    }
   </script>
 </body>
 </html>
