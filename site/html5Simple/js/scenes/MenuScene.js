@@ -18,6 +18,8 @@ class MenuScene extends Phaser.Scene {
         fxEnter(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
+        this.skinHost = null;
+        this.menuButtons = [];
         // Get user from registry
         const user = this.registry.get('currentUser');
         console.log('[MenuScene] User from registry:', user);
@@ -33,12 +35,12 @@ class MenuScene extends Phaser.Scene {
 
         this.currentDisplayName = displayName;
 
-        this.add.text(width / 2, 56, 'Sweet Adventure', {
+        this.titleText = this.add.text(width / 2, 56, 'Sweet Adventure', {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, 88, 'Pick a match', {
+        this.subtitleText = this.add.text(width / 2, 88, 'Pick a match', {
             font: `${UI.body}px monospace`,
             fill: '#666666'
         }).setOrigin(0.5);
@@ -62,7 +64,8 @@ class MenuScene extends Phaser.Scene {
         const gap = 16;
         const totalHeight = buttons.reduce((sum, btn) => sum + btn.height, 0) + gap * (buttons.length - 1);
         const switcherH = UI.touchMin;
-        const buttonYStart = 120 + (height - 120 - switcherH - 24 - totalHeight) / 2;
+        const skinH = 28;
+        const buttonYStart = 120 + (height - 120 - switcherH - 24 - skinH - 12 - totalHeight) / 2;
 
         let y = buttonYStart;
         buttons.forEach((btn) => {
@@ -75,12 +78,15 @@ class MenuScene extends Phaser.Scene {
             if (isPrimary) {
                 this.startGameBtn = made;
             }
+            this.menuButtons.push(made);
             y += btn.height + gap;
         });
 
         const chipW = 170;
         const chipGap = 8;
         const chipY = height - 16 - switcherH / 2;
+        const skinY = chipY - switcherH / 2 - 10 - skinH / 2;
+        this.skinSwitch = createUiSkinSwitch(this, (on) => this.setMenuSkin(on), { y: skinY });
         this.createDebugChip(
             width / 2 - chipW / 2 - chipGap / 2,
             chipY,
@@ -103,6 +109,34 @@ class MenuScene extends Phaser.Scene {
                 this.scene.restart();
             }
         );
+        this.setMenuSkin(isUiSkinOn());
+    }
+
+    update(time, delta) {
+        if (this.skinHost && isUiSkinOn()) {
+            this.skinHost.update(time, delta);
+        }
+    }
+
+    setMenuSkin(on) {
+        if (on) {
+            if (!this.skinHost) {
+                const width = this.cameras.main.width;
+                const height = this.cameras.main.height;
+                this.skinHost = mountUiSkin(this, { x: 0, y: 0, width, height });
+            }
+            if (this.skinHost) {
+                this.skinHost.setVisible(true);
+            }
+        } else if (this.skinHost) {
+            this.skinHost.setVisible(false);
+        }
+        styleUiSkinText(this.playerText, on);
+        styleUiSkinText(this.titleText, on);
+        styleUiSkinText(this.subtitleText, on);
+        (this.menuButtons || []).forEach((btn) => {
+            styleUiSkinMenuButton(this, btn, on);
+        });
     }
 
     /**
@@ -209,7 +243,10 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         btn.add([bg, text]);
+        btn.buttonBg = bg;
         btn.buttonText = text;
+        btn.buttonWidth = btnWidth;
+        btn.buttonHeight = btnHeight;
         
         const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });

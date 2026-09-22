@@ -82,6 +82,41 @@ function serializeUiEditor(heatMap, balls, rods) {
     };
 }
 
+function scaleUiEditorPoint(point, sx, sy) {
+    if (!point || typeof point.col !== 'number' || typeof point.row !== 'number') {
+        return point || null;
+    }
+    return { col: point.col * sx, row: point.row * sy };
+}
+
+function scaleUiEditorPresetToField(data, field) {
+    if (!data || typeof data !== 'object' || !field) {
+        return data;
+    }
+    const from = data.source || { cols: 123, rows: 100 };
+    const sx = Math.max(1, field.cols - 1) / Math.max(1, from.cols - 1);
+    const sy = Math.max(1, field.rows - 1) / Math.max(1, from.rows - 1);
+    if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) {
+        return data;
+    }
+    const copy = JSON.parse(JSON.stringify(data));
+    const rScale = (sx + sy) / 2;
+    (copy.balls || []).forEach((ball) => {
+        ball.orbitCenter = scaleUiEditorPoint(ball.orbitCenter, sx, sy);
+        ball.orbitTarget = scaleUiEditorPoint(ball.orbitTarget, sx, sy);
+        if (ball.params && ball.params.orbitRadius != null) {
+            ball.params.orbitRadius = ball.params.orbitRadius * rScale;
+        }
+    });
+    (copy.rods || []).forEach((rod) => {
+        rod.start = scaleUiEditorPoint(rod.start, sx, sy);
+        rod.end = scaleUiEditorPoint(rod.end, sx, sy);
+        rod.center = scaleUiEditorPoint(rod.center, sx, sy);
+        rod.target = scaleUiEditorPoint(rod.target, sx, sy);
+    });
+    return copy;
+}
+
 function applyUiEditorPreset(heatMap, balls, data, rods) {
     if (!data || typeof data !== 'object') {
         throw new Error('Invalid preset file');

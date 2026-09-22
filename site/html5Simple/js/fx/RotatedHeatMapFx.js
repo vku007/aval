@@ -412,14 +412,18 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         }
     };
 
-    const hit = scene.add.zone(x, y, width, height).setOrigin(0);
-    hit.setInteractive({ useHandCursor: true });
-    hit.on('pointerdown', (pointer) => {
-        if (typeof field.onTap === 'function') {
-            field.onTap(field.pointerToCell(pointer));
-        }
-    });
-    field.hit = hit;
+    if (!options || options.interactive !== false) {
+        const hit = scene.add.zone(x, y, width, height).setOrigin(0);
+        hit.setInteractive({ useHandCursor: true });
+        hit.on('pointerdown', (pointer) => {
+            if (typeof field.onTap === 'function') {
+                field.onTap(field.pointerToCell(pointer));
+            }
+        });
+        field.hit = hit;
+    } else {
+        field.hit = null;
+    }
 
     scene.events.once('shutdown', () => {
         if (field.hit) {

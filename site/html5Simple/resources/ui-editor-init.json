@@ -1,0 +1,196 @@
+{
+  "kind": "ui-editor-preset",
+  "version": 2,
+  "source": {
+    "cols": 123,
+    "rows": 100
+  },
+  "heatMap": {
+    "diffusion": 9,
+    "cooling": 2.56,
+    "viewX": 30,
+    "viewY": 35,
+    "viewZ": 0
+  },
+  "balls": [
+    {
+      "name": "Hot Ball 1",
+      "isVisible": false,
+      "params": {
+        "radius": 3.4,
+        "energy": 1.5,
+        "angleSpeed": 1.6,
+        "orbitRadius": 16,
+        "tiltX": 0,
+        "tiltY": 0,
+        "tiltZ": 0,
+        "phase": 285
+      },
+      "orbitOn": true,
+      "orbitCenter": {
+        "col": 61.5,
+        "row": 50
+      },
+      "orbitTarget": {
+        "col": 61.5,
+        "row": 50
+      },
+      "angle": 834.3482239999174,
+      "wanderPhase": 0
+    },
+    {
+      "name": "Hot Ball 2",
+      "isVisible": false,
+      "params": {
+        "radius": 3.4,
+        "energy": 1.5,
+        "angleSpeed": 1.6,
+        "orbitRadius": 16,
+        "tiltX": 90,
+        "tiltY": 0,
+        "tiltZ": 0,
+        "phase": 15
+      },
+      "orbitOn": true,
+      "orbitCenter": {
+        "col": 61.5,
+        "row": 50
+      },
+      "orbitTarget": {
+        "col": 61.5,
+        "row": 50
+      },
+      "angle": 835.9190203267118,
+      "wanderPhase": 0
+    },
+    {
+      "name": "Hot Ball 3",
+      "isVisible": false,
+      "params": {
+        "radius": 3.4,
+        "energy": 1.5,
+        "angleSpeed": 1.6,
+        "orbitRadius": 16,
+        "tiltX": 0,
+        "tiltY": 90,
+        "tiltZ": 0,
+        "phase": 105
+      },
+      "orbitOn": true,
+      "orbitCenter": {
+        "col": 61.5,
+        "row": 50
+      },
+      "orbitTarget": {
+        "col": 61.5,
+        "row": 50
+      },
+      "angle": 837.4898166535064,
+      "wanderPhase": 0
+    }
+  ],
+  "rods": [
+    {
+      "name": "Hot Rod 1",
+      "isVisible": true,
+      "params": {
+        "thickness": 4,
+        "energy": 1.5,
+        "followSpeed": 0.4,
+        "delay": 4,
+        "gap": 4,
+        "startAngle": 0,
+        "endAngle": 0,
+        "noiseAmt": 0,
+        "noiseGrain": 4,
+        "noiseFlicker": 1.6
+      },
+      "start": {
+        "col": 61,
+        "row": -34.65
+      },
+      "end": {
+        "col": 61,
+        "row": 103.95
+      },
+      "startAngle": 0,
+      "endAngle": 0,
+      "center": {
+        "col": 61,
+        "row": 102.64683999661409
+      },
+      "target": {
+        "col": 61,
+        "row": 103.95
+      }
+    },
+    {
+      "name": "Hot Rod 2",
+      "isVisible": true,
+      "params": {
+        "thickness": 3,
+        "energy": 1.2,
+        "followSpeed": 0.4,
+        "delay": 1.9,
+        "gap": 2.6,
+        "startAngle": 60,
+        "endAngle": 60,
+        "noiseAmt": 0,
+        "noiseGrain": 4,
+        "noiseFlicker": 1.6
+      },
+      "start": {
+        "col": 85.24871130596429,
+        "row": -69.3
+      },
+      "end": {
+        "col": 36.751288694035715,
+        "row": 198
+      },
+      "startAngle": 60,
+      "endAngle": 60,
+      "center": {
+        "col": 36.90409542605677,
+        "row": 197.15778535704732
+      },
+      "target": {
+        "col": 36.751288694035715,
+        "row": 198
+      }
+    },
+    {
+      "name": "Hot Rod 3",
+      "isVisible": true,
+      "params": {
+        "thickness": 5,
+        "energy": 1.8,
+        "followSpeed": 1.2,
+        "delay": 3.6,
+        "gap": 3,
+        "startAngle": 145,
+        "endAngle": 150,
+        "noiseAmt": 0,
+        "noiseGrain": 4,
+        "noiseFlicker": 1.6
+      },
+      "start": {
+        "col": 85.24871130596429,
+        "row": 128.70000000000002
+      },
+      "end": {
+        "col": 36.751288694035715,
+        "row": -39.6
+      },
+      "startAngle": 145,
+      "endAngle": 150,
+      "center": {
+        "col": 85.24871130596429,
+        "row": 128.70000000000002
+      },
+      "target": {
+        "col": 85.24871130596429,
+        "row": 128.70000000000002
+      }
+    }
+  ]
+}

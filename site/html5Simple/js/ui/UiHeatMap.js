@@ -26,7 +26,7 @@ class UiHeatMap {
         }
     ];
 
-    constructor(scene, bounds) {
+    constructor(scene, bounds, options) {
         this.scene = scene;
         this.bounds = bounds;
         this.name = 'Heat Map';
@@ -41,7 +41,9 @@ class UiHeatMap {
             bounds.y,
             bounds.width,
             bounds.height,
-            { texKey: `ui-heatmap-${UI_HEAT_MAP_SEQ}` }
+            Object.assign({
+                texKey: `ui-heatmap-${UI_HEAT_MAP_SEQ}`
+            }, options || {})
         );
         this.field.onTap = (cell) => {
             if (typeof this.onTap === 'function') {

@@ -193,6 +193,10 @@ Panels are stacked full-width from top to bottom. Nested score/side panels sit l
 
 Layout fractions live in [`js/frameSize.js`](js/frameSize.js) (`UI.layouts`). Shared panel code lives in [`js/scenes/GamePlayScene.js`](js/scenes/GamePlayScene.js).
 
+## MenuScene
+
+Main menu. Title **Sweet Adventure**. Bottom **SKIN** switch above the Layout/FX chips: **IN** fills the background with the heat-map preset in [`resources/ui-editor-init.json`](resources/ui-editor-init.json) (UiHeatMap + UiHotBall + UiHotRod) and punches the menu button labels through a black fill so the heat map shows in the letters. **OFF** leaves the background blank (default) with outline buttons. The choice is stored in `localStorage`.
+
 ## TestsScene
 
 Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**, **MOVE HOT CIRCLE**, **BACK**.
