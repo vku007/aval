@@ -369,6 +369,7 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         imageData,
         balls: [],
         rods: [],
+        highlighters: [],
         params,
         onTap: (options && options.onTap) || null,
         setParam: api.setParam,
@@ -385,6 +386,28 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         addRod: (rod) => {
             field.rods.push(rod);
             return rod;
+        },
+        addHighlighter: (item) => {
+            field.highlighters.push(item);
+            return item;
+        },
+        removeBall: (ball) => {
+            const index = field.balls.indexOf(ball);
+            if (index >= 0) {
+                field.balls.splice(index, 1);
+            }
+        },
+        removeRod: (rod) => {
+            const index = field.rods.indexOf(rod);
+            if (index >= 0) {
+                field.rods.splice(index, 1);
+            }
+        },
+        removeHighlighter: (item) => {
+            const index = field.highlighters.indexOf(item);
+            if (index >= 0) {
+                field.highlighters.splice(index, 1);
+            }
         },
         pointerToCell: (pointer) => pointerToRotatedHeatCell(pointer, x, y, width, height, cols, rows),
         update: (_, delta) => {
@@ -406,6 +429,15 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
                 }
                 if (typeof rod.stamp === 'function') {
                     rod.stamp(field.src);
+                }
+            });
+            (field.highlighters || []).forEach((item) => {
+                item.advance(delta);
+                if (item.isVisible === false) {
+                    return;
+                }
+                if (typeof item.stamp === 'function') {
+                    item.stamp(field.src);
                 }
             });
             field.paint();

@@ -1,7 +1,9 @@
 /**
  * Logical game size is 390×844 (phone-m). Tests hub and its sandboxes
- * switch to 780×844 (2× width). Phaser Scale.FIT scales the current
- * size into a same-aspect box that fills the viewport.
+ * switch to 780×844 (2× width). The UI editor keeps this main size for the
+ * stage canvas and puts effects, props, and objects on a second canvas.
+ * Phaser Scale.FIT scales the current size into a same-aspect box that fills
+ * the viewport.
  */
 const GAME_WIDTH = 390;
 const GAME_HEIGHT = 844;

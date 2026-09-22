@@ -11,6 +11,8 @@ class UiHeatMap {
             id: 'heat',
             label: 'HEAT',
             rows: [
+                { key: 'showFrames', label: 'FRAMES', type: 'bool' },
+                { key: 'showMenuFrames', label: 'MENU', type: 'bool' },
                 { key: 'diffusion', label: 'DIFFUSE', decimals: 1 },
                 { key: 'cooling', label: 'COOL', decimals: 2 }
             ]
@@ -31,6 +33,8 @@ class UiHeatMap {
         this.bounds = bounds;
         this.name = 'Heat Map';
         this.onTap = null;
+        this.showFrames = true;
+        this.showMenuFrames = false;
         this.playing = true;
         this.pendingSteps = 0;
         this.transportBtns = {};
@@ -56,7 +60,10 @@ class UiHeatMap {
     }
 
     get params() {
-        return this.field.params;
+        return Object.assign({}, this.field.params, {
+            showFrames: this.showFrames,
+            showMenuFrames: this.showMenuFrames
+        });
     }
 
     addBall(motion) {
@@ -67,8 +74,54 @@ class UiHeatMap {
         return this.field.addRod(emitter);
     }
 
+    addHighlighter(emitter) {
+        return this.field.addHighlighter(emitter);
+    }
+
+    removeBall(motion) {
+        if (this.field && typeof this.field.removeBall === 'function') {
+            this.field.removeBall(motion);
+        }
+    }
+
+    removeRod(emitter) {
+        if (this.field && typeof this.field.removeRod === 'function') {
+            this.field.removeRod(emitter);
+        }
+    }
+
+    removeHighlighter(emitter) {
+        if (this.field && typeof this.field.removeHighlighter === 'function') {
+            this.field.removeHighlighter(emitter);
+        }
+    }
+
     nudgeParam(key, dir) {
+        if (key === 'showFrames') {
+            this.setShowFrames(!this.showFrames);
+            return this.showFrames;
+        }
+        if (key === 'showMenuFrames') {
+            this.setShowMenuFrames(!this.showMenuFrames);
+            return this.showMenuFrames;
+        }
         return this.field.nudgeParam(key, dir);
+    }
+
+    setShowFrames(on) {
+        this.showFrames = !!on;
+        const layer = this.scene && this.scene.stageMarkup;
+        if (layer && typeof layer.setVisible === 'function') {
+            layer.setVisible(this.showFrames);
+        }
+    }
+
+    setShowMenuFrames(on) {
+        this.showMenuFrames = !!on;
+        const layer = this.scene && this.scene.menuMarkup;
+        if (layer && typeof layer.setVisible === 'function') {
+            layer.setVisible(this.showMenuFrames);
+        }
     }
 
     serialize() {
@@ -125,16 +178,18 @@ class UiHeatMap {
         this.field.update(time, delta);
     }
 
-    createEffectsEditor(panel) {
-        this.effectsEditor = new UiPropEditor(this.scene, panel, {
+    createEffectsEditor(panel, scene) {
+        const uiScene = scene || this.scene;
+        this.effectsEditor = new UiPropEditor(uiScene, panel, {
             getTarget: () => this,
             tabs: UiHeatMap.PROP_TABS
         });
-        this.createTransportBar(panel);
+        this.createTransportBar(panel, uiScene);
         return this.effectsEditor;
     }
 
-    createTransportBar(panel) {
+    createTransportBar(panel, scene) {
+        const uiScene = scene || this.scene;
         const btnH = 36;
         const gap = 8;
         const inset = 8;
@@ -149,6 +204,7 @@ class UiHeatMap {
         ];
         specs.forEach((spec, index) => {
             this.transportBtns[spec.id] = this.createTransportButton(
+                uiScene,
                 startX + index * (btnW + gap),
                 y,
                 btnW,
@@ -160,8 +216,7 @@ class UiHeatMap {
         this.refreshTransport();
     }
 
-    createTransportButton(x, y, btnWidth, btnHeight, label, callback) {
-        const scene = this.scene;
+    createTransportButton(scene, x, y, btnWidth, btnHeight, label, callback) {
         const btn = scene.add.container(x, y);
         const bg = scene.add.graphics();
         const text = scene.add.text(0, 0, label, {

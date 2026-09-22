@@ -195,37 +195,36 @@ Layout fractions live in [`js/frameSize.js`](js/frameSize.js) (`UI.layouts`). Sh
 
 ## MenuScene
 
-Main menu. Title **Sweet Adventure**. Bottom **SKIN** switch above the Layout/FX chips: **IN** fills the background with the heat-map preset in [`resources/ui-editor-init.json`](resources/ui-editor-init.json) (UiHeatMap + UiHotBall + UiHotRod) and punches the menu button labels through a black fill so the heat map shows in the letters. **OFF** leaves the background blank (default) with outline buttons. The choice is stored in `localStorage`.
+Main menu. Title **Sweet Adventure**. Bottom **SKIN** switch above the Layout/FX chips: **IN** fills the background with the heat-map preset in [`resources/ui-editor-init.json`](resources/ui-editor-init.json) (UiHeatMap + UiHotBall + UiHotRod + UiBackHighlighter) and punches the menu button labels through a black fill so the heat map shows in the letters. The seven visible highlights sit on LOGIN, REGISTER, LOGOUT, INVENTORY, START GAME, UI TESTS, and EXIT. **OFF** leaves the background blank (default) with outline buttons. The choice is stored in `localStorage`.
 
 ## TestsScene
 
-Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**, **MOVE HOT CIRCLE**, **BACK**.
+Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**, **BACK HIGHLIGHT**, **MOVE HOT CIRCLE**, **BACK**.
 
 ## UIEditorScene
 
-Sandbox from Tests **UI EDITOR**. Not a play layout. Canvas is the Tests width **780×844**.
+Sandbox from Tests **UI EDITOR**. Not a play layout. Two canvases. The stage canvas is the main game frame (**390×844**, same on-screen size and scale as the main screen). The tools canvas beside it holds **EFFECTS** above **PROPS**, with **OBJECTS** on the right.
 
 ```
-┌──────────────────┬──────────────────┐
-│ STAGE            │ EFFECTS          │
-│ UiHeatMap        │ DIFFUSE / COOL   │
-│ + UiHotBall ×3   │                  │
-│ + UiHotRod ×3    │                  │
-├──────────────────┼──────────────────┤
-│ OBJECTS          │ PROPS            │
-│ Hot Ball 1–3     │ ball: HEAT / GEO │
-│ Hot Rod 1–3      │ rod: HEAT / GEO  │
-└──────────────────┴──────────────────┘
+┌────────────┬──────────────────┬──────────────────┐
+│ STAGE      │ UI Editor        │ OBJECTS          │
+│ 390×844    │ EFFECTS          │ name · type      │
+│ UiHeatMap  │ DIFFUSE / COOL   │ COPY · DEL       │
+│            │ PLAY / STEP / STOP│ SAVE · LOAD     │
+│            ├──────────────────┤                  │
+│            │ PROPS            │                  │
+│            │ BACK             │                  │
+└────────────┴──────────────────┴──────────────────┘
 ```
 
 | Panel | Function | What it shows |
 |---|---|---|
-| **STAGE** | `createEditorPanel` + `new UiHeatMap` | One shared heat field ([`UiHeatMap`](js/ui/UiHeatMap.js) / `attachRotatedHeatField`). Three [`UiHotBall`](js/ui/UiHotBall.js) and three [`UiHotRod`](js/ui/UiHotRod.js) emitters stamp into it. Tap moves the **selected** object (orbit a ball, slide a rod along its normal). |
-| **EFFECTS** | `UiHeatMap.createEffectsEditor` | **HEAT**: DIFFUSE, COOL. **VIEW**: shared 3/4 camera (VIEW X/Y/Z) applied after each ball’s own plane tilts. Bottom **PLAY** / **STEP** / **STOP**. |
-| **OBJECTS** | `createObjectsList` | Select **Hot Ball 1–3** or **Hot Rod 1–3**. Bottom **SAVE** downloads a timestamped JSON preset to Downloads; **LOAD** opens a file chooser. |
-| **PROPS** | `UiPropEditor` on selected object | **Ball**: **HEAT** VISIBLE, DOT SIZE, DOT HEAT. **GEO** ANG SPEED, PHASE, RADIUS, CENTER X/Y, TILT X/Y/Z. **Rod**: **HEAT** VISIBLE, LINE HEAT. **GEO** THICKNESS, NOISE, GRAIN, FLICKER. **MOVE** SPEED, DELAY (hold at end, seconds), GAP (hold at start after snap, seconds), START/END X% Y% (−200 to 200, panel = 100%), START ANG, END ANG. The rod eases start pose → end pose, waits DELAY, snaps to start, waits GAP, then repeats. Tap Stage sets the selected rod’s end point. |
+| **STAGE** | `new UiHeatMap` | Its own canvas, main-scene size **390×844**, same on-screen scale as the main screen. One shared heat field ([`UiHeatMap`](js/ui/UiHeatMap.js) / `attachRotatedHeatField`). Three [`UiHotBall`](js/ui/UiHotBall.js), three [`UiHotRod`](js/ui/UiHotRod.js), and two [`UiBackHighlighter`](js/ui/UiBackHighlighter.js) emitters stamp into it. Green frames ([`UiStageMarkup`](js/ui/UiStageMarkup.js)) outline the main-scene panels and buttons for the active layout, including the extended Effects row. **MENU** outlines the menu buttons, SKIN switch, and LAYOUT / FX chips. The frames are transparent and ignore taps. Tap moves the **selected** object (orbit a ball, slide a rod along its normal, or move a highlight center). |
+| **EFFECTS** | `UiHeatMap.createEffectsEditor` | **HEAT**: **FRAMES** (ON/OFF green main-scene markup), **MENU** (ON/OFF green menu markup; starts OFF), DIFFUSE, COOL. **VIEW**: shared 3/4 camera (VIEW X/Y/Z) applied after each ball’s own plane tilts. Bottom **PLAY** / **STEP** / **STOP**. |
+| **OBJECTS** | `createObjectsList` | Scrollable list of each object’s name and type (**Ball**, **Rod**, **Highlight**). Each row has **COPY** and **DEL**. **COPY** adds the same type with the same props, shifts **START X/Y** (rod) or **CENTER X/Y** (ball, highlight), and suffixes the name with **copy**. **DEL** removes that object. Click the row to show its props. Wheel or drag scrolls. Bottom **SAVE** / **LOAD** stay fixed. |
+| **PROPS** | `UiPropEditor` on selected object | **Ball**: **HEAT** VISIBLE, DOT SIZE, DOT HEAT. **GEO** ANG SPEED, PHASE, RADIUS, CENTER X/Y, TILT X/Y/Z. **Rod**: **HEAT** VISIBLE, LINE HEAT. **GEO** THICKNESS, NOISE, GRAIN, FLICKER. **MOVE** SPEED, DELAY (hold at end, seconds), GAP (hold at start after snap, seconds), START/END X% Y% (−200 to 200, panel = 100%), START ANG, END ANG. The rod eases start pose → end pose, waits DELAY, snaps to start, waits GAP, then repeats. **Back highlight**: **FIELD** VISIBLE, CYCLING, SPEED, DELAY, GAP, CENTER X% Y%. **FROM** / **TO** WIDTH, HEIGHT, ANGLE, HEAT. It eases FROM → TO, pauses DELAY, eases back when CYCLING is on, pauses GAP, then repeats. Tap Stage sets the selected rod’s end point or the selected highlight’s center. |
 
-BACK under the grid returns to Tests.
+BACK on the tools canvas returns to Tests and restores the Tests canvas width. The left box in the diagram is the stage canvas. EFFECTS, PROPS, OBJECTS, and BACK are the second canvas.
 
 ## UITestScene
 
@@ -267,6 +266,17 @@ Sandbox from Tests **MOVE HOT ROD**. Not a play layout.
 |---|---|---|
 | **TestPanel** | `createTestPanel` | Heat field with a hot line (`attachHotRod`). The rod looks infinite: it always spans the panel. A tap eases it along the direction **orthogonal to ANGLE**. **ANGLE** rotates it in the view plane. Heat trails as it moves. Emission along the rod is noisy. |
 | **SettingsPanel** | `createSettingsPanel` | Two tabs. **HEAT**: DIFFUSE, COOL, LINE HEAT. **GEO**: THICKNESS, ANGLE (2D degrees), SPEED, NOISE, GRAIN, FLICKER. Live **− / +** steppers. |
+
+BACK under the panel returns to Tests.
+
+## BackHighlightScene
+
+Sandbox from Tests **BACK HIGHLIGHT**. Not a play layout.
+
+| Panel | Function | What it shows |
+|---|---|---|
+| **TestPanel** | `createTestPanel` | Heat field with a filled hot rectangle (`attachBackHighlight`). **WIDTH**, **HEIGHT**, **ANGLE**, and **HEAT** ease **FROM** → **TO**, pause **DELAY**, then ease back when **CYCLING** is on (or snap to **FROM** when it is off). **GAP** pauses at **FROM**. A tap eases the center to the tap. |
+| **SettingsPanel** | `createSettingsPanel` | Three tabs. **FROM** / **TO**: WIDTH, HEIGHT, ANGLE, HEAT. **FIELD**: CYCLING (on/off), SPEED, DELAY, GAP, DIFFUSE, COOL. Live **− / +** steppers. |
 
 BACK under the panel returns to Tests.
 

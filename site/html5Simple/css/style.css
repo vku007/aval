@@ -33,6 +33,49 @@ body, html {
     border: 1px dashed #cccccc;
 }
 
+#editor-tools {
+    display: none;
+    flex: 1 1 auto;
+    min-width: 520px;
+    height: var(--game-frame-h, 844px);
+    max-height: 100vh;
+    margin-left: 8px;
+    border: 2px solid #000000;
+    box-sizing: border-box;
+    overflow: hidden;
+    background-color: #ffffff;
+}
+
+#phaser-tools {
+    width: 100%;
+    height: 100%;
+}
+
+html:has(body.ui-editor) {
+    overflow: auto;
+    height: auto;
+    min-height: 100%;
+}
+
+body.ui-editor {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 100%;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+}
+
+body.ui-editor #game-container {
+    flex: 0 0 auto;
+}
+
+body.ui-editor #editor-tools {
+    display: block;
+}
+
 canvas {
     display: block;
 }

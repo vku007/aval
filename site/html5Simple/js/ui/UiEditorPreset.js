@@ -16,7 +16,7 @@ function copyOrbitPoint(point) {
     return { col: point.col, row: point.row };
 }
 
-function serializeUiEditor(heatMap, balls, rods) {
+function serializeUiEditor(heatMap, balls, rods, highlighters) {
     const heat = heatMap && typeof heatMap.serialize === 'function'
         ? heatMap.serialize()
         : {};
@@ -78,46 +78,41 @@ function serializeUiEditor(heatMap, balls, rods) {
                 center: copyOrbitPoint(raw.center),
                 target: copyOrbitPoint(raw.target)
             };
+        }),
+        highlighters: (highlighters || []).map((item) => {
+            const raw = typeof item.serialize === 'function' ? item.serialize() : {};
+            const params = raw.params || {};
+            const from = raw.from || {};
+            const to = raw.to || {};
+            return {
+                name: String(raw.name || ''),
+                isVisible: raw.isVisible !== false,
+                cycling: raw.cycling !== false,
+                params: {
+                    speed: Number(params.speed),
+                    delay: Number(params.delay),
+                    gap: Number(params.gap)
+                },
+                from: {
+                    width: Number(from.width),
+                    height: Number(from.height),
+                    angle: Number(from.angle),
+                    heat: Number(from.heat)
+                },
+                to: {
+                    width: Number(to.width),
+                    height: Number(to.height),
+                    angle: Number(to.angle),
+                    heat: Number(to.heat)
+                },
+                center: copyOrbitPoint(raw.center),
+                target: copyOrbitPoint(raw.target)
+            };
         })
     };
 }
 
-function scaleUiEditorPoint(point, sx, sy) {
-    if (!point || typeof point.col !== 'number' || typeof point.row !== 'number') {
-        return point || null;
-    }
-    return { col: point.col * sx, row: point.row * sy };
-}
-
-function scaleUiEditorPresetToField(data, field) {
-    if (!data || typeof data !== 'object' || !field) {
-        return data;
-    }
-    const from = data.source || { cols: 123, rows: 100 };
-    const sx = Math.max(1, field.cols - 1) / Math.max(1, from.cols - 1);
-    const sy = Math.max(1, field.rows - 1) / Math.max(1, from.rows - 1);
-    if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) {
-        return data;
-    }
-    const copy = JSON.parse(JSON.stringify(data));
-    const rScale = (sx + sy) / 2;
-    (copy.balls || []).forEach((ball) => {
-        ball.orbitCenter = scaleUiEditorPoint(ball.orbitCenter, sx, sy);
-        ball.orbitTarget = scaleUiEditorPoint(ball.orbitTarget, sx, sy);
-        if (ball.params && ball.params.orbitRadius != null) {
-            ball.params.orbitRadius = ball.params.orbitRadius * rScale;
-        }
-    });
-    (copy.rods || []).forEach((rod) => {
-        rod.start = scaleUiEditorPoint(rod.start, sx, sy);
-        rod.end = scaleUiEditorPoint(rod.end, sx, sy);
-        rod.center = scaleUiEditorPoint(rod.center, sx, sy);
-        rod.target = scaleUiEditorPoint(rod.target, sx, sy);
-    });
-    return copy;
-}
-
-function applyUiEditorPreset(heatMap, balls, data, rods) {
+function applyUiEditorPreset(heatMap, balls, data, rods, highlighters) {
     if (!data || typeof data !== 'object') {
         throw new Error('Invalid preset file');
     }
@@ -137,6 +132,12 @@ function applyUiEditorPreset(heatMap, balls, data, rods) {
     (rods || []).forEach((rod, index) => {
         if (rodList[index]) {
             rod.applySerialized(rodList[index]);
+        }
+    });
+    const highlightList = data.highlighters || [];
+    (highlighters || []).forEach((item, index) => {
+        if (highlightList[index] && typeof item.applySerialized === 'function') {
+            item.applySerialized(highlightList[index]);
         }
     });
 }

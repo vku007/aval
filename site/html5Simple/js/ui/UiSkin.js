@@ -4,7 +4,7 @@
  */
 const UI_SKIN_STORAGE_KEY = 'uiSkin';
 const UI_SKIN_JSON_KEY = 'uiSkinInit';
-const UI_SKIN_JSON_PATH = 'resources/ui-editor-init.json';
+const UI_SKIN_JSON_PATH = 'resources/ui-editor-init.json?v=130';
 
 function isUiSkinOn() {
     try {
@@ -48,8 +48,13 @@ function mountUiSkin(scene, bounds) {
         new UiHotRod(heatMap, { name: 'Hot Rod 3' })
     ];
     const raw = scene.cache.json.get(UI_SKIN_JSON_KEY);
+    const highlightList = (raw && raw.highlighters) || [];
+    const highlighters = highlightList.map((item, index) => new UiBackHighlighter(heatMap, {
+        name: (item && item.name) || `Back Highlight ${index + 1}`
+    }));
     try {
-        applyUiEditorPreset(heatMap, balls, scaleUiEditorPresetToField(raw, heatMap.field), rods);
+        // Same cell coordinates as the editor stage. Both use the 390×844 grid.
+        applyUiEditorPreset(heatMap, balls, raw, rods, highlighters);
     } catch (error) {
         console.warn('[UiSkin] Failed to apply preset', error);
     }
@@ -57,6 +62,7 @@ function mountUiSkin(scene, bounds) {
         heatMap,
         balls,
         rods,
+        highlighters,
         setVisible(on) {
             heatMap.playing = !!on;
             if (heatMap.field.view) {

@@ -1,10 +1,6 @@
 {
   "kind": "ui-editor-preset",
   "version": 2,
-  "source": {
-    "cols": 123,
-    "rows": 100
-  },
   "heatMap": {
     "diffusion": 9,
     "cooling": 2.56,
@@ -24,7 +20,7 @@
         "tiltX": 0,
         "tiltY": 0,
         "tiltZ": 0,
-        "phase": 285
+        "phase": 310
       },
       "orbitOn": true,
       "orbitCenter": {
@@ -35,7 +31,7 @@
         "col": 61.5,
         "row": 50
       },
-      "angle": 834.3482239999174,
+      "angle": 2261.0675519987826,
       "wanderPhase": 0
     },
     {
@@ -49,18 +45,18 @@
         "tiltX": 90,
         "tiltY": 0,
         "tiltZ": 0,
-        "phase": 15
+        "phase": 17
       },
       "orbitOn": true,
       "orbitCenter": {
-        "col": 61.5,
-        "row": 50
+        "col": 65,
+        "row": 140.5
       },
       "orbitTarget": {
-        "col": 61.5,
-        "row": 50
+        "col": 65,
+        "row": 140.5
       },
-      "angle": 835.9190203267118,
+      "angle": 842.2440923266938,
       "wanderPhase": 0
     },
     {
@@ -74,18 +70,18 @@
         "tiltX": 0,
         "tiltY": 90,
         "tiltZ": 0,
-        "phase": 105
+        "phase": 107
       },
       "orbitOn": true,
       "orbitCenter": {
-        "col": 61.5,
-        "row": 50
+        "col": 65,
+        "row": 140.5
       },
       "orbitTarget": {
-        "col": 61.5,
-        "row": 50
+        "col": 65,
+        "row": 140.5
       },
-      "angle": 837.4898166535064,
+      "angle": 843.814888653488,
       "wanderPhase": 0
     }
   ],
@@ -111,17 +107,17 @@
       },
       "end": {
         "col": 61,
-        "row": 103.95
+        "row": 308
       },
       "startAngle": 0,
       "endAngle": 0,
       "center": {
         "col": 61,
-        "row": 102.64683999661409
+        "row": 308
       },
       "target": {
         "col": 61,
-        "row": 103.95
+        "row": 308
       }
     },
     {
@@ -141,21 +137,21 @@
       },
       "start": {
         "col": 85.24871130596429,
-        "row": -69.3
+        "row": -84
       },
       "end": {
         "col": 36.751288694035715,
-        "row": 198
+        "row": 434
       },
       "startAngle": 60,
       "endAngle": 60,
       "center": {
-        "col": 36.90409542605677,
-        "row": 197.15778535704732
+        "col": 63.367132080445295,
+        "row": 149.7167096387293
       },
       "target": {
         "col": 36.751288694035715,
-        "row": 198
+        "row": 434
       }
     },
     {
@@ -175,7 +171,7 @@
       },
       "start": {
         "col": 85.24871130596429,
-        "row": 128.70000000000002
+        "row": 322
       },
       "end": {
         "col": 36.751288694035715,
@@ -184,12 +180,254 @@
       "startAngle": 145,
       "endAngle": 150,
       "center": {
-        "col": 85.24871130596429,
-        "row": 128.70000000000002
+        "col": 37.158455088495984,
+        "row": -36.5641403541183
       },
       "target": {
-        "col": 85.24871130596429,
-        "row": 128.70000000000002
+        "col": 36.751288694035715,
+        "row": -39.6
+      }
+    }
+  ],
+  "highlighters": [
+    {
+      "name": "Login",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 68.3412
+      },
+      "target": {
+        "col": 64.5,
+        "row": 68.3412
+      }
+    },
+    {
+      "name": "Register",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 92.2275
+      },
+      "target": {
+        "col": 64.5,
+        "row": 92.2275
+      }
+    },
+    {
+      "name": "Logout",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 116.1137
+      },
+      "target": {
+        "col": 64.5,
+        "row": 116.1137
+      }
+    },
+    {
+      "name": "Inventory",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 140
+      },
+      "target": {
+        "col": 64.5,
+        "row": 140
+      }
+    },
+    {
+      "name": "Start Game",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 22,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 22,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 165.2133
+      },
+      "target": {
+        "col": 64.5,
+        "row": 165.2133
+      }
+    },
+    {
+      "name": "UI Tests",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 190.4265
+      },
+      "target": {
+        "col": 64.5,
+        "row": 190.4265
+      }
+    },
+    {
+      "name": "Exit",
+      "isVisible": true,
+      "cycling": false,
+      "params": {
+        "speed": 4,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.2
+      },
+      "to": {
+        "width": 106,
+        "height": 18,
+        "angle": 0,
+        "heat": 0.9
+      },
+      "center": {
+        "col": 64.5,
+        "row": 214.3128
+      },
+      "target": {
+        "col": 64.5,
+        "row": 214.3128
+      }
+    },
+    {
+      "name": "Back Highlight 2",
+      "isVisible": false,
+      "cycling": true,
+      "params": {
+        "speed": 1.2,
+        "delay": 0.5,
+        "gap": 0.4
+      },
+      "from": {
+        "width": 24,
+        "height": 18,
+        "angle": 10,
+        "heat": 0.7
+      },
+      "to": {
+        "width": 64,
+        "height": 36,
+        "angle": -20,
+        "heat": 1.5
+      },
+      "center": {
+        "col": 87.72,
+        "row": 173.6
+      },
+      "target": {
+        "col": 87.72,
+        "row": 173.6
       }
     }
   ]
