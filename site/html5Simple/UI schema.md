@@ -199,7 +199,11 @@ Main menu. Title **Sweet Adventure**. Bottom **SKIN** switch above the Layout/FX
 
 ## TestsScene
 
-Hub from the menu **UI TESTS** button. Not a play layout. Buttons: **UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**, **BACK HIGHLIGHT**, **MOVE HOT CIRCLE**, **BACK**.
+Hub from the menu **UI TESTS** button. Not a play layout. Buttons sit in two columns. Left: **UI EDITOR**, **COMPOSITE UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**. Right: **MOVE HOT ROD**, **BACK HIGHLIGHT**, **MOVE HOT CIRCLE**, **BACK**.
+
+## CompositeUIEditorScene
+
+Copy of **UIEditorScene** opened from Tests **COMPOSITE UI EDITOR**. Same stage and tools layout. The tools canvas is [`CompositeUIEditorToolsScene`](js/scenes/CompositeUIEditorToolsScene.js). BACK returns to Tests.
 
 ## UIEditorScene
 

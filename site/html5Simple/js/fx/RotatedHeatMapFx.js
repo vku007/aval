@@ -290,9 +290,19 @@ function stepRotatedMotion(state, delta) {
     state.t += delta / 1000;
     if (state.orbitOn && state.orbitTarget) {
         state.angle += (delta / 1000) * state.params.angleSpeed;
-        const k = 1 - Math.exp(-ROTATED_HEAT_CENTER_FOLLOW * (delta / 1000));
+        const follow = state.centerFollow != null ? state.centerFollow : ROTATED_HEAT_CENTER_FOLLOW;
+        const k = 1 - Math.exp(-follow * (delta / 1000));
         state.orbitCenter.col += (state.orbitTarget.col - state.orbitCenter.col) * k;
         state.orbitCenter.row += (state.orbitTarget.row - state.orbitCenter.row) * k;
+        if (state.centerFollow != null) {
+            const dx = state.orbitTarget.col - state.orbitCenter.col;
+            const dy = state.orbitTarget.row - state.orbitCenter.row;
+            if (dx * dx + dy * dy <= 0.25) {
+                state.orbitCenter.col = state.orbitTarget.col;
+                state.orbitCenter.row = state.orbitTarget.row;
+                state.centerFollow = null;
+            }
+        }
     }
     return rotatedBallPos(state);
 }

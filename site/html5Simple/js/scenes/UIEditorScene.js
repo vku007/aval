@@ -106,7 +106,7 @@ class UIEditorScene extends Phaser.Scene {
     }
 }
 
-function openEditorTools(host) {
+function openEditorTools(host, toolsScene) {
     const tools = document.getElementById('editor-tools');
     if (!tools || !host) {
         return;
@@ -139,7 +139,7 @@ function openEditorTools(host) {
                     game.registry.set('editorHost', host);
                 }
             },
-            scene: [UIEditorToolsScene]
+            scene: [toolsScene || UIEditorToolsScene]
         });
     });
 }
@@ -189,6 +189,9 @@ function uiObjectTypeLabel(object) {
     }
     if (kind === 'back-highlight') {
         return 'Highlight';
+    }
+    if (kind === 'hot-map-stone') {
+        return 'Stone';
     }
     return kind ? String(kind) : '';
 }

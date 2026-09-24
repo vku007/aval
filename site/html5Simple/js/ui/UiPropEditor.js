@@ -36,6 +36,8 @@ class UiPropEditor {
             tab.rows.forEach((row, index) => {
                 if (row.type === 'bool') {
                     this.createBoolRow(body, panel.x + 8, rowTop + index * rowH, rowWidth, rowH, row);
+                } else if (row.type === 'action') {
+                    this.createActionRow(body, panel.x + 8, rowTop + index * rowH, rowWidth, rowH, row);
                 } else {
                     this.createStepperRow(body, panel.x + 8, rowTop + index * rowH, rowWidth, rowH, row);
                 }
@@ -204,6 +206,23 @@ class UiPropEditor {
             btn.buttonText.setColor('#000000');
             btn.buttonText.setText('OFF');
         }
+    }
+
+    createActionRow(parent, x, y, width, height, row) {
+        const scene = this.scene;
+        const btnW = 72;
+        const btnH = 28;
+        const label = scene.add.text(x + 4, y + height / 2, row.label, {
+            font: `${UI.body}px monospace`,
+            fill: '#000000'
+        }).setOrigin(0, 0.5);
+        const button = this.createStepButton(x + width - btnW / 2, y + height / 2, btnW, btnH, row.button || row.label, () => {
+            const target = this.getTarget();
+            if (target && typeof target[row.key] === 'function') {
+                target[row.key]();
+            }
+        });
+        parent.add([label, button]);
     }
 
     createStepperRow(parent, x, y, width, height, row) {

@@ -31,6 +31,7 @@ class TestsScene extends Phaser.Scene {
 
         const buttons = [
             { label: 'UI EDITOR', onClick: () => this.onUiEditorClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'COMPOSITE UI EDITOR', onClick: () => this.onCompositeUiEditorClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'UI PLAZMA BALL', onClick: () => this.onPlasmaClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'HOT MAP BALL', onClick: () => this.onHotMapClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'ROTATED HOT MAP BALL', onClick: () => this.onRotatedHotMapClick(), height: UI.menuPrimaryH, strong: true },
@@ -40,29 +41,44 @@ class TestsScene extends Phaser.Scene {
             { label: 'BACK', onClick: () => this.onBackClick(), height: UI.menuBtnH, strong: false }
         ];
         const gap = 16;
-        const totalHeight = buttons.reduce((sum, btn) => sum + btn.height, 0) + gap * (buttons.length - 1);
-        let y = 140 + (height - 140 - 24 - totalHeight) / 2;
+        const mid = Math.ceil(buttons.length / 2);
+        const columns = [buttons.slice(0, mid), buttons.slice(mid)];
+        const columnHeight = (list) => list.reduce((sum, btn) => sum + btn.height, 0) + gap * Math.max(0, list.length - 1);
+        const blockHeight = Math.max(...columns.map(columnHeight));
+        const btnWidth = UI.menuBtnW;
+        const blockWidth = btnWidth * 2 + gap;
+        const leftX = (width - blockWidth) / 2 + btnWidth / 2;
+        const xs = [leftX, leftX + btnWidth + gap];
+        const top = 140 + (height - 140 - 24 - blockHeight) / 2;
 
-        buttons.forEach((btn) => {
-            this.createMenuButton(
-                width / 2,
-                y + btn.height / 2,
-                btn.label,
-                btn.onClick,
-                btn.height,
-                {
-                    strong: btn.strong,
-                    idleKind: btn.strong && UI.fx.menuPrimaryPulse ? 'pulse' : null,
-                    particles: true
-                }
-            );
-            y += btn.height + gap;
+        columns.forEach((column, index) => {
+            let y = top;
+            column.forEach((btn) => {
+                this.createMenuButton(
+                    xs[index],
+                    y + btn.height / 2,
+                    btn.label,
+                    btn.onClick,
+                    btn.height,
+                    {
+                        strong: btn.strong,
+                        idleKind: btn.strong && UI.fx.menuPrimaryPulse ? 'pulse' : null,
+                        particles: true
+                    }
+                );
+                y += btn.height + gap;
+            });
         });
     }
 
     onUiEditorClick() {
         console.log('[TestsScene] UI Editor clicked');
         fxGoTo(this, 'UIEditorScene');
+    }
+
+    onCompositeUiEditorClick() {
+        console.log('[TestsScene] Composite UI Editor clicked');
+        fxGoTo(this, 'CompositeUIEditorScene');
     }
 
     onPlasmaClick() {
