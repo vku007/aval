@@ -112,6 +112,31 @@ class MenuScene extends Phaser.Scene {
         this.setMenuSkin(isUiSkinOn());
     }
 
+    linkMenuHighlights() {
+        const list = this.skinHost && this.skinHost.highlighters;
+        if (!list || !list.length) {
+            return;
+        }
+        const buttons = this.menuButtons || [];
+        list.forEach((item) => {
+            const key = menuHighlightKey(item.name);
+            if (!key) {
+                return;
+            }
+            const btn = buttons.find((candidate) => menuHighlightKey(candidate.menuLabel) === key);
+            if (!btn || btn.menuHighlight === item) {
+                return;
+            }
+            item.armHover();
+            btn.menuHighlight = item;
+            btn.on('pointerover', () => item.setHovered(true));
+            btn.on('pointerout', () => item.setHovered(false));
+            if (pointerInsideMenuButton(this, btn)) {
+                item.setHovered(true);
+            }
+        });
+    }
+
     update(time, delta) {
         if (this.skinHost && isUiSkinOn()) {
             this.skinHost.update(time, delta);
@@ -127,6 +152,7 @@ class MenuScene extends Phaser.Scene {
             }
             if (this.skinHost) {
                 this.skinHost.setVisible(true);
+                this.linkMenuHighlights();
             }
         } else if (this.skinHost) {
             this.skinHost.setVisible(false);
@@ -243,6 +269,7 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         btn.add([bg, text]);
+        btn.menuLabel = label;
         btn.buttonBg = bg;
         btn.buttonText = text;
         btn.buttonWidth = btnWidth;
@@ -263,5 +290,18 @@ class MenuScene extends Phaser.Scene {
         }
         return btn;
     }
+}
+
+function menuHighlightKey(name) {
+    return String(name || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function pointerInsideMenuButton(scene, btn) {
+    const pointer = scene.input && scene.input.activePointer;
+    if (!pointer || !btn) {
+        return false;
+    }
+    const bounds = btn.getBounds();
+    return Phaser.Geom.Rectangle.Contains(bounds, pointer.worldX, pointer.worldY);
 }
 

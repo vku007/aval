@@ -195,7 +195,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -203,11 +203,11 @@
         "width": 106,
         "height": 18,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 18,
+        "width": 108,
+        "height": 22,
         "angle": 0,
         "heat": 0.9
       },
@@ -225,7 +225,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -233,11 +233,11 @@
         "width": 106,
         "height": 18,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 18,
+        "width": 108,
+        "height": 22,
         "angle": 0,
         "heat": 0.9
       },
@@ -255,7 +255,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -263,11 +263,11 @@
         "width": 106,
         "height": 18,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 18,
+        "width": 108,
+        "height": 22,
         "angle": 0,
         "heat": 0.9
       },
@@ -285,7 +285,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -293,11 +293,11 @@
         "width": 106,
         "height": 18,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 18,
+        "width": 108,
+        "height": 22,
         "angle": 0,
         "heat": 0.9
       },
@@ -315,7 +315,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -323,11 +323,11 @@
         "width": 106,
         "height": 22,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 22,
+        "width": 108,
+        "height": 26,
         "angle": 0,
         "heat": 0.9
       },
@@ -345,7 +345,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -353,11 +353,11 @@
         "width": 106,
         "height": 18,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 18,
+        "width": 108,
+        "height": 22,
         "angle": 0,
         "heat": 0.9
       },
@@ -375,7 +375,7 @@
       "isVisible": true,
       "cycling": false,
       "params": {
-        "speed": 4,
+        "speed": 6,
         "delay": 0.5,
         "gap": 0.4
       },
@@ -383,11 +383,11 @@
         "width": 106,
         "height": 18,
         "angle": 0,
-        "heat": 0.2
+        "heat": 0.1
       },
       "to": {
-        "width": 106,
-        "height": 18,
+        "width": 108,
+        "height": 22,
         "angle": 0,
         "heat": 0.9
       },

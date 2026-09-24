@@ -4,7 +4,7 @@
  */
 const UI_SKIN_STORAGE_KEY = 'uiSkin';
 const UI_SKIN_JSON_KEY = 'uiSkinInit';
-const UI_SKIN_JSON_PATH = 'resources/ui-editor-init.json?v=130';
+const UI_SKIN_JSON_PATH = 'resources/ui-editor-init.json?v=132';
 
 function isUiSkinOn() {
     try {

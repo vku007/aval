@@ -3,6 +3,7 @@
  * Filled hot rectangle that stamps into a shared UiHeatMap.
  * WIDTH, HEIGHT, ANGLE, and HEAT ease FROM → TO, pause DELAY,
  * ease back when CYCLING is on, pause GAP, then repeat.
+ * Hover drive parks on FROM until a linked control is pointed at.
  */
 let UI_BACK_HIGHLIGHT_SEQ = 0;
 const UI_EDITOR_HIGHLIGHT_PARAM_KEYS = ['speed', 'delay', 'gap'];
@@ -162,5 +163,13 @@ class UiBackHighlighter {
 
     retarget(cell) {
         this.emitter.retarget(cell);
+    }
+
+    armHover() {
+        armBackHighlightHover(this.emitter);
+    }
+
+    setHovered(on) {
+        setBackHighlightHovered(this.emitter, !!on);
     }
 }

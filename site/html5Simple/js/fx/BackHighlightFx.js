@@ -124,6 +124,37 @@ function setBackHighlightCycling(state, value) {
     return state.cycling;
 }
 
+function armBackHighlightHover(state) {
+    state.drive = 'hover';
+    state.hover = false;
+    state.current = copyBackHighlightPose(state.from);
+    state.phase = 'parkStart';
+    state.waitLeft = 0;
+}
+
+function setBackHighlightHovered(state, hovered) {
+    state.drive = 'hover';
+    state.hover = !!hovered;
+}
+
+function stepBackHighlightHover(state, delta) {
+    const dt = Math.min(delta / 1000, 0.05);
+    const toward = state.hover ? state.to : state.from;
+    if (posesMatch(state.current, toward)) {
+        state.current = copyBackHighlightPose(toward);
+        state.phase = state.hover ? 'parkEnd' : 'parkStart';
+        return state.current;
+    }
+    state.phase = state.hover ? 'toEnd' : 'toStart';
+    const k = 1 - Math.exp(-state.params.speed * dt);
+    easeBackHighlightPose(state.current, toward, k);
+    if (posesMatch(state.current, toward)) {
+        state.current = copyBackHighlightPose(toward);
+        state.phase = state.hover ? 'parkEnd' : 'parkStart';
+    }
+    return state.current;
+}
+
 function beginBackHighlightHold(state) {
     state.current = copyBackHighlightPose(state.from);
     state.waitLeft = Math.max(0, state.params.gap || 0);
@@ -145,6 +176,9 @@ function arriveBackHighlightEnd(state) {
 }
 
 function stepBackHighlightPose(state, delta) {
+    if (state.drive === 'hover') {
+        return stepBackHighlightHover(state, delta);
+    }
     const dt = Math.min(delta / 1000, 0.05);
     if (posesMatch(state.from, state.to)) {
         state.current = copyBackHighlightPose(state.from);
