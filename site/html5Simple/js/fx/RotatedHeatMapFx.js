@@ -289,7 +289,24 @@ function beginOrRetargetRotatedOrbit(state, target) {
 function stepRotatedMotion(state, delta) {
     state.t += delta / 1000;
     if (state.orbitOn && state.orbitTarget) {
-        state.angle += (delta / 1000) * state.params.angleSpeed;
+        const dt = delta / 1000;
+        if (state.phaseGoal != null) {
+            const spin = dt * state.params.angleSpeed;
+            state.phaseGoal += spin;
+            state.angle += spin;
+            const follow = state.phaseFollow != null ? state.phaseFollow : ROTATED_HEAT_CENTER_FOLLOW;
+            const k = 1 - Math.exp(-follow * dt);
+            const turn = Math.atan2(Math.sin(state.phaseGoal - state.angle), Math.cos(state.phaseGoal - state.angle));
+            state.angle += turn * k;
+            if (Math.abs(turn) <= 0.02) {
+                state.angle = state.phaseGoal;
+                state.phaseGoal = null;
+                state.phaseFollow = null;
+            }
+            state.params.phase = wrapPhaseDeg(state.angle * 180 / Math.PI);
+        } else {
+            state.angle += dt * state.params.angleSpeed;
+        }
         const follow = state.centerFollow != null ? state.centerFollow : ROTATED_HEAT_CENTER_FOLLOW;
         const k = 1 - Math.exp(-follow * (delta / 1000));
         state.orbitCenter.col += (state.orbitTarget.col - state.orbitCenter.col) * k;

@@ -143,10 +143,25 @@ class HotMapUiStone {
         motion.orbitTarget.row = this.center.row;
         motion.centerFollow = this.spawnSpeed;
         this.add(ball);
+        this.spreadBallPhases();
         if (typeof this.onPartAdded === 'function') {
             this.onPartAdded(ball);
         }
         return ball;
+    }
+
+    spreadBallPhases() {
+        const balls = this.parts
+            .map((part) => part.object)
+            .filter((object) => object && object.kind === 'hot-ball' && object.motion);
+        if (balls.length < 2) {
+            return;
+        }
+        const goals = hotMapStoneEvenPhaseGoals(balls.map((ball) => ball.motion.angle));
+        balls.forEach((ball, index) => {
+            ball.motion.phaseGoal = goals[index];
+            ball.motion.phaseFollow = this.spawnSpeed;
+        });
     }
 
     removeBall() {
@@ -283,6 +298,76 @@ function hotMapStoneDelta(origin, point) {
         col: point.col - origin.col,
         row: point.row - origin.row
     };
+}
+
+function hotMapStoneWrapRad(angle) {
+    const turn = Math.PI * 2;
+    let value = angle % turn;
+    if (value < 0) {
+        value += turn;
+    }
+    return value;
+}
+
+function hotMapStoneEvenPhaseGoals(angles) {
+    const count = angles.length;
+    const step = (Math.PI * 2) / count;
+    const wrapped = angles.map((angle, index) => ({
+        index: index,
+        angle: hotMapStoneWrapRad(angle)
+    }));
+    wrapped.sort((a, b) => a.angle - b.angle);
+    let widest = -1;
+    let cut = 0;
+    for (let index = 0; index < count; index += 1) {
+        const next = (index + 1) % count;
+        const gap = next === 0
+            ? (wrapped[0].angle + Math.PI * 2) - wrapped[index].angle
+            : wrapped[next].angle - wrapped[index].angle;
+        if (gap > widest) {
+            widest = gap;
+            cut = next;
+        }
+    }
+    const ordered = [];
+    for (let index = 0; index < count; index += 1) {
+        ordered.push(wrapped[(cut + index) % count]);
+    }
+    const unwrapped = [ordered[0].angle];
+    for (let index = 1; index < count; index += 1) {
+        let angle = ordered[index].angle;
+        while (angle < unwrapped[index - 1]) {
+            angle += Math.PI * 2;
+        }
+        unwrapped.push(angle);
+    }
+    const mergeLimit = Math.min(15 * Math.PI / 180, step * 0.35);
+    let merged = false;
+    for (let index = 1; index < count; index += 1) {
+        if (unwrapped[index] - unwrapped[index - 1] < mergeLimit) {
+            merged = true;
+        }
+    }
+    let start = 0;
+    if (merged) {
+        for (let index = 0; index < count; index += 1) {
+            start += unwrapped[index];
+        }
+        start = start / count - ((count - 1) / 2) * step;
+    } else {
+        for (let index = 0; index < count; index += 1) {
+            start += unwrapped[index] - index * step;
+        }
+        start /= count;
+    }
+    const goals = new Array(count);
+    ordered.forEach((item, index) => {
+        const slot = start + index * step;
+        const current = angles[item.index];
+        const turn = Math.atan2(Math.sin(slot - current), Math.cos(slot - current));
+        goals[item.index] = current + turn;
+    });
+    return goals;
 }
 
 function hotMapStonePlace(point, origin, delta) {
