@@ -2,7 +2,7 @@
  * Game configuration — logical size 390×844, Scale.FIT into the viewport.
  */
 
-console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, TestsScene, UIEditorScene, CompositeUIEditorScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, MoveHotCircleScene, ErrorModalScene]);
+console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, TestsScene, UIEditorScene, CompositeUIEditorScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, SheetScene, MoveHotCircleScene, ErrorModalScene]);
 
 applyGameFrame(fitGameFrame());
 
@@ -22,7 +22,7 @@ const config = {
         width: GAME_WIDTH,
         height: GAME_HEIGHT
     },
-    scene: [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, TestsScene, UIEditorScene, CompositeUIEditorScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, MoveHotCircleScene, ErrorModalScene]
+    scene: [BootScene, MenuScene, GameSelectScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, TestsScene, UIEditorScene, CompositeUIEditorScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, SheetScene, MoveHotCircleScene, ErrorModalScene]
 };
 
 console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);

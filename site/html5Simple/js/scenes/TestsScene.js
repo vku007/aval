@@ -38,6 +38,7 @@ class TestsScene extends Phaser.Scene {
             { label: 'MOVE HOT ROD', onClick: () => this.onMoveHotRodClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BACK HIGHLIGHT', onClick: () => this.onBackHighlightClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'SHARD', onClick: () => this.onShardClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'SHEET', onClick: () => this.onSheetClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'MOVE HOT CIRCLE', onClick: () => this.onMoveHotCircleClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BACK', onClick: () => this.onBackClick(), height: UI.menuBtnH, strong: false }
         ];
@@ -110,6 +111,11 @@ class TestsScene extends Phaser.Scene {
     onShardClick() {
         console.log('[TestsScene] Shard clicked');
         fxGoTo(this, 'ShardScene');
+    }
+
+    onSheetClick() {
+        console.log('[TestsScene] Sheet clicked');
+        fxGoTo(this, 'SheetScene');
     }
 
     onMoveHotCircleClick() {

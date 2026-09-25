@@ -199,7 +199,7 @@ Main menu. Title **Sweet Adventure**. Bottom **SKIN** switch above the Layout/FX
 
 ## TestsScene
 
-Hub from the menu **UI TESTS** button. Not a play layout. Buttons sit in two columns. Left: **UI EDITOR**, **COMPOSITE UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**. Right: **MOVE HOT ROD**, **BACK HIGHLIGHT**, **SHARD**, **MOVE HOT CIRCLE**, **BACK**.
+Hub from the menu **UI TESTS** button. Not a play layout. Buttons sit in two columns. Left: **UI EDITOR**, **COMPOSITE UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**. Right: **BACK HIGHLIGHT**, **SHARD**, **SHEET**, **MOVE HOT CIRCLE**, **BACK**.
 
 ## CompositeUIEditorScene
 
@@ -276,6 +276,10 @@ BACK under the panel returns to Tests.
 ## ShardScene
 
 Opened from Tests **SHARD**. Title **Shard**. Same heat field as Back Highlight, plus **SKEW** and **GLISTEN** on **FROM** and **TO**. **SKEW** 0 is a rectangle; other values lean the shape into a parallelogram. **GLISTEN** 0 is the left edge and 100 is the right; it eases with the pose. BACK returns to Tests.
+
+## SheetScene
+
+Opened from Tests **SHEET**. Title **Sheet**. Parallelogram heat eases **FROM** to **TO** like Back Highlight, including **SKEW**. **GLISTEN** is not on **FROM** or **TO**. A bright band sweeps left to right on **GL SPEED**, pauses **GL DELAY**, and repeats. BACK returns to Tests.
 
 ## BackHighlightScene
 
