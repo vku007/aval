@@ -102,6 +102,14 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             rowH: 24,
             active: false
         });
+        this.scissorProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'hot-map-scissor'
+                ? this.selectedObject
+                : null,
+            tabs: HotMapUiScissor.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
         if (this.host.stone) {
             this.host.stone.onPartAdded = (object) => this.noteStonePart(object, true);
             this.host.stone.onPartRemoved = (object) => this.noteStonePart(object, false);
@@ -141,6 +149,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (kind === 'hot-map-stone') {
             return this.stoneProps;
         }
+        if (kind === 'hot-map-scissor') {
+            return this.scissorProps;
+        }
         return null;
     }
 
@@ -157,6 +168,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.stoneProps) {
             this.stoneProps.setActive(kind === 'hot-map-stone');
+        }
+        if (this.scissorProps) {
+            this.scissorProps.setActive(kind === 'hot-map-scissor');
         }
     }
 

@@ -193,6 +193,9 @@ function uiObjectTypeLabel(object) {
     if (kind === 'hot-map-stone') {
         return 'Stone';
     }
+    if (kind === 'hot-map-scissor') {
+        return 'Scissor';
+    }
     return kind ? String(kind) : '';
 }
 

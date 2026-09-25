@@ -1,7 +1,10 @@
 /**
  * Filled hot rectangle for BackHighlightScene.
- * Width, height, angle, and heat ease FROM → TO, pause DELAY, then either
+ * Width, height, angle, skew, and heat ease FROM → TO, pause DELAY, then either
  * ease back (CYCLING) or snap to FROM, pause GAP, and repeat.
+ * GLISTEN, when set on FROM and TO, is where the heat sits across the shape:
+ * 0 at the left edge, 100 at the right. It eases with the other pose values.
+ * Poses without GLISTEN fill the shape evenly.
  */
 const BACK_HIGHLIGHT_CELL_PX = 3;
 const BACK_HIGHLIGHT_TEX_KEY = 'back-highlight-panel';
@@ -19,7 +22,9 @@ const BACK_HIGHLIGHT_POSE_SPECS = {
     width: { min: 4, max: 240, step: 2 },
     height: { min: 4, max: 180, step: 2 },
     angle: { min: -180, max: 180, step: 5 },
-    heat: { min: 0, max: 3, step: 0.1 }
+    skew: { min: -70, max: 70, step: 5 },
+    heat: { min: 0, max: 3, step: 0.1 },
+    glisten: { min: 0, max: 100, step: 5 }
 };
 
 function defaultBackHighlightField() {
@@ -34,9 +39,9 @@ function defaultBackHighlightField() {
 
 function defaultBackHighlightPose(which) {
     if (which === 'to') {
-        return { width: 140, height: 48, angle: 18, heat: 1.8 };
+        return { width: 140, height: 48, angle: 18, skew: 0, heat: 1.8 };
     }
-    return { width: 36, height: 16, angle: -18, heat: 0.45 };
+    return { width: 36, height: 16, angle: -18, skew: 0, heat: 0.45 };
 }
 
 function clampBackHighlightSpec(specs, name, value) {
@@ -55,7 +60,9 @@ function copyBackHighlightPose(pose) {
         width: pose.width,
         height: pose.height,
         angle: pose.angle,
-        heat: pose.heat
+        skew: pose.skew || 0,
+        heat: pose.heat,
+        glisten: pose.glisten
     };
 }
 
@@ -63,14 +70,29 @@ function posesMatch(a, b) {
     return Math.abs(a.width - b.width) <= 1 &&
         Math.abs(a.height - b.height) <= 1 &&
         Math.abs(a.angle - b.angle) <= 1 &&
-        Math.abs(a.heat - b.heat) <= 0.05;
+        Math.abs((a.skew || 0) - (b.skew || 0)) <= 1 &&
+        Math.abs(a.heat - b.heat) <= 0.05 &&
+        Math.abs((a.glisten || 0) - (b.glisten || 0)) <= 1;
 }
 
 function easeBackHighlightPose(current, target, k) {
     current.width += (target.width - current.width) * k;
     current.height += (target.height - current.height) * k;
     current.angle += (target.angle - current.angle) * k;
+    current.skew += ((target.skew || 0) - (current.skew || 0)) * k;
     current.heat += (target.heat - current.heat) * k;
+    if (target.glisten != null || current.glisten != null) {
+        current.glisten = (current.glisten || 0) + ((target.glisten || 0) - (current.glisten || 0)) * k;
+    }
+}
+
+function backHighlightGlistenBand(along, halfWidth, phase) {
+    const span = Math.max(1, halfWidth * 2);
+    const sigma = Math.max(0.8, span * 0.14);
+    const pad = sigma * 2.4;
+    const center = -halfWidth - pad + phase * (span + pad * 2);
+    const ds = along - center;
+    return Math.exp(-(ds * ds) / (2 * sigma * sigma));
 }
 
 function stampBackHighlightRect(grid, cols, rows, center, pose) {
@@ -84,7 +106,11 @@ function stampBackHighlightRect(grid, cols, rows, center, pose) {
     const ang = ((pose.angle || 0) * Math.PI) / 180;
     const cosA = Math.cos(ang);
     const sinA = Math.sin(ang);
-    const reach = Math.hypot(hw, hh) + edge + 1;
+    const shear = Math.tan(((pose.skew || 0) * Math.PI) / 180);
+    const lean = Math.abs(shear) * hh;
+    const sweeping = pose.glisten != null;
+    const glistenPhase = sweeping ? Math.max(0, Math.min(100, pose.glisten)) / 100 : 0;
+    const reach = Math.hypot(hw + lean, hh) + edge + 1;
     const x0 = Math.max(0, Math.floor(center.col - reach));
     const x1 = Math.min(cols - 1, Math.ceil(center.col + reach));
     const y0 = Math.max(0, Math.floor(center.row - reach));
@@ -96,7 +122,8 @@ function stampBackHighlightRect(grid, cols, rows, center, pose) {
             const dx = x - center.col;
             const u = dx * cosA + dy * sinA;
             const v = -dx * sinA + dy * cosA;
-            const ou = Math.max(0, Math.abs(u) - hw);
+            const along = u - v * shear;
+            const ou = Math.max(0, Math.abs(along) - hw);
             const ov = Math.max(0, Math.abs(v) - hh);
             const outside = Math.hypot(ou, ov);
             if (outside > edge) {
@@ -108,7 +135,10 @@ function stampBackHighlightRect(grid, cols, rows, center, pose) {
                 w = Math.exp(-fall * fall * 3);
             }
             const i = base + x;
-            const heat = energy * w;
+            let heat = energy * w;
+            if (sweeping) {
+                heat *= backHighlightGlistenBand(along, hw, glistenPhase);
+            }
             if (heat > grid[i]) {
                 grid[i] = Math.min(1, heat);
             }
@@ -340,11 +370,15 @@ const BACK_HIGHLIGHT_POSE_KEYS = {
     fromWidth: { group: 'from', prop: 'width' },
     fromHeight: { group: 'from', prop: 'height' },
     fromAngle: { group: 'from', prop: 'angle' },
+    fromSkew: { group: 'from', prop: 'skew' },
     fromHeat: { group: 'from', prop: 'heat' },
+    fromGlisten: { group: 'from', prop: 'glisten' },
     toWidth: { group: 'to', prop: 'width' },
     toHeight: { group: 'to', prop: 'height' },
     toAngle: { group: 'to', prop: 'angle' },
-    toHeat: { group: 'to', prop: 'heat' }
+    toSkew: { group: 'to', prop: 'skew' },
+    toHeat: { group: 'to', prop: 'heat' },
+    toGlisten: { group: 'to', prop: 'glisten' }
 };
 
 function mergeBackHighlightPose(base, extra) {
