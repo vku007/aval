@@ -1,7 +1,7 @@
 /**
  * SheetScene
  * Sheet hot map. Heat cycles like back highlight / shard.
- * Glisten sweeps left to right on its own timer and repeats.
+ * The sheet follows one cosine from 0 to 2π. Glisten sweeps along it.
  */
 class SheetScene extends Phaser.Scene {
     constructor() {
@@ -25,13 +25,13 @@ class SheetScene extends Phaser.Scene {
             fill: '#000000'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, 88, 'Heat cycles. Glisten repeats', {
+        this.add.text(width / 2, 88, 'Cosine sheet. Glisten repeats', {
             font: `${UI.body}px monospace`,
             fill: '#666666'
         }).setOrigin(0.5);
 
         const backH = UI.menuBtnH;
-        const settingsH = 356;
+        const settingsH = 420;
         const gap = 12;
         const panelTop = 120;
         const settingsTop = height - UI.pad - backH - 16 - settingsH;
@@ -90,21 +90,23 @@ class SheetScene extends Phaser.Scene {
         const tabH = 28;
         const tabY = y + 18;
         const right = x + width - 12;
-        this.fieldTabBtn = this.createTabButton(right - tabW * 2.5 - 16, tabY, tabW, tabH, 'FIELD', () => {
-            this.setSettingsTab('field');
-        });
-        this.fromTabBtn = this.createTabButton(right - tabW * 1.5 - 8, tabY, tabW, tabH, 'FROM', () => {
-            this.setSettingsTab('from');
-        });
-        this.toTabBtn = this.createTabButton(right - tabW / 2, tabY, tabW, tabH, 'TO', () => {
-            this.setSettingsTab('to');
+        const tabGap = 8;
+        const tabOrder = ['ball', 'field', 'from', 'to'];
+        const tabLabels = { ball: 'BALL', field: 'FIELD', from: 'FROM', to: 'TO' };
+        tabOrder.forEach((key, index) => {
+            const fromRight = tabOrder.length - 1 - index;
+            const tabX = right - tabW / 2 - fromRight * (tabW + tabGap);
+            this[`${key}TabBtn`] = this.createTabButton(tabX, tabY, tabW, tabH, tabLabels[key], () => {
+                this.setSettingsTab(key);
+            });
         });
 
         const poseRows = [
             { key: 'width', label: 'WIDTH', decimals: 0 },
             { key: 'height', label: 'HEIGHT', decimals: 0 },
-            { key: 'angle', label: 'ANGLE', decimals: 0 },
             { key: 'skew', label: 'SKEW', decimals: 0 },
+            { key: 'bend', label: 'BEND', decimals: 0 },
+            { key: 'cosine', label: 'PHASE', decimals: 0 },
             { key: 'heat', label: 'HEAT', decimals: 1 }
         ];
         const fieldRows = [
@@ -112,14 +114,23 @@ class SheetScene extends Phaser.Scene {
             { key: 'speed', label: 'SPEED', decimals: 1 },
             { key: 'delay', label: 'DELAY', decimals: 1 },
             { key: 'gap', label: 'GAP', decimals: 1 },
+            { key: 'glistenOn', label: 'GLISTEN', type: 'bool' },
             { key: 'glistenSpeed', label: 'GL SPEED', decimals: 1 },
             { key: 'glistenDelay', label: 'GL DELAY', decimals: 1 },
+            { key: 'glistenPower', label: 'GL POWER', decimals: 1 },
             { key: 'diffusion', label: 'DIFFUSE', decimals: 1 },
             { key: 'cooling', label: 'COOL', decimals: 2 }
+        ];
+        const ballRows = [
+            { key: 'radius', label: 'DOT SIZE', decimals: 1 },
+            { key: 'energy', label: 'DOT HEAT', decimals: 1 },
+            { key: 'ballSpeed', label: 'SPEED', decimals: 2 },
+            { key: 'ballDelta', label: 'DELTA', decimals: 0 }
         ];
         const rowH = 32;
         const rowTop = y + 38;
         this.settingsValues = {};
+        this.ballTabBody = this.add.container(0, 0);
         this.fieldTabBody = this.add.container(0, 0);
         this.fromTabBody = this.add.container(0, 0);
         this.toTabBody = this.add.container(0, 0);
@@ -130,6 +141,9 @@ class SheetScene extends Phaser.Scene {
             } else {
                 this.createStepperRow(this.fieldTabBody, x + 8, rowY, width - 16, rowH, row, 'field');
             }
+        });
+        ballRows.forEach((row, index) => {
+            this.createStepperRow(this.ballTabBody, x + 8, rowTop + index * rowH, width - 16, rowH, row, 'ball');
         });
         poseRows.forEach((row, index) => {
             this.createStepperRow(this.fromTabBody, x + 8, rowTop + index * rowH, width - 16, rowH, row, 'from');
@@ -145,11 +159,13 @@ class SheetScene extends Phaser.Scene {
     setSettingsTab(tab) {
         this.settingsTab = tab;
         const bodies = {
+            ball: this.ballTabBody,
             field: this.fieldTabBody,
             from: this.fromTabBody,
             to: this.toTabBody
         };
         const buttons = {
+            ball: this.ballTabBtn,
             field: this.fieldTabBtn,
             from: this.fromTabBtn,
             to: this.toTabBtn
@@ -294,6 +310,9 @@ class SheetScene extends Phaser.Scene {
         }
         if (key === 'cycling') {
             return !!this.heatMap.cycling;
+        }
+        if (key === 'glistenOn') {
+            return this.heatMap.glistenOn !== false;
         }
         if (group === 'from' || group === 'to') {
             return this.heatMap[group][key];

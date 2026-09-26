@@ -56,7 +56,7 @@ function clampBackHighlightSpec(specs, name, value) {
 }
 
 function copyBackHighlightPose(pose) {
-    return {
+    const next = {
         width: pose.width,
         height: pose.height,
         angle: pose.angle,
@@ -64,6 +64,13 @@ function copyBackHighlightPose(pose) {
         heat: pose.heat,
         glisten: pose.glisten
     };
+    if (pose.bend != null) {
+        next.bend = pose.bend;
+    }
+    if (pose.cosine != null) {
+        next.cosine = pose.cosine;
+    }
+    return next;
 }
 
 function posesMatch(a, b) {
@@ -72,7 +79,9 @@ function posesMatch(a, b) {
         Math.abs(a.angle - b.angle) <= 1 &&
         Math.abs((a.skew || 0) - (b.skew || 0)) <= 1 &&
         Math.abs(a.heat - b.heat) <= 0.05 &&
-        Math.abs((a.glisten || 0) - (b.glisten || 0)) <= 1;
+        Math.abs((a.glisten || 0) - (b.glisten || 0)) <= 1 &&
+        Math.abs((a.bend || 0) - (b.bend || 0)) <= 1 &&
+        Math.abs((a.cosine || 0) - (b.cosine || 0)) <= 1;
 }
 
 function easeBackHighlightPose(current, target, k) {
@@ -83,6 +92,12 @@ function easeBackHighlightPose(current, target, k) {
     current.heat += (target.heat - current.heat) * k;
     if (target.glisten != null || current.glisten != null) {
         current.glisten = (current.glisten || 0) + ((target.glisten || 0) - (current.glisten || 0)) * k;
+    }
+    if (target.bend != null || current.bend != null) {
+        current.bend = (current.bend || 0) + ((target.bend || 0) - (current.bend || 0)) * k;
+    }
+    if (target.cosine != null || current.cosine != null) {
+        current.cosine = (current.cosine || 0) + ((target.cosine || 0) - (current.cosine || 0)) * k;
     }
 }
 
@@ -209,7 +224,7 @@ function stepBackHighlightPose(state, delta) {
     if (state.drive === 'hover') {
         return stepBackHighlightHover(state, delta);
     }
-    const dt = Math.min(delta / 1000, 0.05);
+    let dt = Math.min(Math.max(0, delta) / 1000, 0.05);
     if (posesMatch(state.from, state.to)) {
         state.current = copyBackHighlightPose(state.from);
         return state.current;
@@ -217,25 +232,35 @@ function stepBackHighlightPose(state, delta) {
     if (state.phase === 'wait') {
         state.waitLeft -= dt;
         state.current = copyBackHighlightPose(state.to);
-        if (state.waitLeft <= 0) {
-            if (state.cycling) {
-                state.phase = 'toStart';
-            } else {
-                beginBackHighlightHold(state);
+        if (state.waitLeft > 0) {
+            return state.current;
+        }
+        dt = -state.waitLeft;
+        state.waitLeft = 0;
+        if (state.cycling) {
+            state.phase = 'toStart';
+        } else {
+            beginBackHighlightHold(state);
+            if (state.phase === 'hold') {
+                return state.current;
             }
         }
-        return state.current;
     }
     if (state.phase === 'hold') {
         state.waitLeft -= dt;
         state.current = copyBackHighlightPose(state.from);
-        if (state.waitLeft <= 0) {
-            state.phase = 'toEnd';
+        if (state.waitLeft > 0) {
+            return state.current;
         }
-        return state.current;
+        dt = -state.waitLeft;
+        state.waitLeft = 0;
+        state.phase = 'toEnd';
     }
     if (state.phase === 'toStart' && !state.cycling) {
         beginBackHighlightHold(state);
+        return state.current;
+    }
+    if (dt <= 0) {
         return state.current;
     }
     const toward = state.phase === 'toStart' ? state.from : state.to;

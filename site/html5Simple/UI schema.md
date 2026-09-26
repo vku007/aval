@@ -279,7 +279,7 @@ Opened from Tests **SHARD**. Title **Shard**. Same heat field as Back Highlight,
 
 ## SheetScene
 
-Opened from Tests **SHEET**. Title **Sheet**. Parallelogram heat eases **FROM** to **TO** like Back Highlight, including **SKEW**. **GLISTEN** is not on **FROM** or **TO**. A bright band sweeps left to right on **GL SPEED**, pauses **GL DELAY**, and repeats. BACK returns to Tests.
+Opened from Tests **SHEET**. Title **Sheet**. The ribbon follows cos from 0 to 2π. **BEND** on **FROM** and **TO** is the wave height. **PHASE** on **FROM** and **TO** is the cosine angle in degrees and eases with the pose. **WIDTH**, **HEIGHT**, and **SKEW** ease with the heat. The wave stays horizontal. **GLISTEN** on **FIELD** is an on/off switch. When on, a hot band sweeps along the curve on **GL SPEED**, pauses **GL DELAY**, and repeats. **GL POWER** is how much heat that band stamps into the field. **BALL** places two hot dots on the curve. One runs start to end, **DELTA** cells below. The other runs end to start, **DELTA** cells above. **DOT SIZE** and **DOT HEAT** match a hot ball. **SPEED** runs both, and they repeat. BACK returns to Tests.
 
 ## BackHighlightScene
 
