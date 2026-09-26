@@ -259,9 +259,16 @@ class HotMapUiStone {
         this.parts.forEach((part) => {
             part.local = this.captureLocal(part.object);
         });
+        const ballInit = {};
+        HOT_MAP_STONE_BALL_INIT_KEYS.forEach((key) => {
+            ballInit[key] = this.ballInit[key];
+        });
         return {
             name: this.name,
             center: { col: this.center.col, row: this.center.row },
+            spawn: { col: this.spawn.col, row: this.spawn.row },
+            spawnSpeed: this.spawnSpeed,
+            ballInit: ballInit,
             parts: this.parts.map((part) => ({
                 kind: part.object.kind,
                 object: hotMapStoneWithLocalPoints(part.object.serialize(), part.local)
@@ -278,6 +285,19 @@ class HotMapUiStone {
         }
         if (data.center && typeof data.center.col === 'number' && typeof data.center.row === 'number') {
             this.center = { col: data.center.col, row: data.center.row };
+        }
+        if (data.spawn && typeof data.spawn.col === 'number' && typeof data.spawn.row === 'number') {
+            this.spawn = { col: data.spawn.col, row: data.spawn.row };
+        }
+        if (typeof data.spawnSpeed === 'number') {
+            this.spawnSpeed = data.spawnSpeed;
+        }
+        if (data.ballInit) {
+            HOT_MAP_STONE_BALL_INIT_KEYS.forEach((key) => {
+                if (typeof data.ballInit[key] === 'number') {
+                    this.ballInit[key] = data.ballInit[key];
+                }
+            });
         }
         (data.parts || []).forEach((entry, index) => {
             const part = this.parts[index];

@@ -46,10 +46,18 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         const objX = colW + gap;
         const objW = width - objX;
 
-        this.add.text(colX + 12, 18, 'Composite UI Editor', {
+        const title = this.add.text(colX + 12, 18, 'Composite UI Editor', {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0);
+        const maxTitleW = colW - 24;
+        if (title.width > maxTitleW) {
+            const size = Math.max(16, Math.floor(UI.title * maxTitleW / title.width));
+            title.setStyle({
+                font: `${size}px monospace`,
+                fill: '#000000'
+            });
+        }
 
         this.editorStatus = this.add.text(colX + 12, 50, 'Tap Stage to move the selected object', {
             font: `${UI.body}px monospace`,
@@ -518,6 +526,8 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
                 btn.typeText.setColor('#ffffff');
             }
         } else {
+            bg.fillStyle(0xffffff, 1);
+            bg.fillRect(-w / 2, -h / 2, w, h);
             bg.lineStyle(2, 0x000000, 1);
             bg.strokeRect(-w / 2, -h / 2, w, h);
             btn.buttonText.setColor('#000000');
@@ -585,18 +595,37 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.refreshActiveProps();
     }
 
-    ensureStoneParts(stoneData) {
+    ensureStoneListed() {
         const stone = this.host && this.host.stone;
+        if (!stone) {
+            return;
+        }
+        if (this.objects.indexOf(stone) < 0) {
+            this.objects.unshift(stone);
+        }
+    }
+
+    loadStoneParts(stoneData) {
+        const stone = this.host && this.host.stone;
+        if (!stone) {
+            return;
+        }
         const entries = (stoneData && stoneData.parts) || [];
-        entries.forEach((entry, index) => {
-            if (!entry || stone.parts[index]) {
+        const previous = stone.parts.map((part) => part.object);
+        previous.forEach((object) => {
+            this.releaseObject(object);
+            this.dropFrom(this.objects, object);
+        });
+        entries.forEach((entry) => {
+            if (!entry || !entry.kind) {
                 return;
             }
             const created = this.spawnObject(entry.kind, entry.object || {});
-            if (created) {
+            if (created && this.objects.indexOf(created) < 0) {
                 this.objects.push(created);
             }
         });
+        this.ensureStoneListed();
     }
 
     setEditorStatus(message) {
@@ -631,7 +660,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
                 if (data.heatMap && typeof this.heatMap.applySerialized === 'function') {
                     this.heatMap.applySerialized(data.heatMap);
                 }
-                this.ensureStoneParts(data.stone);
+                this.loadStoneParts(data.stone);
                 this.host.stone.applySerialized(data.stone);
             } else {
                 applyUiEditorPreset(this.heatMap, this.balls, data, this.rods, this.highlighters);
@@ -640,8 +669,16 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
                         part.local = this.host.stone.captureLocal(part.object);
                     });
                 }
+                this.ensureStoneListed();
+            }
+            if (this.objects.indexOf(this.selectedObject) < 0) {
+                this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;
+            }
+            if (this.objectList) {
+                this.objectList.scroll = 0;
             }
             this.rebuildObjectRows();
+            this.syncPropEditors();
             this.refreshActiveProps();
             this.setEditorStatus('Loaded');
         }).catch((error) => {
