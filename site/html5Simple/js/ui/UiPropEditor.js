@@ -14,14 +14,18 @@ class UiPropEditor {
         this.activeTab = this.tabs[0] ? this.tabs[0].id : null;
 
         const showTabs = this.tabs.length > 1 || (this.tabs[0] && this.tabs[0].label);
-        const tabW = 72;
+        const tabGap = 6;
+        const tabCount = Math.max(1, this.tabs.length);
+        const tabRoom = Math.max(0, panel.width - 12 - 78);
+        const fitted = Math.floor((tabRoom - tabGap * (tabCount - 1)) / tabCount);
+        const tabW = Math.max(48, Math.min(72, fitted));
         const tabH = 28;
         const tabY = panel.y + 18;
 
         if (showTabs) {
             this.tabs.forEach((tab, index) => {
                 const fromRight = this.tabs.length - 1 - index;
-                const tabX = panel.x + panel.width - 12 - tabW / 2 - fromRight * (tabW + 8);
+                const tabX = panel.x + panel.width - 12 - tabW / 2 - fromRight * (tabW + tabGap);
                 this.tabBtns[tab.id] = this.createTabButton(tabX, tabY, tabW, tabH, tab.label || tab.id, () => {
                     this.setTab(tab.id);
                 });

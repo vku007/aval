@@ -14,8 +14,8 @@ class HotMapUiStone {
             ]
         },
         {
-            id: 'ball',
-            label: 'BALL',
+            id: 'item',
+            label: 'ITEM',
             rows: [
                 { key: 'newBallInit_radius', label: 'DOT SIZE', decimals: 1 },
                 { key: 'newBallInit_energy', label: 'DOT HEAT', decimals: 1 },
@@ -28,8 +28,8 @@ class HotMapUiStone {
                 { key: 'spawnX', label: 'SPAWN X', decimals: 1 },
                 { key: 'spawnY', label: 'SPAWN Y', decimals: 1 },
                 { key: 'spawnSpeed', label: 'SPAWN SPEED', decimals: 1 },
-                { key: 'addBall', label: 'BALL', button: 'ADD', type: 'action' },
-                { key: 'removeBall', label: 'BALL', button: 'RMV', type: 'action' }
+                { key: 'addItem', label: 'BALL', button: 'ADD', type: 'action' },
+                { key: 'removeItem', label: 'BALL', button: 'RMV', type: 'action' }
             ]
         }
     ];
@@ -123,7 +123,7 @@ class HotMapUiStone {
         return this.ballInit[key];
     }
 
-    addBall() {
+    addItem() {
         const params = {};
         HOT_MAP_STONE_BALL_INIT_KEYS.forEach((key) => {
             params[key] = this.ballInit[key];
@@ -164,7 +164,7 @@ class HotMapUiStone {
         });
     }
 
-    removeBall() {
+    removeItem() {
         for (let index = this.parts.length - 1; index >= 0; index -= 1) {
             const object = this.parts[index].object;
             if (!object || object.kind !== 'hot-ball') {

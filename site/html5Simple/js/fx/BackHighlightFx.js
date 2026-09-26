@@ -2,9 +2,10 @@
  * Filled hot rectangle for BackHighlightScene.
  * Width, height, angle, skew, and heat ease FROM → TO, pause DELAY, then either
  * ease back (CYCLING) or snap to FROM, pause GAP, and repeat.
- * GLISTEN, when set on FROM and TO, is where the heat sits across the shape:
+ * GLISTEN, when set on FROM and TO, is where HEAT sits across the shape:
  * 0 at the left edge, 100 at the right. It eases with the other pose values.
- * Poses without GLISTEN fill the shape evenly.
+ * SHAPE, when set, fills the whole shape and is not masked by the glisten.
+ * Poses without GLISTEN fill the shape evenly with HEAT.
  */
 const BACK_HIGHLIGHT_CELL_PX = 3;
 const BACK_HIGHLIGHT_TEX_KEY = 'back-highlight-panel';
@@ -24,6 +25,7 @@ const BACK_HIGHLIGHT_POSE_SPECS = {
     angle: { min: -180, max: 180, step: 5 },
     skew: { min: -70, max: 70, step: 5 },
     heat: { min: 0, max: 3, step: 0.1 },
+    shapeHeat: { min: 0, max: 3, step: 0.1 },
     glisten: { min: 0, max: 100, step: 5 }
 };
 
@@ -64,6 +66,9 @@ function copyBackHighlightPose(pose) {
         heat: pose.heat,
         glisten: pose.glisten
     };
+    if (pose.shapeHeat != null) {
+        next.shapeHeat = pose.shapeHeat;
+    }
     if (pose.bend != null) {
         next.bend = pose.bend;
     }
@@ -79,6 +84,7 @@ function posesMatch(a, b) {
         Math.abs(a.angle - b.angle) <= 1 &&
         Math.abs((a.skew || 0) - (b.skew || 0)) <= 1 &&
         Math.abs(a.heat - b.heat) <= 0.05 &&
+        Math.abs((a.shapeHeat || 0) - (b.shapeHeat || 0)) <= 0.05 &&
         Math.abs((a.glisten || 0) - (b.glisten || 0)) <= 1 &&
         Math.abs((a.bend || 0) - (b.bend || 0)) <= 1 &&
         Math.abs((a.cosine || 0) - (b.cosine || 0)) <= 1;
@@ -90,6 +96,9 @@ function easeBackHighlightPose(current, target, k) {
     current.angle += (target.angle - current.angle) * k;
     current.skew += ((target.skew || 0) - (current.skew || 0)) * k;
     current.heat += (target.heat - current.heat) * k;
+    if (target.shapeHeat != null || current.shapeHeat != null) {
+        current.shapeHeat = (current.shapeHeat || 0) + ((target.shapeHeat || 0) - (current.shapeHeat || 0)) * k;
+    }
     if (target.glisten != null || current.glisten != null) {
         current.glisten = (current.glisten || 0) + ((target.glisten || 0) - (current.glisten || 0)) * k;
     }
@@ -111,8 +120,9 @@ function backHighlightGlistenBand(along, halfWidth, phase) {
 }
 
 function stampBackHighlightRect(grid, cols, rows, center, pose) {
-    const energy = Math.max(0, pose.heat || 0);
-    if (energy <= 0) {
+    const glistenEnergy = Math.max(0, pose.heat || 0);
+    const shapeEnergy = Math.max(0, pose.shapeHeat || 0);
+    if (glistenEnergy <= 0 && shapeEnergy <= 0) {
         return;
     }
     const hw = Math.max(0.5, pose.width * 0.5);
@@ -150,9 +160,11 @@ function stampBackHighlightRect(grid, cols, rows, center, pose) {
                 w = Math.exp(-fall * fall * 3);
             }
             const i = base + x;
-            let heat = energy * w;
+            let heat = shapeEnergy * w;
             if (sweeping) {
-                heat *= backHighlightGlistenBand(along, hw, glistenPhase);
+                heat = Math.max(heat, glistenEnergy * w * backHighlightGlistenBand(along, hw, glistenPhase));
+            } else {
+                heat = Math.max(heat, glistenEnergy * w);
             }
             if (heat > grid[i]) {
                 grid[i] = Math.min(1, heat);
@@ -397,12 +409,14 @@ const BACK_HIGHLIGHT_POSE_KEYS = {
     fromAngle: { group: 'from', prop: 'angle' },
     fromSkew: { group: 'from', prop: 'skew' },
     fromHeat: { group: 'from', prop: 'heat' },
+    fromShapeHeat: { group: 'from', prop: 'shapeHeat' },
     fromGlisten: { group: 'from', prop: 'glisten' },
     toWidth: { group: 'to', prop: 'width' },
     toHeight: { group: 'to', prop: 'height' },
     toAngle: { group: 'to', prop: 'angle' },
     toSkew: { group: 'to', prop: 'skew' },
     toHeat: { group: 'to', prop: 'heat' },
+    toShapeHeat: { group: 'to', prop: 'shapeHeat' },
     toGlisten: { group: 'to', prop: 'glisten' }
 };
 

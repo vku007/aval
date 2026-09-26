@@ -164,14 +164,59 @@ function uiEditorPresetFilename() {
     return `ui-editor-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.json`;
 }
 
-function downloadUiEditorPresetJson(json) {
+function ensureJsonFileName(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) {
+        return '';
+    }
+    return trimmed.toLowerCase().endsWith('.json') ? trimmed : trimmed + '.json';
+}
+
+function downloadUiEditorPresetJson(json, filename) {
     const link = document.createElement('a');
     link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
-    link.download = uiEditorPresetFilename();
+    link.download = ensureJsonFileName(filename) || uiEditorPresetFilename();
     link.rel = 'noopener';
     document.body.appendChild(link);
     link.click();
     link.remove();
+}
+
+function saveNamedPresetFile(data, suggestedName) {
+    const json = uiEditorPresetJson(data);
+    const suggested = ensureJsonFileName(suggestedName) || 'composite-ui.json';
+    const downloadNamed = (name) => {
+        const fileName = ensureJsonFileName(name);
+        if (!fileName) {
+            return Promise.reject(new DOMException('No file selected', 'AbortError'));
+        }
+        downloadUiEditorPresetJson(json, fileName);
+        return Promise.resolve({ bytes: json.length, name: fileName });
+    };
+    if (typeof window.showSaveFilePicker !== 'function') {
+        const chosen = window.prompt('File name', suggested);
+        return downloadNamed(chosen);
+    }
+    return window.showSaveFilePicker({
+        suggestedName: suggested,
+        types: [{
+            description: 'JSON preset',
+            accept: { 'application/json': ['.json'] }
+        }]
+    }).then((handle) => {
+        return handle.createWritable().then((writable) => {
+            return writable.write(json).then(() => writable.close()).then(() => ({
+                bytes: json.length,
+                name: handle.name
+            }));
+        });
+    }).catch((error) => {
+        if (error && (error.name === 'AbortError' || error.name === 'NotAllowedError')) {
+            throw error;
+        }
+        const chosen = window.prompt('File name', suggested);
+        return downloadNamed(chosen);
+    });
 }
 
 function saveUiEditorPresetFile(data) {
@@ -192,13 +237,21 @@ function pickUiEditorPresetFile() {
                 return;
             }
             settled = true;
+            if (activePresetInput === input) {
+                activePresetInput = null;
+                activePresetAbort = null;
+            }
             input.remove();
             fn(value);
         };
+        const abort = () => finish(reject, new DOMException('No file selected', 'AbortError'));
+        activePresetInput = input;
+        activePresetAbort = abort;
+        input.addEventListener('cancel', abort);
         input.addEventListener('change', () => {
             const file = input.files && input.files[0];
             if (!file) {
-                finish(reject, new DOMException('No file selected', 'AbortError'));
+                abort();
                 return;
             }
             if (file.size < 8) {
@@ -233,6 +286,15 @@ function parseUiEditorPresetText(text) {
     return data;
 }
 
+let activePresetInput = null;
+let activePresetAbort = null;
+
 function loadUiEditorPresetFile() {
+    if (typeof activePresetAbort === 'function') {
+        const abort = activePresetAbort;
+        activePresetAbort = null;
+        activePresetInput = null;
+        abort();
+    }
     return pickUiEditorPresetFile();
 }

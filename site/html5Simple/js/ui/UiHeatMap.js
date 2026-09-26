@@ -130,7 +130,9 @@ class UiHeatMap {
             cooling: this.params.cooling,
             viewX: this.params.viewX,
             viewY: this.params.viewY,
-            viewZ: this.params.viewZ
+            viewZ: this.params.viewZ,
+            showFrames: this.showFrames,
+            showMenuFrames: this.showMenuFrames
         };
     }
 
@@ -143,6 +145,12 @@ class UiHeatMap {
                 this.field.setParam(key, data[key]);
             }
         });
+        if (typeof data.showFrames === 'boolean') {
+            this.setShowFrames(data.showFrames);
+        }
+        if (typeof data.showMenuFrames === 'boolean') {
+            this.setShowMenuFrames(data.showMenuFrames);
+        }
         if (this.effectsEditor) {
             this.effectsEditor.refreshValues();
         }

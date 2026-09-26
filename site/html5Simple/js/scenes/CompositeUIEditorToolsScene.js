@@ -24,6 +24,14 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         return this.host.highlighters;
     }
 
+    get shards() {
+        return this.host.shards;
+    }
+
+    get sheets() {
+        return this.host.sheets;
+    }
+
     get objects() {
         return this.host.objects;
     }
@@ -118,9 +126,41 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             rowH: 24,
             active: false
         });
+        this.paperProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'hot-map-paper'
+                ? this.selectedObject
+                : null,
+            tabs: HotMapUiPaper.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
+        this.sheetProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'sheet'
+                ? this.selectedObject
+                : null,
+            tabs: UiSheet.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
+        this.shardProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'shard'
+                ? this.selectedObject
+                : null,
+            tabs: UiShard.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
         if (this.host.stone) {
             this.host.stone.onPartAdded = (object) => this.noteStonePart(object, true);
             this.host.stone.onPartRemoved = (object) => this.noteStonePart(object, false);
+        }
+        if (this.host.scissor) {
+            this.host.scissor.onPartAdded = (object) => this.noteScissorPart(object, true);
+            this.host.scissor.onPartRemoved = (object) => this.noteScissorPart(object, false);
+        }
+        if (this.host.paper) {
+            this.host.paper.onPartAdded = (object) => this.notePaperPart(object, true);
+            this.host.paper.onPartRemoved = (object) => this.notePaperPart(object, false);
         }
         this.syncPropEditors();
         this.createMenuButton(
@@ -160,6 +200,15 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (kind === 'hot-map-scissor') {
             return this.scissorProps;
         }
+        if (kind === 'hot-map-paper') {
+            return this.paperProps;
+        }
+        if (kind === 'shard') {
+            return this.shardProps;
+        }
+        if (kind === 'sheet') {
+            return this.sheetProps;
+        }
         return null;
     }
 
@@ -179,6 +228,15 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.scissorProps) {
             this.scissorProps.setActive(kind === 'hot-map-scissor');
+        }
+        if (this.paperProps) {
+            this.paperProps.setActive(kind === 'hot-map-paper');
+        }
+        if (this.shardProps) {
+            this.shardProps.setActive(kind === 'shard');
+        }
+        if (this.sheetProps) {
+            this.sheetProps.setActive(kind === 'sheet');
         }
     }
 
@@ -340,11 +398,33 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         const count = this.objects.length;
         list.contentH = count === 0 ? 0 : count * rowH + (count - 1) * gap;
         list.maxScroll = Math.max(0, list.contentH - list.viewH);
+        this.pruneDeadInput();
         this.setObjectScroll(list.scroll);
         this.refreshObjectRows();
     }
 
+    pruneDeadInput() {
+        const list = this.input && this.input._list;
+        if (!list) {
+            return;
+        }
+        for (let index = list.length - 1; index >= 0; index -= 1) {
+            const obj = list[index];
+            if (!obj || !obj.scene || !obj.input) {
+                list.splice(index, 1);
+            }
+        }
+    }
+
     deleteObject(object) {
+        if (!object || object._removing) {
+            return;
+        }
+        object._removing = true;
+        this.time.delayedCall(0, () => this.finishDeleteObject(object));
+    }
+
+    finishDeleteObject(object) {
         if (!object) {
             return;
         }
@@ -390,11 +470,21 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else if (kind === 'back-highlight') {
             created = new UiBackHighlighter(this.heatMap, { name: data.name });
             this.highlighters.push(created);
+        } else if (kind === 'shard') {
+            created = new UiShard(this.heatMap, { name: data.name });
+            this.shards.push(created);
+        } else if (kind === 'sheet') {
+            created = new UiSheet(this.heatMap, { name: data.name });
+            this.sheets.push(created);
         }
         if (created && typeof created.applySerialized === 'function') {
             created.applySerialized(data);
         }
-        if (created && this.host.stone && typeof this.host.stone.add === 'function') {
+        if (created && kind === 'sheet' && this.host.paper && typeof this.host.paper.add === 'function') {
+            this.host.paper.add(created);
+        } else if (created && kind === 'shard' && this.host.scissor && typeof this.host.scissor.add === 'function') {
+            this.host.scissor.add(created);
+        } else if (created && this.host.stone && typeof this.host.stone.add === 'function') {
             this.host.stone.add(created);
         }
         return created;
@@ -407,6 +497,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (this.host.stone && typeof this.host.stone.remove === 'function') {
             this.host.stone.remove(object);
         }
+        if (this.host.scissor && typeof this.host.scissor.remove === 'function') {
+            this.host.scissor.remove(object);
+        }
+        if (this.host.paper && typeof this.host.paper.remove === 'function') {
+            this.host.paper.remove(object);
+        }
         if (object.kind === 'hot-ball') {
             this.heatMap.removeBall(object.motion);
             this.dropFrom(this.balls, object);
@@ -416,6 +512,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else if (object.kind === 'back-highlight') {
             this.heatMap.removeHighlighter(object.emitter);
             this.dropFrom(this.highlighters, object);
+        } else if (object.kind === 'shard') {
+            this.heatMap.removeHighlighter(object.emitter);
+            this.dropFrom(this.shards, object);
+        } else if (object.kind === 'sheet') {
+            this.heatMap.removeHighlighter(object.emitter);
+            this.dropFrom(this.sheets, object);
         }
     }
 
@@ -595,6 +697,34 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.refreshActiveProps();
     }
 
+    noteScissorPart(object, added) {
+        if (!object) {
+            return;
+        }
+        if (added) {
+            if (object.kind === 'shard' && this.shards.indexOf(object) < 0) {
+                this.shards.push(object);
+            }
+            if (this.objects.indexOf(object) < 0) {
+                this.objects.push(object);
+            }
+            this.rebuildObjectRows();
+            this.selectObject(object);
+            return;
+        }
+        this.dropFrom(this.shards, object);
+        const index = this.objects.indexOf(object);
+        if (index >= 0) {
+            this.objects.splice(index, 1);
+        }
+        if (this.selectedObject === object) {
+            this.selectedObject = this.objects.length ? this.objects[this.objects.length - 1] : null;
+        }
+        this.rebuildObjectRows();
+        this.syncPropEditors();
+        this.refreshActiveProps();
+    }
+
     ensureStoneListed() {
         const stone = this.host && this.host.stone;
         if (!stone) {
@@ -605,27 +735,161 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
     }
 
-    loadStoneParts(stoneData) {
-        const stone = this.host && this.host.stone;
-        if (!stone) {
+    ensureScissorListed() {
+        const scissor = this.host && this.host.scissor;
+        if (!scissor) {
             return;
         }
-        const entries = (stoneData && stoneData.parts) || [];
-        const previous = stone.parts.map((part) => part.object);
+        if (this.objects.indexOf(scissor) < 0) {
+            const stoneIndex = this.host.stone ? this.objects.indexOf(this.host.stone) : -1;
+            this.objects.splice(stoneIndex + 1, 0, scissor);
+        }
+    }
+
+    notePaperPart(object, added) {
+        if (!object) {
+            return;
+        }
+        if (added) {
+            if (object.kind === 'sheet' && this.sheets.indexOf(object) < 0) {
+                this.sheets.push(object);
+            }
+            if (this.objects.indexOf(object) < 0) {
+                this.objects.push(object);
+            }
+            this.rebuildObjectRows();
+            this.selectObject(object);
+            return;
+        }
+        this.dropFrom(this.sheets, object);
+        const index = this.objects.indexOf(object);
+        if (index >= 0) {
+            this.objects.splice(index, 1);
+        }
+        if (this.selectedObject === object) {
+            this.selectedObject = this.objects.length ? this.objects[this.objects.length - 1] : null;
+        }
+        this.rebuildObjectRows();
+        this.syncPropEditors();
+        this.refreshActiveProps();
+    }
+
+    ensurePaperListed() {
+        const paper = this.host && this.host.paper;
+        if (!paper) {
+            return;
+        }
+        if (this.objects.indexOf(paper) < 0) {
+            const scissorIndex = this.host.scissor ? this.objects.indexOf(this.host.scissor) : -1;
+            const stoneIndex = this.host.stone ? this.objects.indexOf(this.host.stone) : -1;
+            const at = scissorIndex >= 0 ? scissorIndex + 1 : stoneIndex + 1;
+            this.objects.splice(at, 0, paper);
+        }
+    }
+
+    ensurePresetPopulation(data) {
+        this.ensureKindCount('hot-ball', data && data.balls);
+        this.ensureKindCount('hot-rod', data && data.rods);
+        this.ensureKindCount('back-highlight', data && data.highlighters);
+    }
+
+    ensureKindCount(kind, specs) {
+        const wanted = specs || [];
+        const list = kind === 'hot-ball'
+            ? this.balls
+            : kind === 'hot-rod'
+                ? this.rods
+                : this.highlighters;
+        if (!list) {
+            return;
+        }
+        for (let index = list.length; index < wanted.length; index += 1) {
+            const created = this.spawnObject(kind, wanted[index] || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        }
+    }
+
+    clearGroup(group) {
+        if (!group) {
+            return;
+        }
+        const previous = group.parts.map((part) => part.object);
         previous.forEach((object) => {
             this.releaseObject(object);
             this.dropFrom(this.objects, object);
         });
-        entries.forEach((entry) => {
+    }
+
+    clearSceneObjects() {
+        const keep = new Set(
+            [this.host && this.host.stone, this.host && this.host.scissor, this.host && this.host.paper].filter(Boolean)
+        );
+        const listed = this.objects.filter((object) => !keep.has(object));
+        listed.forEach((object) => {
+            this.releaseObject(object);
+            this.dropFrom(this.objects, object);
+        });
+        this.clearGroup(this.host && this.host.stone);
+        this.clearGroup(this.host && this.host.scissor);
+        this.clearGroup(this.host && this.host.paper);
+        ['balls', 'rods', 'highlighters', 'shards', 'sheets'].forEach((key) => {
+            const list = this.host && this.host[key];
+            if (!list) {
+                return;
+            }
+            list.slice().forEach((object) => {
+                this.releaseObject(object);
+                this.dropFrom(this.objects, object);
+            });
+        });
+    }
+
+    placeInGroup(group, created) {
+        if (!created || !group) {
+            return;
+        }
+        [this.host.stone, this.host.scissor, this.host.paper].forEach((other) => {
+            if (other && other !== group && typeof other.remove === 'function') {
+                other.remove(created);
+            }
+        });
+        if (group.parts.every((part) => part.object !== created)) {
+            group.add(created);
+        }
+    }
+
+    loadGroupParts(group, entries) {
+        if (!group) {
+            return;
+        }
+        (entries || []).forEach((entry) => {
             if (!entry || !entry.kind) {
                 return;
             }
             const created = this.spawnObject(entry.kind, entry.object || {});
+            this.placeInGroup(group, created);
             if (created && this.objects.indexOf(created) < 0) {
                 this.objects.push(created);
             }
         });
-        this.ensureStoneListed();
+    }
+
+    serializeCompositePreset() {
+        const stone = this.host && this.host.stone;
+        const scissor = this.host && this.host.scissor;
+        const paper = this.host && this.host.paper;
+        return {
+            kind: UI_EDITOR_PRESET_KIND,
+            version: 4,
+            heatMap: this.heatMap && typeof this.heatMap.serialize === 'function'
+                ? this.heatMap.serialize()
+                : {},
+            stone: stone && typeof stone.serialize === 'function' ? stone.serialize() : null,
+            scissor: scissor && typeof scissor.serialize === 'function' ? scissor.serialize() : null,
+            paper: paper && typeof paper.serialize === 'function' ? paper.serialize() : null
+        };
     }
 
     setEditorStatus(message) {
@@ -635,61 +899,90 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
     }
 
     onSaveClick() {
+        let preset = null;
         try {
-            const stone = this.host && this.host.stone;
-            if (!stone || typeof stone.serialize !== 'function') {
-                throw new Error('Stone is not ready');
-            }
-            const preset = serializeUiEditor(this.heatMap, [], [], []);
-            preset.stone = stone.serialize();
-            const bytes = saveUiEditorPresetFile(preset);
-            this.setEditorStatus(`Saved ${bytes} bytes — check Downloads`);
+            preset = this.serializeCompositePreset();
         } catch (error) {
             console.warn('[CompositeUIEditorScene] Save failed', error);
             this.setEditorStatus('Save failed');
+            return;
         }
+        const suggested = this.presetFileName || 'composite-ui.json';
+        saveNamedPresetFile(preset, suggested).then((result) => {
+            this.presetFileName = result.name;
+            this.setEditorStatus(`Saved ${result.name}`);
+        }).catch((error) => {
+            if (error && (error.name === 'AbortError' || error.name === 'NotAllowedError')) {
+                return;
+            }
+            console.warn('[CompositeUIEditorScene] Save failed', error);
+            this.setEditorStatus(error && error.message ? error.message : 'Save failed');
+        });
     }
 
     onLoadClick() {
-        if (this.fileBusy) {
-            return;
-        }
-        this.fileBusy = true;
-        loadUiEditorPresetFile().then((data) => {
-            if (data && data.stone && this.host && this.host.stone) {
-                if (data.heatMap && typeof this.heatMap.applySerialized === 'function') {
-                    this.heatMap.applySerialized(data.heatMap);
-                }
-                this.loadStoneParts(data.stone);
-                this.host.stone.applySerialized(data.stone);
-            } else {
-                applyUiEditorPreset(this.heatMap, this.balls, data, this.rods, this.highlighters);
-                if (this.host && this.host.stone) {
-                    this.host.stone.parts.forEach((part) => {
-                        part.local = this.host.stone.captureLocal(part.object);
-                    });
-                }
-                this.ensureStoneListed();
+        const pick = loadUiEditorPresetFile();
+        this._presetPick = pick;
+        pick.then((data) => {
+            if (this._presetPick !== pick) {
+                return;
             }
-            if (this.objects.indexOf(this.selectedObject) < 0) {
-                this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;
-            }
-            if (this.objectList) {
-                this.objectList.scroll = 0;
-            }
-            this.rebuildObjectRows();
-            this.syncPropEditors();
-            this.refreshActiveProps();
-            this.setEditorStatus('Loaded');
+            this.applyLoadedPreset(data);
         }).catch((error) => {
-            if (error && error.name === 'AbortError') {
+            if (this._presetPick !== pick || (error && error.name === 'AbortError')) {
                 return;
             }
             console.warn('[CompositeUIEditorScene] Load failed', error);
             this.setEditorStatus(error && error.message ? error.message : 'Load failed');
-        }).finally(() => {
-            this.fileBusy = false;
         });
+    }
+
+    applyLoadedPreset(data) {
+        this.clearSceneObjects();
+        if (data && data.heatMap && this.heatMap && typeof this.heatMap.applySerialized === 'function') {
+            this.heatMap.applySerialized(data.heatMap);
+        }
+        if (data && (data.stone || data.scissor || data.paper)) {
+            if (data.stone && this.host && this.host.stone) {
+                this.clearGroup(this.host.stone);
+                this.loadGroupParts(this.host.stone, data.stone.parts);
+                this.host.stone.applySerialized(data.stone);
+                this.ensureStoneListed();
+            }
+            if (data.scissor && this.host && this.host.scissor) {
+                this.clearGroup(this.host.scissor);
+                this.loadGroupParts(this.host.scissor, data.scissor.parts);
+                this.host.scissor.applySerialized(data.scissor);
+                this.ensureScissorListed();
+            }
+            if (data.paper && this.host && this.host.paper) {
+                this.clearGroup(this.host.paper);
+                this.loadGroupParts(this.host.paper, data.paper.parts);
+                this.host.paper.applySerialized(data.paper);
+                this.ensurePaperListed();
+            }
+        } else {
+            this.ensurePresetPopulation(data);
+            applyUiEditorPreset(this.heatMap, this.balls, data, this.rods, this.highlighters);
+            if (this.host && this.host.stone) {
+                this.host.stone.parts.forEach((part) => {
+                    part.local = this.host.stone.captureLocal(part.object);
+                });
+            }
+            this.ensureStoneListed();
+            this.ensureScissorListed();
+            this.ensurePaperListed();
+        }
+        if (this.objects.indexOf(this.selectedObject) < 0) {
+            this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;
+        }
+        if (this.objectList) {
+            this.objectList.scroll = 0;
+        }
+        this.rebuildObjectRows();
+        this.syncPropEditors();
+        this.refreshActiveProps();
+        this.setEditorStatus('Loaded');
     }
 
     createEditorPanel(x, y, width, height, label) {

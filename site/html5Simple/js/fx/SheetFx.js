@@ -76,6 +76,26 @@ function sheetHeatPose(pose) {
 }
 
 function stepSheetGlisten(state, delta) {
+    if (state.glistenClock) {
+        const clock = state.glistenClock;
+        if (state.ballLead && state.params) {
+            clock.params.glistenSpeed = state.params.glistenSpeed;
+            clock.params.glistenDelay = state.params.glistenDelay;
+        }
+        const epoch = state.field ? state.field.sheetEpoch : 0;
+        if (clock.epoch !== epoch) {
+            clock.epoch = epoch;
+            stepSheetGlistenRun(clock, delta);
+        }
+        state.glisten = clock.glisten;
+        state.glistenPhase = clock.glistenPhase;
+        state.glistenWait = clock.glistenWait;
+        return;
+    }
+    stepSheetGlistenRun(state, delta);
+}
+
+function stepSheetGlistenRun(state, delta) {
     let dt = Math.min(Math.max(0, delta) / 1000, 0.05);
     const speed = Math.max(0.2, state.params.glistenSpeed || 0.4);
     const rate = speed * 100;
@@ -136,6 +156,26 @@ function sheetCenterPoint(pose, center, progress) {
 
 function stepSheetBall(state, delta) {
     const dt = Math.min(Math.max(0, delta) / 1000, 0.05);
+    if (state.ballClock) {
+        const clock = state.ballClock;
+        if (state.ballLead) {
+            clock.speed = Math.max(0, state.params.ballSpeed || 0);
+        }
+        const epoch = state.field ? state.field.sheetEpoch : 0;
+        if (clock.epoch !== epoch) {
+            clock.epoch = epoch;
+            const speed = Math.max(0, clock.speed || 0);
+            if (speed > 0) {
+                clock.phase = (clock.phase + speed * dt) % 1;
+            }
+        }
+        let ball = (clock.phase + (state.ballShift || 0)) % 1;
+        if (ball < 0) {
+            ball += 1;
+        }
+        state.ball = ball;
+        return;
+    }
     const speed = Math.max(0, state.params.ballSpeed || 0);
     if (speed <= 0) {
         return;
@@ -143,20 +183,161 @@ function stepSheetBall(state, delta) {
     state.ball = (state.ball + speed * dt) % 1;
 }
 
-function stampSheetBall(grid, cols, rows, center, pose, state) {
+function sheetOscillationPoints(pose, center, state) {
     const delta = state.params.ballDelta || 0;
+    const lower = sheetCenterPoint(pose, center, state.ball);
+    const upperProgress = state.ball <= 0 ? 1 : 1 - state.ball;
+    const upper = sheetCenterPoint(pose, center, upperProgress);
+    return {
+        lower: { col: lower.col, row: lower.row + delta },
+        upper: { col: upper.col, row: upper.row - delta }
+    };
+}
+
+function lerpSheetPoint(from, to, u) {
+    return {
+        col: from.col + (to.col - from.col) * u,
+        row: from.row + (to.row - from.row) * u
+    };
+}
+
+function sheetPointFromLocal(origin, local) {
+    return {
+        col: origin.col + local.col,
+        row: origin.row + local.row
+    };
+}
+
+function stepSheetTravel(state, dt) {
+    const travel = state.travel;
+    if (!travel || travel.stage === 'done') {
+        return;
+    }
+    const place = state.target;
+    const rate = Math.max(0.2, state.params.speed || 1.2);
+    const step = Math.min(1, dt * rate * 0.8);
+    if (travel.stage === 'wait') {
+        travel.wait -= dt;
+        if (travel.wait > 0) {
+            return;
+        }
+        travel.stage = 'done';
+        state.glistenHold = false;
+        setSheetGlistenOn(state, state.glistenAfterMove !== false);
+        return;
+    }
+    if (travel.stage === 'pair') {
+        travel.u = Math.min(1, travel.u + step);
+        const spawn = sheetPointFromLocal(place, travel.spawnLocal);
+        const waypoint = sheetPointFromLocal(place, travel.waypointLocal);
+        travel.pair = lerpSheetPoint(spawn, waypoint, travel.u);
+        if (travel.u >= 1) {
+            travel.stage = 'split';
+            travel.u = 0;
+            const half = Math.max(0, state.travelBallGap || 0) * 0.5;
+            travel.upperFrom = { col: travel.pair.col, row: travel.pair.row - half };
+            travel.lowerFrom = { col: travel.pair.col, row: travel.pair.row + half };
+            travel.upper = { col: travel.upperFrom.col, row: travel.upperFrom.row };
+            travel.lower = { col: travel.lowerFrom.col, row: travel.lowerFrom.row };
+        }
+        return;
+    }
+    travel.u = Math.min(1, travel.u + step);
+    const slots = sheetOscillationPoints(state.current, place, state);
+    travel.upper = lerpSheetPoint(travel.upperFrom, slots.upper, travel.u);
+    travel.lower = lerpSheetPoint(travel.lowerFrom, slots.lower, travel.u);
+    if (travel.u < 1) {
+        return;
+    }
+    travel.upper = slots.upper;
+    travel.lower = slots.lower;
+    state.center.col = place.col;
+    state.center.row = place.row;
+    travel.stage = 'wait';
+    travel.wait = travel.revealDelay != null ? travel.revealDelay : 2;
+}
+
+function stampSheetTravelBalls(grid, cols, rows, state) {
+    const travel = state.travel;
+    if (!travel || travel.stage === 'done') {
+        return false;
+    }
+    const full = travel.radiusScale || 2;
+    const scale = travel.stage === 'pair' ? full : full - (full - 1) * travel.u;
+    const dot = {
+        radius: Math.max(0.2, state.params.radius * scale),
+        energy: state.params.energy
+    };
+    if (travel.stage === 'pair' && travel.pair) {
+        const half = Math.max(0, state.travelBallGap || 0) * 0.5;
+        addHotDot(grid, cols, rows, travel.pair.col, travel.pair.row - half, dot);
+        addHotDot(grid, cols, rows, travel.pair.col, travel.pair.row + half, dot);
+        return true;
+    }
+    if (travel.upper && travel.lower) {
+        addHotDot(grid, cols, rows, travel.upper.col, travel.upper.row, dot);
+        addHotDot(grid, cols, rows, travel.lower.col, travel.lower.row, dot);
+    }
+    return true;
+}
+
+function stampSheetBall(grid, cols, rows, center, pose, state) {
     const dot = {
         radius: state.params.radius,
         energy: state.params.energy
     };
-    const lower = sheetCenterPoint(pose, center, state.ball);
-    const upperProgress = state.ball <= 0 ? 1 : 1 - state.ball;
-    const upper = sheetCenterPoint(pose, center, upperProgress);
-    addHotDot(grid, cols, rows, lower.col, lower.row + delta, dot);
-    addHotDot(grid, cols, rows, upper.col, upper.row - delta, dot);
+    const slots = sheetOscillationPoints(pose, center, state);
+    addHotDot(grid, cols, rows, slots.lower.col, slots.lower.row, dot);
+    addHotDot(grid, cols, rows, slots.upper.col, slots.upper.row, dot);
+}
+
+function createSheetShapeClock() {
+    const from = { width: 10, height: 10, angle: 0, skew: 0, heat: 0, bend: 0, cosine: 0 };
+    const to = { width: 10, height: 10, angle: 0, skew: 0, heat: 1, bend: 0, cosine: 0 };
+    return {
+        epoch: -1,
+        cycling: true,
+        phase: 'toEnd',
+        waitLeft: 0,
+        from: from,
+        to: to,
+        current: copyBackHighlightPose(from),
+        params: { speed: 1.2, delay: 0.5, gap: 0.4 }
+    };
+}
+
+function blendSheetPose(current, from, to, t) {
+    const blend = Math.max(0, Math.min(1, t));
+    SHEET_EMITTER_POSE_PROPS.forEach((key) => {
+        const start = from[key] || 0;
+        const end = to[key] || 0;
+        current[key] = start + (end - start) * blend;
+    });
+    current.angle = 0;
 }
 
 function stepSheetPose(state, delta) {
+    if (state.shapeClock) {
+        const clock = state.shapeClock;
+        if (state.ballLead && state.params) {
+            clock.params.speed = state.params.speed;
+            clock.params.delay = state.params.delay;
+            clock.params.gap = state.params.gap;
+            clock.cycling = state.cycling !== false;
+        }
+        const epoch = state.field ? state.field.sheetEpoch : 0;
+        if (clock.epoch !== epoch) {
+            clock.epoch = epoch;
+            stepBackHighlightPose(clock, delta);
+        }
+        blendSheetPose(state.current, state.from, state.to, clock.current.heat);
+        state.phase = clock.phase;
+        state.waitLeft = clock.waitLeft;
+        if (state.glistenOn !== false) {
+            stepSheetGlisten(state, delta);
+        }
+        return state.current;
+    }
     const pose = stepBackHighlightPose(state, delta);
     if (state.glistenOn !== false) {
         stepSheetGlisten(state, delta);
@@ -391,4 +572,197 @@ function attachSheet(scene, x, y, width, height) {
     });
 
     return state;
+}
+
+const SHEET_EMITTER_POSE_PROPS = ['width', 'height', 'skew', 'bend', 'cosine', 'heat'];
+
+const SHEET_EMITTER_POSE_KEYS = {
+    fromWidth: ['from', 'width'],
+    fromHeight: ['from', 'height'],
+    fromSkew: ['from', 'skew'],
+    fromBend: ['from', 'bend'],
+    fromCosine: ['from', 'cosine'],
+    fromHeat: ['from', 'heat'],
+    toWidth: ['to', 'width'],
+    toHeight: ['to', 'height'],
+    toSkew: ['to', 'skew'],
+    toBend: ['to', 'bend'],
+    toCosine: ['to', 'cosine'],
+    toHeat: ['to', 'heat']
+};
+
+function defaultSheetEmitterParams(raw) {
+    const base = defaultSheetField();
+    const params = {
+        speed: base.speed,
+        delay: base.delay,
+        gap: base.gap,
+        glistenSpeed: base.glistenSpeed,
+        glistenDelay: base.glistenDelay,
+        glistenPower: base.glistenPower,
+        radius: base.radius,
+        energy: base.energy,
+        ballSpeed: base.ballSpeed,
+        ballDelta: base.ballDelta
+    };
+    const data = raw || {};
+    Object.keys(params).forEach((key) => {
+        if (typeof data[key] !== 'number') {
+            return;
+        }
+        const specs = SHEET_BALL_SPECS[key] ? SHEET_BALL_SPECS : SHEET_FIELD_SPECS;
+        params[key] = clampBackHighlightSpec(specs, key, data[key]);
+    });
+    return params;
+}
+
+function mergeSheetPose(base, extra) {
+    const pose = sheetHeatPose(base);
+    const raw = extra || {};
+    SHEET_EMITTER_POSE_PROPS.forEach((key) => {
+        if (typeof raw[key] === 'number') {
+            pose[key] = clampBackHighlightSpec(SHEET_POSE_SPECS, key, raw[key]);
+        }
+    });
+    pose.angle = 0;
+    return pose;
+}
+
+function createSheetEmitterState(field, options) {
+    const opts = options || {};
+    const params = defaultSheetEmitterParams(opts.params);
+    const from = mergeSheetPose(defaultSheetPose('from'), opts.from);
+    const to = mergeSheetPose(defaultSheetPose('to'), opts.to);
+    const mid = {
+        col: (field.cols - 1) * 0.5,
+        row: (field.rows - 1) * 0.5
+    };
+    const stub = { cols: field.cols, rows: field.rows };
+    if (opts.centerX != null) {
+        mid.col = hotRodPctToCoord(stub, 'col', opts.centerX);
+    }
+    if (opts.centerY != null) {
+        mid.row = hotRodPctToCoord(stub, 'row', opts.centerY);
+    }
+    const center = backHighlightPoint(field, opts.center, mid);
+    const target = backHighlightPoint(field, opts.target, center);
+    const emitter = {
+        kind: 'sheet',
+        field,
+        cols: field.cols,
+        rows: field.rows,
+        isVisible: opts.isVisible !== false,
+        cycling: opts.cycling !== false,
+        glistenHold: !!opts.glistenHold,
+        glistenAfterMove: opts.glistenOn !== false,
+        travelBallGap: typeof opts.travelBallGap === 'number' ? opts.travelBallGap : 5,
+        glistenOn: opts.glistenHold ? false : opts.glistenOn !== false,
+        from,
+        to,
+        current: sheetHeatPose(from),
+        phase: 'toEnd',
+        waitLeft: 0,
+        glisten: 0,
+        glistenPhase: 'run',
+        glistenWait: 0,
+        ball: 0,
+        center,
+        target,
+        params,
+        shine: new Float32Array(field.cols * field.rows),
+        setParam: (name, value) => {
+            if (name === 'cycling') {
+                return setBackHighlightCycling(emitter, value);
+            }
+            if (name === 'glistenOn') {
+                if (emitter.glistenHold) {
+                    emitter.glistenAfterMove = !!value;
+                    return setSheetGlistenOn(emitter, false);
+                }
+                return setSheetGlistenOn(emitter, value);
+            }
+            const posePair = SHEET_EMITTER_POSE_KEYS[name];
+            if (posePair) {
+                const next = clampBackHighlightSpec(SHEET_POSE_SPECS, posePair[1], value);
+                emitter[posePair[0]][posePair[1]] = next;
+                emitter[posePair[0]].angle = 0;
+                return next;
+            }
+            if (SHEET_BALL_SPECS[name]) {
+                params[name] = clampBackHighlightSpec(SHEET_BALL_SPECS, name, value);
+                return params[name];
+            }
+            if (SHEET_FIELD_SPECS[name] && params[name] != null) {
+                params[name] = clampBackHighlightSpec(SHEET_FIELD_SPECS, name, value);
+                return params[name];
+            }
+            return params[name];
+        },
+        nudgeParam: (name, dir) => {
+            if (name === 'cycling') {
+                return emitter.setParam(name, !emitter.cycling);
+            }
+            if (name === 'glistenOn') {
+                return emitter.setParam(name, !emitter.glistenOn);
+            }
+            const posePair = SHEET_EMITTER_POSE_KEYS[name];
+            if (posePair) {
+                const spec = SHEET_POSE_SPECS[posePair[1]];
+                return emitter.setParam(name, emitter[posePair[0]][posePair[1]] + dir * spec.step);
+            }
+            const spec = SHEET_BALL_SPECS[name] || (params[name] != null ? SHEET_FIELD_SPECS[name] : null);
+            if (!spec) {
+                return params[name];
+            }
+            return emitter.setParam(name, params[name] + dir * spec.step);
+        },
+        setCenter: (point) => {
+            const next = clampHotRodPoint(emitter, point);
+            emitter.target.col = next.col;
+            emitter.target.row = next.row;
+            return next;
+        },
+        advance: (delta) => {
+            const dt = Math.min(delta / 1000, 0.05);
+            const traveling = emitter.travel && emitter.travel.stage !== 'done';
+            if (!traveling) {
+                const k = 1 - Math.exp(-emitter.params.speed * dt);
+                emitter.center.col += (emitter.target.col - emitter.center.col) * k;
+                emitter.center.row += (emitter.target.row - emitter.center.row) * k;
+            }
+            stepSheetPose(emitter, delta);
+            stepSheetBall(emitter, delta);
+            if (traveling) {
+                stepSheetTravel(emitter, dt);
+            }
+            return emitter.current;
+        },
+        stamp: (grid) => {
+            const pose = emitter.current;
+            if (emitter.travel && emitter.travel.stage === 'wait') {
+                stampSheetBall(grid, emitter.cols, emitter.rows, emitter.center, pose, emitter);
+                return;
+            }
+            if (emitter.travel && emitter.travel.stage !== 'done') {
+                stampSheetTravelBalls(grid, emitter.cols, emitter.rows, emitter);
+                return;
+            }
+            stampSheet(grid, emitter.cols, emitter.rows, emitter.center, pose);
+            stampSheetBall(grid, emitter.cols, emitter.rows, emitter.center, pose, emitter);
+            if (emitter.glistenOn !== false && emitter.glistenPhase !== 'gap') {
+                stampSheetGlisten(
+                    grid,
+                    emitter.shine,
+                    emitter.cols,
+                    emitter.rows,
+                    emitter.center,
+                    pose,
+                    emitter.glisten,
+                    emitter.params.glistenPower
+                );
+            }
+        },
+        retarget: (cell) => emitter.setCenter(cell)
+    };
+    return emitter;
 }

@@ -84,10 +84,13 @@ class CompositeUIEditorScene extends Phaser.Scene {
         ];
         this.stone = new HotMapUiStone(this.heatMap, { name: 'Stone' });
         this.scissor = new HotMapUiScissor(this.heatMap, { name: 'Scissor' });
+        this.paper = new HotMapUiPaper(this.heatMap, { name: 'Paper' });
+        this.shards = [];
+        this.sheets = [];
         this.balls.concat(this.rods, this.highlighters).forEach((object) => {
             this.stone.add(object);
         });
-        this.objects = [this.stone, this.scissor].concat(this.balls, this.rods, this.highlighters);
+        this.objects = [this.stone, this.scissor, this.paper].concat(this.balls, this.rods, this.highlighters);
         this.selectedObject = this.balls[0];
         this.stageMarkup = createUiStageMarkup(this, width, height);
         this.menuMarkup = createUiMenuMarkup(this, width, height);

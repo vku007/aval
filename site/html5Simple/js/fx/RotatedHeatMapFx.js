@@ -438,6 +438,7 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         },
         pointerToCell: (pointer) => pointerToRotatedHeatCell(pointer, x, y, width, height, cols, rows),
         update: (_, delta) => {
+            field.sheetEpoch = (field.sheetEpoch || 0) + 1;
             stepRotatedHeat(field.src, field.dst, cols, rows, delta, field.params);
             const swap = field.src;
             field.src = field.dst;

@@ -196,6 +196,15 @@ function uiObjectTypeLabel(object) {
     if (kind === 'hot-map-scissor') {
         return 'Scissor';
     }
+    if (kind === 'hot-map-paper') {
+        return 'Paper';
+    }
+    if (kind === 'shard') {
+        return 'Shard';
+    }
+    if (kind === 'sheet') {
+        return 'Sheet';
+    }
     return kind ? String(kind) : '';
 }
 
@@ -231,7 +240,7 @@ function shiftUiObjectCopy(kind, data, field) {
         }
         return;
     }
-    if (kind === 'back-highlight') {
+    if (kind === 'back-highlight' || kind === 'shard' || kind === 'sheet') {
         data.center = shiftUiObjectPoint(field, data.center);
         data.target = shiftUiObjectPoint(field, data.target || data.center);
     }
