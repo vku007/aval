@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "paper": {
+    "name": "Paper",
+    "center": {
+      "col": 64.5,
+      "row": 140
+    },
+    "spawn": {
+      "col": 24,
+      "row": 117
+    },
+    "sheetInit": {
+      "cycling": true,
+      "glistenOn": true,
+      "speed": 1.2,
+      "delay": 0.5,
+      "gap": 0.4,
+      "glistenSpeed": 0.8,
+      "glistenDelay": 1,
+      "glistenPower": 0.1,
+      "radius": 1.5,
+      "energy": 1.5,
+      "ballSpeed": 0.5,
+      "ballDelta": 0,
+      "from": {
+        "width": 70,
+        "height": 3,
+        "angle": 0,
+        "skew": -60,
+        "heat": 0,
+        "bend": 6,
+        "cosine": 90
+      },
+      "to": {
+        "width": 70,
+        "height": 3,
+        "angle": 0,
+        "skew": -60,
+        "heat": 0.1,
+        "bend": 6,
+        "cosine": 90
+      }
+    },
+    "parts": [
+    ]
+  }
+}

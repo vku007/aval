@@ -39,61 +39,19 @@ class CompositeUIEditorScene extends Phaser.Scene {
             }
         };
 
-        this.balls = [
-            new UiHotBall(this.heatMap, {
-                name: 'Hot Ball 1',
-                params: { phase: 0, tiltX: 0, tiltY: 0, tiltZ: 0, orbitRadius: 16 }
-            }),
-            new UiHotBall(this.heatMap, {
-                name: 'Hot Ball 2',
-                params: { phase: 90, tiltX: 90, tiltY: 0, tiltZ: 0, orbitRadius: 16 }
-            }),
-            new UiHotBall(this.heatMap, {
-                name: 'Hot Ball 3',
-                params: { phase: 180, tiltX: 0, tiltY: 90, tiltZ: 0, orbitRadius: 16 }
-            })
-        ];
-        this.rods = [
-            new UiHotRod(this.heatMap, {
-                name: 'Hot Rod 1',
-                params: { energy: 1.5, thickness: 4, delay: 0.4, startAngle: 0, endAngle: 40 }
-            }),
-            new UiHotRod(this.heatMap, {
-                name: 'Hot Rod 2',
-                params: { energy: 1.2, thickness: 3, delay: 0.6, startAngle: 60, endAngle: 120 }
-            }),
-            new UiHotRod(this.heatMap, {
-                name: 'Hot Rod 3',
-                params: { energy: 1.8, thickness: 5, delay: 0.2, startAngle: 120, endAngle: 20 }
-            })
-        ];
-        this.highlighters = [
-            new UiBackHighlighter(this.heatMap, {
-                name: 'Back Highlight 1',
-                centerX: 32,
-                centerY: 42,
-                to: { width: 72, height: 28, angle: 18, heat: 1.8 }
-            }),
-            new UiBackHighlighter(this.heatMap, {
-                name: 'Back Highlight 2',
-                centerX: 68,
-                centerY: 62,
-                from: { width: 24, height: 18, angle: 12, heat: 0.7 },
-                to: { width: 64, height: 36, angle: -20, heat: 1.5 }
-            })
-        ];
+        this.balls = [];
+        this.rods = [];
+        this.highlighters = [];
+        this.shards = [];
+        this.sheets = [];
         this.stone = new HotMapUiStone(this.heatMap, { name: 'Stone' });
         this.scissor = new HotMapUiScissor(this.heatMap, { name: 'Scissor' });
         this.paper = new HotMapUiPaper(this.heatMap, { name: 'Paper' });
-        this.shards = [];
-        this.sheets = [];
-        this.balls.concat(this.rods, this.highlighters).forEach((object) => {
-            this.stone.add(object);
-        });
-        this.objects = [this.stone, this.scissor, this.paper].concat(this.balls, this.rods, this.highlighters);
-        this.selectedObject = this.balls[0];
+        this.objects = [this.stone, this.scissor, this.paper];
+        this.selectedObject = this.stone;
         this.stageMarkup = createUiStageMarkup(this, width, height);
         this.menuMarkup = createUiMenuMarkup(this, width, height);
+        applyCompositeHeatMapDefault(this);
         this.events.once('shutdown', () => closeEditorTools());
         openEditorTools(this, CompositeUIEditorToolsScene);
     }
@@ -111,5 +69,26 @@ class CompositeUIEditorScene extends Phaser.Scene {
         this._left = true;
         closeEditorTools();
         fxGoTo(this, 'TestsScene');
+    }
+}
+
+const COMPOSITE_HEAT_MAP_JSON_KEY = 'compositeHeatMapInit';
+const COMPOSITE_HEAT_MAP_JSON_PATH = 'resources/hotmap-1.json?v=101';
+
+function preloadCompositeHeatMap(scene) {
+    if (!scene || !scene.load || scene.cache.json.exists(COMPOSITE_HEAT_MAP_JSON_KEY)) {
+        return;
+    }
+    scene.load.json(COMPOSITE_HEAT_MAP_JSON_KEY, COMPOSITE_HEAT_MAP_JSON_PATH);
+}
+
+function applyCompositeHeatMapDefault(scene) {
+    if (!scene || !scene.heatMap || !scene.cache || !scene.cache.json.exists(COMPOSITE_HEAT_MAP_JSON_KEY)) {
+        return;
+    }
+    const raw = scene.cache.json.get(COMPOSITE_HEAT_MAP_JSON_KEY);
+    const data = raw && raw.heatMap;
+    if (data && typeof scene.heatMap.applySerialized === 'function') {
+        scene.heatMap.applySerialized(data);
     }
 }

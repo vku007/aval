@@ -1,0 +1,26 @@
+{
+  "version": 4,
+  "stone": {
+    "name": "Stone",
+    "center": {
+      "col": 54.5,
+      "row": 178
+    },
+    "spawn": {
+      "col": 36,
+      "row": 0
+    },
+    "spawnSpeed": 1.2,
+    "ballInit": {
+      "radius": 3.4,
+      "energy": 1.5,
+      "angleSpeed": 1.6,
+      "phase": 0,
+      "orbitRadius": 40,
+      "tiltX": 40,
+      "tiltY": 0,
+      "tiltZ": 0
+    },
+    "parts": []
+  }
+}

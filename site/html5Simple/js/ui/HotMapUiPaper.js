@@ -10,7 +10,7 @@
  * appear 2 seconds after both balls are there. Every sheet shares one ball cycle,
  * shifted a little from the sheet above, and one shape ease and glisten sweep.
  */
-class HotMapUiPaper {
+class HotMapUiPaper extends HotMapUiComposite {
     static PROP_TABS = [
         {
             id: 'place',
@@ -70,66 +70,49 @@ class HotMapUiPaper {
 
     constructor(heatMap, options) {
         const opts = options || {};
-        const field = heatMap.field;
-        this.heatMap = heatMap;
-        this.kind = 'hot-map-paper';
-        this.name = opts.name || 'Paper';
-        this.center = {
-            col: opts.center && typeof opts.center.col === 'number'
-                ? opts.center.col
-                : (field.cols - 1) * 0.5,
-            row: opts.center && typeof opts.center.row === 'number'
-                ? opts.center.row
-                : (field.rows - 1) * 0.5
-        };
-        this.parts = [];
+        const preset = HOT_MAP_PAPER_PRESET;
+        super(heatMap, {
+            kind: 'hot-map-paper',
+            name: opts.name || preset.name,
+            center: opts.center || preset.center,
+            spawn: opts.spawn || preset.spawn
+        });
         this.sheetInit = defaultHotMapPaperSheetInit();
-        this.spawn = { col: 24, row: 0 };
+        this.addMotion = {
+            pairSpan: HOT_MAP_PAPER_TRAVEL_SPAN,
+            pairGap: HOT_MAP_PAPER_TRAVEL_BALL_GAP,
+            pairSize: HOT_MAP_PAPER_TRAVEL_RADIUS,
+            splitDelay: HOT_MAP_PAPER_REVEAL_DELAY,
+            stackGap: HOT_MAP_PAPER_STACK_GAP
+        };
         this.ballClock = { phase: 0, speed: 0, epoch: -1 };
         this.glistenClock = {
             glisten: 0,
             glistenPhase: 'run',
             glistenWait: 0,
             epoch: -1,
-            params: { glistenSpeed: 0.4, glistenDelay: 0.4 }
+            params: {
+                glistenSpeed: this.sheetInit.glistenSpeed,
+                glistenDelay: this.sheetInit.glistenDelay
+            }
         };
         this.shapeClock = createSheetShapeClock();
     }
 
-    add(object) {
-        if (!object || this.parts.some((part) => part.object === object)) {
-            return object;
-        }
-        const part = { object: object, local: null };
-        this.parts.push(part);
-        part.local = this.captureLocal(object);
+    afterAdd() {
         this.syncBalls();
-        return object;
     }
 
-    remove(object) {
-        const index = this.parts.findIndex((part) => part.object === object);
-        if (index >= 0) {
-            this.parts.splice(index, 1);
-            if (object.emitter) {
-                object.emitter.ballClock = null;
-                object.emitter.ballLead = false;
-                object.emitter.glistenClock = null;
-                object.emitter.shapeClock = null;
-            }
-            this.syncBalls();
-        }
+    afterRemove(object) {
+        this.clearSheetClocks(object);
+        this.syncBalls();
     }
 
     get params() {
         const init = this.sheetInit;
         const from = init.from;
         const to = init.to;
-        return {
-            centerX: this.center.col,
-            centerY: this.center.row,
-            spawnX: this.center.col + this.spawn.col,
-            spawnY: this.center.row + this.spawn.row,
+        return Object.assign(this.placeParams(), {
             cycling: init.cycling !== false,
             speed: init.speed,
             delay: init.delay,
@@ -153,15 +136,19 @@ class HotMapUiPaper {
             toSkew: to.skew,
             toBend: to.bend,
             toCosine: to.cosine,
-            toHeat: to.heat
-        };
+            toHeat: to.heat,
+            pairSpan: this.addMotion.pairSpan,
+            pairGap: this.addMotion.pairGap,
+            pairSize: this.addMotion.pairSize,
+            splitDelay: this.addMotion.splitDelay,
+            stackGap: this.addMotion.stackGap
+        });
     }
 
     nudgeParam(key, dir) {
-        if (key === 'spawnX' || key === 'spawnY') {
-            const axis = key === 'spawnX' ? 'col' : 'row';
-            this.spawn[axis] += dir;
-            return this.params[key];
+        const placed = this.nudgePlace(key, dir);
+        if (placed !== undefined) {
+            return placed;
         }
         if (key === 'cycling') {
             this.sheetInit.cycling = !this.sheetInit.cycling;
@@ -171,20 +158,25 @@ class HotMapUiPaper {
             this.sheetInit.glistenOn = !this.sheetInit.glistenOn;
             return this.sheetInit.glistenOn;
         }
+        if (HOT_MAP_PAPER_ADD_SPECS[key]) {
+            return this.nudgeAddMotion(key, dir);
+        }
         if (HOT_MAP_PAPER_FIELD_KEYS[key] || HOT_MAP_PAPER_BALL_KEYS[key]) {
             return this.nudgeSheetField(key, dir);
         }
         if (HOT_MAP_PAPER_POSE_KEYS[key]) {
             return this.nudgeSheetPose(HOT_MAP_PAPER_POSE_KEYS[key], dir);
         }
-        const next = { col: this.center.col, row: this.center.row };
-        if (key === 'centerX') {
-            next.col += dir;
-        } else if (key === 'centerY') {
-            next.row += dir;
-        }
-        this.setCenter(next);
         return this.params[key];
+    }
+
+    nudgeAddMotion(key, dir) {
+        const spec = HOT_MAP_PAPER_ADD_SPECS[key];
+        const next = this.addMotion[key] + dir * spec.step;
+        const clamped = Math.max(spec.min, Math.min(spec.max, next));
+        const decimals = spec.step < 0.1 ? 2 : spec.step < 1 ? 1 : 0;
+        this.addMotion[key] = Number(clamped.toFixed(decimals));
+        return this.addMotion[key];
     }
 
     nudgeSheetField(name, dir) {
@@ -220,11 +212,12 @@ class HotMapUiPaper {
 
     addItem() {
         const init = this.sheetInit;
-        const last = this.lastSheet();
+        const last = this.lastPart('sheet');
+        const motion = this.addMotion;
         const place = last && last.emitter
             ? {
                 col: last.emitter.target.col,
-                row: last.emitter.target.row + HOT_MAP_PAPER_STACK_GAP
+                row: last.emitter.target.row + motion.stackGap
             }
             : { col: this.center.col, row: this.center.row };
         const spawn = {
@@ -232,12 +225,12 @@ class HotMapUiPaper {
             row: this.center.row + this.spawn.row
         };
         const aim = last && last.emitter ? hotMapPaperSheetBottom(last.emitter) : place;
-        const waypoint = hotMapPaperTravelPoint(spawn, aim, HOT_MAP_PAPER_TRAVEL_SPAN);
+        const waypoint = hotMapPaperTravelPoint(spawn, aim, motion.pairSpan);
         const sheet = new UiSheet(this.heatMap, {
             cycling: init.cycling !== false,
             glistenOn: init.glistenOn !== false,
             glistenHold: true,
-            travelBallGap: HOT_MAP_PAPER_TRAVEL_BALL_GAP,
+            travelBallGap: motion.pairGap,
             params: {
                 speed: init.speed,
                 delay: init.delay,
@@ -258,7 +251,7 @@ class HotMapUiPaper {
         sheet.emitter.travel = {
             stage: 'pair',
             u: 0,
-            radiusScale: HOT_MAP_PAPER_TRAVEL_RADIUS,
+            radiusScale: motion.pairSize,
             spawnLocal: {
                 col: spawn.col - place.col,
                 row: spawn.row - place.row
@@ -267,7 +260,7 @@ class HotMapUiPaper {
                 col: waypoint.col - place.col,
                 row: waypoint.row - place.row
             },
-            revealDelay: HOT_MAP_PAPER_REVEAL_DELAY,
+            revealDelay: motion.splitDelay,
             pair: { col: spawn.col, row: spawn.row },
             upper: null,
             lower: null,
@@ -338,123 +331,89 @@ class HotMapUiPaper {
         });
     }
 
-    lastSheet() {
-        for (let index = this.parts.length - 1; index >= 0; index -= 1) {
-            const object = this.parts[index].object;
-            if (object && object.kind === 'sheet') {
-                return object;
-            }
+    clearSheetClocks(object) {
+        if (!object || !object.emitter) {
+            return;
         }
-        return null;
+        object.emitter.ballClock = null;
+        object.emitter.ballLead = false;
+        object.emitter.glistenClock = null;
+        object.emitter.shapeClock = null;
     }
 
     removeItem() {
-        for (let index = this.parts.length - 1; index >= 0; index -= 1) {
-            const object = this.parts[index].object;
-            if (!object || object.kind !== 'sheet') {
-                continue;
-            }
-            this.parts.splice(index, 1);
-            if (object.emitter) {
-                object.emitter.ballClock = null;
-                object.emitter.ballLead = false;
-                object.emitter.glistenClock = null;
-                object.emitter.shapeClock = null;
-            }
-            if (this.heatMap && typeof this.heatMap.removeHighlighter === 'function') {
-                this.heatMap.removeHighlighter(object.emitter);
-            }
-            this.syncBalls();
-            this.fitStack();
-            if (typeof this.onPartRemoved === 'function') {
-                this.onPartRemoved(object);
-            }
-            return object;
+        const object = this.takeLast('sheet');
+        if (!object) {
+            return null;
         }
-        return null;
-    }
-
-    retarget(cell) {
-        this.setCenter(cell);
-    }
-
-    setCenter(cell) {
-        if (!cell || typeof cell.col !== 'number' || typeof cell.row !== 'number') {
-            return this.center;
+        this.clearSheetClocks(object);
+        if (this.heatMap && typeof this.heatMap.removeHighlighter === 'function') {
+            this.heatMap.removeHighlighter(object.emitter);
         }
-        this.parts.forEach((part) => {
-            part.local = this.captureLocal(part.object);
-        });
-        this.center = { col: cell.col, row: cell.row };
-        this.parts.forEach((part) => this.applyLocal(part));
-        return this.center;
-    }
-
-    captureLocal(object) {
-        const origin = this.center;
-        if (object.kind === 'sheet') {
-            const emitter = object.emitter;
-            return {
-                center: hotMapStoneDelta(origin, emitter.center),
-                target: hotMapStoneDelta(origin, emitter.target)
-            };
+        this.syncBalls();
+        this.fitStack();
+        if (typeof this.onPartRemoved === 'function') {
+            this.onPartRemoved(object);
         }
-        return null;
+        return object;
     }
 
-    applyLocal(part) {
-        const origin = this.center;
-        const local = part.local;
-        const object = part.object;
-        if (!local || !object || object.kind !== 'sheet') {
-            return;
-        }
-        hotMapStonePlace(object.emitter.center, origin, local.center);
-        hotMapStonePlace(object.emitter.target, origin, local.target);
-    }
-
-    serialize() {
-        this.parts.forEach((part) => {
-            part.local = this.captureLocal(part.object);
-        });
-        return {
-            name: this.name,
-            center: { col: this.center.col, row: this.center.row },
-            spawn: { col: this.spawn.col, row: this.spawn.row },
-            sheetInit: copyHotMapPaperSheetInit(this.sheetInit),
-            parts: this.parts.map((part) => ({
-                kind: part.object.kind,
-                object: hotMapStoneWithLocalPoints(part.object.serialize(), part.local)
-            }))
+    extendSerialized(data) {
+        data.sheetInit = copyHotMapPaperSheetInit(this.sheetInit);
+        data.addMotion = {
+            pairSpan: this.addMotion.pairSpan,
+            pairGap: this.addMotion.pairGap,
+            pairSize: this.addMotion.pairSize,
+            splitDelay: this.addMotion.splitDelay,
+            stackGap: this.addMotion.stackGap
         };
+        return data;
     }
 
-    applySerialized(data) {
-        if (!data) {
-            return;
-        }
-        if (data.name) {
-            this.name = data.name;
-        }
-        if (data.center && typeof data.center.col === 'number' && typeof data.center.row === 'number') {
-            this.center = { col: data.center.col, row: data.center.row };
-        }
-        if (data.spawn && typeof data.spawn.col === 'number' && typeof data.spawn.row === 'number') {
-            this.spawn = { col: data.spawn.col, row: data.spawn.row };
-        }
+    applySerializedExtras(data) {
         if (data.sheetInit) {
             this.sheetInit = copyHotMapPaperSheetInit(data.sheetInit);
         }
-        (data.parts || []).forEach((entry, index) => {
-            const part = this.parts[index];
-            if (!part || !entry || !entry.object || typeof part.object.applySerialized !== 'function') {
-                return;
-            }
-            part.object.applySerialized(hotMapStoneWithAbsolutePoints(this.center, entry.object));
-            part.local = this.captureLocal(part.object);
-        });
+        if (data.addMotion) {
+            Object.keys(HOT_MAP_PAPER_ADD_SPECS).forEach((key) => {
+                if (typeof data.addMotion[key] === 'number') {
+                    this.addMotion[key] = data.addMotion[key];
+                }
+            });
+        }
     }
 }
+
+HotMapUiPaper.ADD_TABS = [
+    {
+        id: 'pair',
+        label: 'PAIR',
+        rows: [
+            { key: 'spawnX', label: 'SPAWN X', decimals: 1 },
+            { key: 'spawnY', label: 'SPAWN Y', decimals: 1 },
+            { key: 'pairSpan', label: 'SPAN', decimals: 2 },
+            { key: 'pairGap', label: 'GAP', decimals: 0 },
+            { key: 'pairSize', label: 'SIZE', decimals: 1 },
+            { key: 'addItem', label: 'SHEET', button: 'ADD', type: 'action' }
+        ]
+    },
+    {
+        id: 'split',
+        label: 'SPLIT',
+        rows: [
+            { key: 'splitDelay', label: 'DELAY', decimals: 1 },
+            { key: 'stackGap', label: 'DROP', decimals: 0 }
+        ]
+    }
+];
+
+const HOT_MAP_PAPER_ADD_SPECS = {
+    pairSpan: { min: 0.1, max: 1, step: 0.05 },
+    pairGap: { min: 0, max: 40, step: 1 },
+    pairSize: { min: 1, max: 4, step: 0.1 },
+    splitDelay: { min: 0, max: 8, step: 0.1 },
+    stackGap: { min: 0, max: 80, step: 1 }
+};
 
 const HOT_MAP_PAPER_STACK_GAP = 10;
 const HOT_MAP_PAPER_TRAVEL_BALL_GAP = 5;
@@ -513,23 +472,65 @@ const HOT_MAP_PAPER_POSE_KEYS = {
     toHeat: ['to', 'heat']
 };
 
-function defaultHotMapPaperSheetInit() {
-    const params = defaultSheetEmitterParams();
-    return {
+const HOT_MAP_PAPER_PRESET = {
+    name: 'Paper',
+    center: { col: 64.5, row: 140 },
+    spawn: { col: 24, row: 117 },
+    sheetInit: {
         cycling: true,
         glistenOn: true,
-        speed: params.speed,
-        delay: params.delay,
-        gap: params.gap,
-        glistenSpeed: params.glistenSpeed,
-        glistenDelay: params.glistenDelay,
-        glistenPower: params.glistenPower,
-        radius: params.radius,
-        energy: params.energy,
-        ballSpeed: params.ballSpeed,
-        ballDelta: params.ballDelta,
-        from: defaultSheetPose('from'),
-        to: defaultSheetPose('to')
+        speed: 1.2,
+        delay: 0.5,
+        gap: 0.4,
+        glistenSpeed: 0.8,
+        glistenDelay: 1,
+        glistenPower: 0.1,
+        radius: 1.5,
+        energy: 1.5,
+        ballSpeed: 0.5,
+        ballDelta: 0,
+        from: {
+            width: 70,
+            height: 3,
+            angle: 0,
+            skew: -60,
+            heat: 0,
+            bend: 6,
+            cosine: 90
+        },
+        to: {
+            width: 70,
+            height: 3,
+            angle: 0,
+            skew: -60,
+            heat: 0.1,
+            bend: 6,
+            cosine: 90
+        }
+    }
+};
+
+function defaultHotMapPaperSheetInit() {
+    const init = HOT_MAP_PAPER_PRESET.sheetInit;
+    const from = defaultSheetPose('from');
+    const to = defaultSheetPose('to');
+    Object.assign(from, init.from);
+    Object.assign(to, init.to);
+    return {
+        cycling: init.cycling,
+        glistenOn: init.glistenOn,
+        speed: init.speed,
+        delay: init.delay,
+        gap: init.gap,
+        glistenSpeed: init.glistenSpeed,
+        glistenDelay: init.glistenDelay,
+        glistenPower: init.glistenPower,
+        radius: init.radius,
+        energy: init.energy,
+        ballSpeed: init.ballSpeed,
+        ballDelta: init.ballDelta,
+        from: from,
+        to: to
     };
 }
 

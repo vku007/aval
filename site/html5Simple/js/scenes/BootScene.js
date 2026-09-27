@@ -11,6 +11,7 @@ class BootScene extends Phaser.Scene {
     preload() {
         console.log('[BootScene] preload() started');
         preloadUiSkin(this);
+        preloadCompositeHeatMap(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 

@@ -3,7 +3,7 @@
  * One heat-map group. Parts keep offsets from the stone center.
  * Setting the center moves every part by the same amount.
  */
-class HotMapUiStone {
+class HotMapUiStone extends HotMapUiComposite {
     static PROP_TABS = [
         {
             id: 'place',
@@ -27,7 +27,13 @@ class HotMapUiStone {
                 { key: 'newBallInit_tiltZ', label: 'TILT Z', decimals: 0 },
                 { key: 'spawnX', label: 'SPAWN X', decimals: 1 },
                 { key: 'spawnY', label: 'SPAWN Y', decimals: 1 },
-                { key: 'spawnSpeed', label: 'SPAWN SPEED', decimals: 1 },
+                { key: 'spawnSpeed', label: 'SPAWN SPEED', decimals: 1 }
+            ]
+        },
+        {
+            id: 'trans',
+            label: 'TRANS',
+            rows: [
                 { key: 'addItem', label: 'BALL', button: 'ADD', type: 'action' },
                 { key: 'removeItem', label: 'BALL', button: 'RMV', type: 'action' }
             ]
@@ -36,49 +42,20 @@ class HotMapUiStone {
 
     constructor(heatMap, options) {
         const opts = options || {};
-        const field = heatMap.field;
-        this.heatMap = heatMap;
-        this.kind = 'hot-map-stone';
-        this.name = opts.name || 'Stone';
-        this.center = {
-            col: opts.center && typeof opts.center.col === 'number'
-                ? opts.center.col
-                : (field.cols - 1) * 0.5,
-            row: opts.center && typeof opts.center.row === 'number'
-                ? opts.center.row
-                : (field.rows - 1) * 0.5
-        };
-        this.parts = [];
-        this.ballInit = defaultRotatedHotBallParams();
-        this.spawn = { col: 36, row: 0 };
-        this.spawnSpeed = 1.2;
-    }
-
-    add(object) {
-        if (!object || this.parts.some((part) => part.object === object)) {
-            return object;
-        }
-        const part = { object: object, local: null };
-        this.parts.push(part);
-        part.local = this.captureLocal(object);
-        return object;
-    }
-
-    remove(object) {
-        const index = this.parts.findIndex((part) => part.object === object);
-        if (index >= 0) {
-            this.parts.splice(index, 1);
-        }
+        const preset = HOT_MAP_STONE_PRESET;
+        super(heatMap, {
+            kind: 'hot-map-stone',
+            name: opts.name || preset.name,
+            center: opts.center || preset.center,
+            spawn: opts.spawn || preset.spawn
+        });
+        this.ballInit = defaultRotatedHotBallParams(preset.ballInit);
+        this.spawnSpeed = preset.spawnSpeed;
     }
 
     get params() {
-        const values = {
-            centerX: this.center.col,
-            centerY: this.center.row,
-            spawnX: this.center.col + this.spawn.col,
-            spawnY: this.center.row + this.spawn.row,
-            spawnSpeed: this.spawnSpeed
-        };
+        const values = this.placeParams();
+        values.spawnSpeed = this.spawnSpeed;
         HOT_MAP_STONE_BALL_INIT_KEYS.forEach((key) => {
             values['newBallInit_' + key] = this.ballInit[key];
         });
@@ -86,10 +63,9 @@ class HotMapUiStone {
     }
 
     nudgeParam(key, dir) {
-        if (key === 'spawnX' || key === 'spawnY') {
-            const axis = key === 'spawnX' ? 'col' : 'row';
-            this.spawn[axis] += dir;
-            return this.params[key];
+        const placed = this.nudgePlace(key, dir);
+        if (placed !== undefined) {
+            return placed;
         }
         if (key === 'spawnSpeed') {
             const spec = HOT_MAP_STONE_SPAWN_SPEED;
@@ -100,13 +76,6 @@ class HotMapUiStone {
         if (key.indexOf('newBallInit_') === 0) {
             return this.nudgeBallInit(key.slice('newBallInit_'.length), dir);
         }
-        const next = { col: this.center.col, row: this.center.row };
-        if (key === 'centerX') {
-            next.col += dir;
-        } else if (key === 'centerY') {
-            next.row += dir;
-        }
-        this.setCenter(next);
         return this.params[key];
     }
 
@@ -165,130 +134,30 @@ class HotMapUiStone {
     }
 
     removeItem() {
-        for (let index = this.parts.length - 1; index >= 0; index -= 1) {
-            const object = this.parts[index].object;
-            if (!object || object.kind !== 'hot-ball') {
-                continue;
-            }
-            this.parts.splice(index, 1);
-            if (this.heatMap && typeof this.heatMap.removeBall === 'function') {
-                this.heatMap.removeBall(object.motion);
-            }
-            if (typeof this.onPartRemoved === 'function') {
-                this.onPartRemoved(object);
-            }
-            return object;
+        const object = this.takeLast('hot-ball');
+        if (!object) {
+            return null;
         }
-        return null;
+        if (this.heatMap && typeof this.heatMap.removeBall === 'function') {
+            this.heatMap.removeBall(object.motion);
+        }
+        if (typeof this.onPartRemoved === 'function') {
+            this.onPartRemoved(object);
+        }
+        return object;
     }
 
-    retarget(cell) {
-        this.setCenter(cell);
-    }
-
-    setCenter(cell) {
-        if (!cell || typeof cell.col !== 'number' || typeof cell.row !== 'number') {
-            return this.center;
-        }
-        this.parts.forEach((part) => {
-            part.local = this.captureLocal(part.object);
-        });
-        this.center = { col: cell.col, row: cell.row };
-        this.parts.forEach((part) => this.applyLocal(part));
-        return this.center;
-    }
-
-    captureLocal(object) {
-        const origin = this.center;
-        if (object.kind === 'hot-ball') {
-            const motion = object.motion;
-            return {
-                orbitCenter: hotMapStoneDelta(origin, motion.orbitCenter),
-                orbitTarget: motion.orbitTarget ? hotMapStoneDelta(origin, motion.orbitTarget) : null
-            };
-        }
-        if (object.kind === 'hot-rod') {
-            const emitter = object.emitter;
-            return {
-                start: hotMapStoneDelta(origin, emitter.start),
-                end: hotMapStoneDelta(origin, emitter.end),
-                center: hotMapStoneDelta(origin, emitter.center),
-                target: hotMapStoneDelta(origin, emitter.target)
-            };
-        }
-        if (object.kind === 'back-highlight') {
-            const emitter = object.emitter;
-            return {
-                center: hotMapStoneDelta(origin, emitter.center),
-                target: hotMapStoneDelta(origin, emitter.target)
-            };
-        }
-        return null;
-    }
-
-    applyLocal(part) {
-        const origin = this.center;
-        const local = part.local;
-        const object = part.object;
-        if (!local) {
-            return;
-        }
-        if (object.kind === 'hot-ball') {
-            hotMapStonePlace(object.motion.orbitCenter, origin, local.orbitCenter);
-            if (local.orbitTarget && object.motion.orbitTarget) {
-                hotMapStonePlace(object.motion.orbitTarget, origin, local.orbitTarget);
-            }
-            return;
-        }
-        if (object.kind === 'hot-rod') {
-            const emitter = object.emitter;
-            hotMapStonePlace(emitter.start, origin, local.start);
-            hotMapStonePlace(emitter.end, origin, local.end);
-            hotMapStonePlace(emitter.center, origin, local.center);
-            hotMapStonePlace(emitter.target, origin, local.target);
-            return;
-        }
-        if (object.kind === 'back-highlight') {
-            const emitter = object.emitter;
-            hotMapStonePlace(emitter.center, origin, local.center);
-            hotMapStonePlace(emitter.target, origin, local.target);
-        }
-    }
-
-    serialize() {
-        this.parts.forEach((part) => {
-            part.local = this.captureLocal(part.object);
-        });
+    extendSerialized(data) {
         const ballInit = {};
         HOT_MAP_STONE_BALL_INIT_KEYS.forEach((key) => {
             ballInit[key] = this.ballInit[key];
         });
-        return {
-            name: this.name,
-            center: { col: this.center.col, row: this.center.row },
-            spawn: { col: this.spawn.col, row: this.spawn.row },
-            spawnSpeed: this.spawnSpeed,
-            ballInit: ballInit,
-            parts: this.parts.map((part) => ({
-                kind: part.object.kind,
-                object: hotMapStoneWithLocalPoints(part.object.serialize(), part.local)
-            }))
-        };
+        data.spawnSpeed = this.spawnSpeed;
+        data.ballInit = ballInit;
+        return data;
     }
 
-    applySerialized(data) {
-        if (!data) {
-            return;
-        }
-        if (data.name) {
-            this.name = data.name;
-        }
-        if (data.center && typeof data.center.col === 'number' && typeof data.center.row === 'number') {
-            this.center = { col: data.center.col, row: data.center.row };
-        }
-        if (data.spawn && typeof data.spawn.col === 'number' && typeof data.spawn.row === 'number') {
-            this.spawn = { col: data.spawn.col, row: data.spawn.row };
-        }
+    applySerializedExtras(data) {
         if (typeof data.spawnSpeed === 'number') {
             this.spawnSpeed = data.spawnSpeed;
         }
@@ -299,26 +168,20 @@ class HotMapUiStone {
                 }
             });
         }
-        (data.parts || []).forEach((entry, index) => {
-            const part = this.parts[index];
-            if (!part || !entry || !entry.object || typeof part.object.applySerialized !== 'function') {
-                return;
-            }
-            part.object.applySerialized(hotMapStoneWithAbsolutePoints(this.center, entry.object));
-            part.local = this.captureLocal(part.object);
-        });
     }
 }
 
-function hotMapStoneDelta(origin, point) {
-    if (!point) {
-        return null;
+HotMapUiStone.ADD_TABS = [
+    {
+        id: 'add',
+        rows: [
+            { key: 'spawnX', label: 'SPAWN X', decimals: 1 },
+            { key: 'spawnY', label: 'SPAWN Y', decimals: 1 },
+            { key: 'spawnSpeed', label: 'SPEED', decimals: 1 },
+            { key: 'addItem', label: 'BALL', button: 'ADD', type: 'action' }
+        ]
     }
-    return {
-        col: point.col - origin.col,
-        row: point.row - origin.row
-    };
-}
+];
 
 function hotMapStoneWrapRad(angle) {
     const turn = Math.PI * 2;
@@ -390,40 +253,24 @@ function hotMapStoneEvenPhaseGoals(angles) {
     return goals;
 }
 
-function hotMapStonePlace(point, origin, delta) {
-    if (!point || !delta) {
-        return;
+const HOT_MAP_STONE_PRESET = {
+    name: 'Stone',
+    center: { col: 54.5, row: 178 },
+    spawn: { col: 36, row: 0 },
+    spawnSpeed: 1.2,
+    ballInit: {
+        radius: 3.4,
+        energy: 1.5,
+        angleSpeed: 1.6,
+        phase: 0,
+        orbitRadius: 40,
+        tiltX: 40,
+        tiltY: 0,
+        tiltZ: 0
     }
-    point.col = origin.col + delta.col;
-    point.row = origin.row + delta.row;
-}
+};
 
 const HOT_MAP_STONE_SPAWN_SPEED = { min: 0.2, max: 8, step: 0.2 };
 const HOT_MAP_STONE_BALL_INIT_KEYS = [
     'radius', 'energy', 'angleSpeed', 'phase', 'orbitRadius', 'tiltX', 'tiltY', 'tiltZ'
 ];
-const HOT_MAP_STONE_POINT_KEYS = ['orbitCenter', 'orbitTarget', 'start', 'end', 'center', 'target'];
-
-function hotMapStoneWithLocalPoints(raw, local) {
-    const data = Object.assign({}, raw);
-    HOT_MAP_STONE_POINT_KEYS.forEach((key) => {
-        if (local && local[key]) {
-            data[key] = { col: local[key].col, row: local[key].row };
-        }
-    });
-    return data;
-}
-
-function hotMapStoneWithAbsolutePoints(origin, raw) {
-    const data = Object.assign({}, raw);
-    HOT_MAP_STONE_POINT_KEYS.forEach((key) => {
-        const point = raw && raw[key];
-        if (point && typeof point.col === 'number' && typeof point.row === 'number') {
-            data[key] = {
-                col: origin.col + point.col,
-                row: origin.row + point.row
-            };
-        }
-    });
-    return data;
-}

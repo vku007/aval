@@ -1,0 +1,11 @@
+{
+    "heatMap": {
+    "diffusion": 9,
+    "cooling": 3.0,
+    "viewX": 0,
+    "viewY": 0,
+    "viewZ": 0,
+    "showFrames": true,
+    "showMenuFrames": false
+  }
+}

@@ -84,10 +84,18 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
 
         this.effectsPanel = this.createEditorPanel(colX, midTop, colW, effectsH, 'EFFECTS');
         this.propsPanel = this.createEditorPanel(colX, propsY, colW, propsH, 'PROPS');
-        this.objectsPanel = this.createEditorPanel(objX, 0, objW, height, 'OBJECTS');
+        this.objectsPanel = this.createEditorPanel(objX, 0, objW, height, '');
+        this.objectsBody = this.add.container(0, 0);
+        this.transitionsBody = this.add.container(0, 0);
+        this.sideTab = 'objects';
+        this.transitionTab = 'add';
+        this.createSideTabs(this.objectsPanel);
         this.heatMap.createEffectsEditor(this.effectsPanel, this);
         this.createObjectsList(this.objectsPanel);
         this.createFileBar(this.objectsPanel);
+        this.createTransitionsPanel(this.objectsPanel);
+        this.createAddEditors();
+        this.setSideTab('objects');
         this.ballProps = new UiPropEditor(this, this.propsPanel, {
             getTarget: () => this.selectedObject && this.selectedObject.kind === 'hot-ball'
                 ? this.selectedObject
@@ -181,6 +189,11 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (editor) {
             editor.refreshValues();
         }
+        [this.stoneAddProps, this.scissorAddProps, this.paperAddProps].forEach((addEditor) => {
+            if (addEditor && addEditor.active) {
+                addEditor.refreshValues();
+            }
+        });
     }
 
     activePropEditor() {
@@ -238,16 +251,217 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (this.sheetProps) {
             this.sheetProps.setActive(kind === 'sheet');
         }
+        this.syncAddEditors();
+    }
+
+    addItemTarget(kind) {
+        const selected = this.selectedObject;
+        if (!selected) {
+            return null;
+        }
+        let group = null;
+        if (typeof selected.addItem === 'function') {
+            group = selected;
+        } else {
+            const groups = [
+                this.host && this.host.stone,
+                this.host && this.host.scissor,
+                this.host && this.host.paper
+            ];
+            group = groups.find((item) => (
+                item && item.parts && item.parts.some((part) => part.object === selected)
+            )) || null;
+        }
+        if (!group || (kind && group.kind !== kind)) {
+            return null;
+        }
+        return group;
+    }
+
+    syncAddEditors() {
+        if (!this.stoneAddProps) {
+            return;
+        }
+        const show = this.sideTab === 'transitions' && this.transitionTab === 'add';
+        const target = show ? this.addItemTarget() : null;
+        const kind = target && target.kind;
+        this.stoneAddProps.setActive(kind === 'hot-map-stone');
+        this.scissorAddProps.setActive(kind === 'hot-map-scissor');
+        this.paperAddProps.setActive(kind === 'hot-map-paper');
+    }
+
+    createSideTabs(panel) {
+        const tabs = [
+            { id: 'objects', label: 'OBJECTS', width: 96 },
+            { id: 'transitions', label: 'TRANSITIONS', width: 128 }
+        ];
+        const tabH = 28;
+        const tabGap = 6;
+        const tabY = panel.y + 8 + tabH / 2;
+        this.sideTabBtns = {};
+        let x = panel.x + 12;
+        tabs.forEach((tab) => {
+            const btn = this.createPanelTab(x + tab.width / 2, tabY, tab.width, tabH, tab.label, () => {
+                this.setSideTab(tab.id);
+            });
+            this.sideTabBtns[tab.id] = btn;
+            x += tab.width + tabGap;
+        });
+    }
+
+    setSideTab(id) {
+        this.sideTab = id;
+        const objectsOn = id === 'objects';
+        this.objectsBody.setVisible(objectsOn);
+        this.transitionsBody.setVisible(!objectsOn);
+        this.setTreeInputEnabled(this.objectsBody, objectsOn);
+        this.setTreeInputEnabled(this.transitionsBody, !objectsOn);
+        if (objectsOn) {
+            this.syncObjectRowInput();
+            this.redrawObjectScrollbar();
+        } else {
+            this.setTransitionTab(this.transitionTab);
+        }
+        Object.keys(this.sideTabBtns).forEach((key) => {
+            this.redrawPanelTab(this.sideTabBtns[key], key === id);
+        });
+        this.syncAddEditors();
+    }
+
+    createTransitionsPanel(panel) {
+        const tabs = [
+            { id: 'add', label: 'ADD' },
+            { id: 'remove', label: 'REMOVE' },
+            { id: 'hit', label: 'HIT' },
+            { id: 'break', label: 'BREAK' }
+        ];
+        const tabH = 28;
+        const tabGap = 6;
+        const inset = 12;
+        const room = panel.width - inset * 2;
+        const tabW = Math.floor((room - tabGap * (tabs.length - 1)) / tabs.length);
+        const tabY = panel.y + 8 + tabH + 8 + tabH / 2;
+        this.transitionTabBtns = {};
+        this.transitionBodies = {};
+        tabs.forEach((tab, index) => {
+            const tabX = panel.x + inset + tabW / 2 + index * (tabW + tabGap);
+            const btn = this.createPanelTab(tabX, tabY, tabW, tabH, tab.label, () => {
+                this.setTransitionTab(tab.id);
+            });
+            this.transitionsBody.add(btn);
+            this.transitionTabBtns[tab.id] = btn;
+            const body = this.add.container(0, 0);
+            this.transitionsBody.add(body);
+            this.transitionBodies[tab.id] = body;
+        });
+        const contentTop = panel.y + 8 + tabH + 8 + tabH + 6;
+        this.addPanel = {
+            x: panel.x,
+            y: contentTop,
+            width: panel.width,
+            height: panel.height - (contentTop - panel.y)
+        };
+        this.setTransitionTab(this.transitionTab);
+    }
+
+    createAddEditors() {
+        const panel = this.addPanel;
+        const rowH = 24;
+        this.stoneAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-stone'),
+            tabs: HotMapUiStone.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.scissorAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-scissor'),
+            tabs: HotMapUiScissor.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.paperAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-paper'),
+            tabs: HotMapUiPaper.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+    }
+
+    setTransitionTab(id) {
+        this.transitionTab = id;
+        const shown = this.sideTab === 'transitions';
+        Object.keys(this.transitionBodies).forEach((key) => {
+            const on = shown && key === id;
+            this.transitionBodies[key].setVisible(key === id);
+            this.setTreeInputEnabled(this.transitionBodies[key], on);
+        });
+        Object.keys(this.transitionTabBtns).forEach((key) => {
+            const btn = this.transitionTabBtns[key];
+            if (btn.input) {
+                btn.input.enabled = shown;
+            }
+            this.redrawPanelTab(btn, key === id);
+        });
+        this.syncAddEditors();
+    }
+
+    createPanelTab(x, y, btnWidth, btnHeight, label, callback) {
+        const btn = this.add.container(x, y);
+        const bg = this.add.graphics();
+        const text = this.add.text(0, 0, label, {
+            font: `${UI.small}px monospace`,
+            fill: '#000000'
+        }).setOrigin(0.5);
+        btn.add([bg, text]);
+        btn.buttonBg = bg;
+        btn.buttonText = text;
+        btn.tabWidth = btnWidth;
+        btn.tabHeight = btnHeight;
+        const hitArea = new Phaser.Geom.Rectangle(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight);
+        btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
+        bindPress(this, btn, { onClick: callback });
+        this.redrawPanelTab(btn, false);
+        return btn;
+    }
+
+    redrawPanelTab(btn, selected) {
+        const w = btn.tabWidth;
+        const h = btn.tabHeight;
+        const bg = btn.buttonBg;
+        bg.clear();
+        if (selected) {
+            bg.fillStyle(0x000000, 1);
+            bg.fillRect(-w / 2, -h / 2, w, h);
+            btn.buttonText.setColor('#ffffff');
+        } else {
+            bg.lineStyle(2, 0x000000, 1);
+            bg.strokeRect(-w / 2, -h / 2, w, h);
+            btn.buttonText.setColor('#000000');
+        }
+    }
+
+    setTreeInputEnabled(node, enabled) {
+        if (!node) {
+            return;
+        }
+        if (node.input) {
+            node.input.enabled = enabled;
+        }
+        if (node.list) {
+            node.list.forEach((child) => this.setTreeInputEnabled(child, enabled));
+        }
     }
 
     createObjectsList(panel) {
         const inset = 8;
         const fileH = 36;
+        const headerH = 44;
         const viewX = panel.x + inset;
-        const viewY = panel.y + 28;
+        const viewY = panel.y + headerH;
         const viewW = panel.width - inset * 2;
-        const viewH = panel.height - 28 - inset - fileH - 8;
+        const viewH = panel.height - headerH - inset - fileH - 8;
         const content = this.add.container(viewX, viewY);
+        this.objectsBody.add(content);
         const maskG = this.make.graphics({ add: false });
         maskG.fillStyle(0xffffff, 1);
         maskG.fillRect(viewX, viewY, viewW, viewH);
@@ -272,6 +486,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             drag: null
         };
         this.objectScrollGfx = this.add.graphics();
+        this.objectsBody.add(this.objectScrollGfx);
         this.rebuildObjectRows();
 
         this.input.on('wheel', (pointer, _over, _dx, dy) => {
@@ -310,7 +525,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
 
     pointerInObjectList(pointer) {
         const list = this.objectList;
-        if (!list || !pointer) {
+        if (!list || !pointer || this.sideTab !== 'objects') {
             return false;
         }
         const x = pointer.worldX;
@@ -341,7 +556,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             const center = list.content.y + row.y;
             const top = center - row.rowHeight / 2;
             const bottom = center + row.rowHeight / 2;
-            const visible = bottom > viewTop && top < viewBottom;
+            const visible = this.sideTab === 'objects' && bottom > viewTop && top < viewBottom;
             if (row.input) {
                 row.input.enabled = visible;
             }
@@ -647,8 +862,8 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         const innerW = panel.width - inset * 2;
         const btnW = Math.floor((innerW - gap) / 2);
         const startX = panel.x + inset + btnW / 2;
-        this.createFileButton(startX, y, btnW, btnH, 'SAVE', () => this.onSaveClick());
-        this.createFileButton(startX + btnW + gap, y, btnW, btnH, 'LOAD', () => this.onLoadClick());
+        this.objectsBody.add(this.createFileButton(startX, y, btnW, btnH, 'SAVE', () => this.onSaveClick()));
+        this.objectsBody.add(this.createFileButton(startX + btnW + gap, y, btnW, btnH, 'LOAD', () => this.onLoadClick()));
         this.fileBusy = false;
     }
 
@@ -990,10 +1205,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         frame.lineStyle(2, 0x000000, 1);
         frame.strokeRect(x, y, width, height);
 
-        this.add.text(x + 12, y + 12, label, {
-            font: `bold ${UI.small}px monospace`,
-            fill: '#333333'
-        }).setOrigin(0, 0);
+        if (label) {
+            this.add.text(x + 12, y + 12, label, {
+                font: `bold ${UI.small}px monospace`,
+                fill: '#333333'
+            }).setOrigin(0, 0);
+        }
 
         return { x, y, width, height, frame, label };
     }

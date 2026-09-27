@@ -1,0 +1,39 @@
+{
+  "version": 4,
+  "scissor": {
+    "name": "Scissor",
+    "center": {
+      "col": 64.5,
+      "row": 140
+    },
+    "spawn": {
+      "col": -30,
+      "row": 82
+    },
+    "shardInit": {
+      "cycling": true,
+      "speed": 1.2,
+      "delay": 0.5,
+      "gap": 0.4,
+      "from": {
+        "width": 56,
+        "height": 8,
+        "angle": 0,
+        "skew": -60,
+        "heat": 0.45,
+        "shapeHeat": 0.1,
+        "glisten": 0
+      },
+      "to": {
+        "width": 70,
+        "height": 4,
+        "angle": 0,
+        "skew": 60,
+        "heat": 1.8,
+        "shapeHeat": 0.2,
+        "glisten": 100
+      }
+    },
+    "parts": []
+  }
+}
