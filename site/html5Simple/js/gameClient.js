@@ -8,7 +8,7 @@ console.log('[gameClient.js] Loading GameClient module...');
 class GameClient {
   constructor(gameAPI) {
     this.gameAPI = gameAPI; // Reference to GameAPI for token access
-    this.baseUrl = '/apiv2/external';
+    this.baseUrl = gameAPI.baseUrl;
     console.log('[GameClient] Constructed with baseUrl:', this.baseUrl);
   }
 

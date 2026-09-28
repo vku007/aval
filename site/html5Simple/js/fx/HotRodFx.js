@@ -110,7 +110,7 @@ function hotRodValueNoise(x, y) {
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 
-function stampHotRodLine(grid, cols, rows, center, params, time) {
+function stampHotRodLine(grid, cols, rows, center, params, time, clip) {
     const halfT = Math.max(0.5, params.thickness * 0.5);
     const edge = Math.max(0.7, halfT * 0.35);
     const centerCol = center.col;
@@ -124,7 +124,11 @@ function stampHotRodLine(grid, cols, rows, center, params, time) {
     const flicker = params.noiseFlicker || 0;
     const t = time || 0;
     const lastX = cols - 1;
-    for (let y = 0; y < rows; y++) {
+    const yStart = clip && clip.rowMin != null ? Math.max(0, Math.floor(clip.rowMin)) : 0;
+    const yEnd = clip && clip.rowMax != null ? Math.min(rows, Math.ceil(clip.rowMax) + 1) : rows;
+    const xStart = clip && clip.colMin != null ? Math.max(0, Math.floor(clip.colMin)) : 0;
+    const xEnd = clip && clip.colMax != null ? Math.min(cols, Math.ceil(clip.colMax) + 1) : cols;
+    for (let y = yStart; y < yEnd; y++) {
         const dy = y - centerRow;
         const vLeft = centerCol * sinA + dy * cosA;
         const vRight = -(lastX - centerCol) * sinA + dy * cosA;
@@ -134,7 +138,7 @@ function stampHotRodLine(grid, cols, rows, center, params, time) {
             continue;
         }
         const base = y * cols;
-        for (let x = 0; x < cols; x++) {
+        for (let x = xStart; x < xEnd; x++) {
             const dx = x - centerCol;
             const localU = dx * cosA + dy * sinA;
             const localV = -dx * sinA + dy * cosA;

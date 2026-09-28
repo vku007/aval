@@ -48,6 +48,12 @@ class GameSelectScene extends Phaser.Scene {
                 strong: true
             },
             {
+                label: 'NEW LOCAL ADVANCED GAME',
+                kind: 'local-advanced',
+                height: UI.menuPrimaryH,
+                strong: true
+            },
+            {
                 label: 'BACK',
                 kind: null,
                 height: UI.menuBtnH,
@@ -94,6 +100,10 @@ class GameSelectScene extends Phaser.Scene {
     async onSelectKind(kind, clickedBtn) {
         console.log('[GameSelectScene] Selected kind:', kind);
         if (this._starting) return;
+        if (kind === 'local-advanced') {
+            fxGoTo(this, 'LocalAdvancedGameScene', undefined, { flash: true });
+            return;
+        }
         this._starting = true;
         if (clickedBtn && clickedBtn.buttonText) {
             clickedBtn.buttonText.setText('STARTING...');

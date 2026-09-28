@@ -156,7 +156,7 @@ classDiagram
 | `MoveEffectKind` | `NegateSize`, `Overpower`, `Protection`, `SizeOnly` |
 | `ActionType` (player update) | `Move`, `Surrender` |
 | `GameType` (create context) | `PVP`, `PVE` |
-| `RoundsLength` (create context) | `BO1`, `BO3`, `BO7` |
+| `RoundsLength` (create context) | `BO1`, `BO3`, `BO5`, `BO7` |
 | `KindOfGame` | `classic` (same `MoveType` is always a draw; `size` and `effects` unused), `extended` (same `MoveType`: higher `size` wins, equal `size` is a draw; different types ignore `size`; optional `effects` on one throw can alter type and size comparison) |
 
 Two HTTP shapes for the same aggregate:
@@ -229,7 +229,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 | Field | Type | Required | Values |
 |-------|------|----------|--------|
 | `gameType` | string | Yes | `PVP`, `PVE` |
-| `rounds` | string | Yes | `BO1`, `BO3`, `BO7` |
+| `rounds` | string | Yes | `BO1`, `BO3`, `BO5`, `BO7` |
 | `kind` | string | Yes | `classic` (same type is a draw; `size` and `effects` unused), `extended` (same type compares `size`; different types ignore `size`; optional `effects` on one throw) |
 | `level.name` | string | Yes | non-empty |
 | `episode.name` | string | Yes | non-empty |

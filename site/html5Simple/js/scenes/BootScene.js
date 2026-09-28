@@ -53,16 +53,28 @@ class BootScene extends Phaser.Scene {
     async performAuth() {
         console.log('[BootScene] performAuth() started');
 
-        let user = await gameAPI.initAuth();
-        console.log('[BootScene] After initAuth, user:', user);
-
-        if (!user) {
-            console.log('[BootScene] No valid token, logging in as guest...');
+        let user = null;
+        if (gameAPI.localMode) {
+            console.log('[BootScene] Local API, loading profile without a token');
+            gameAPI.clearAuth();
             try {
-                user = await gameAPI.loginAsGuest();
-                console.log('[BootScene] Guest login successful:', user);
+                user = await gameAPI.getMe();
+                console.log('[BootScene] Local profile:', user);
             } catch (error) {
-                console.error('[BootScene] Guest login failed:', error);
+                console.error('[BootScene] Local profile failed:', error);
+            }
+        } else {
+            user = await gameAPI.initAuth();
+            console.log('[BootScene] After initAuth, user:', user);
+
+            if (!user) {
+                console.log('[BootScene] No valid token, logging in as guest...');
+                try {
+                    user = await gameAPI.loginAsGuest();
+                    console.log('[BootScene] Guest login successful:', user);
+                } catch (error) {
+                    console.error('[BootScene] Guest login failed:', error);
+                }
             }
         }
 

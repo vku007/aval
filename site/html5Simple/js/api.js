@@ -5,13 +5,23 @@
 
 console.log('[api.js] Loading API module...');
 
+function localApiOrigin() {
+  const host = typeof location !== 'undefined' ? location.hostname : '';
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://127.0.0.1:3000';
+  }
+  return '';
+}
+
 class GameAPI {
-  constructor(baseUrl = '/apiv2/external') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl) {
+    this.origin = localApiOrigin();
+    this.localMode = this.origin !== '';
+    this.baseUrl = baseUrl || `${this.origin}/apiv2/external`;
     this.token = null;
     this.user = null;
     this.onAuthChange = null;
-    console.log('[GameAPI] Constructed with baseUrl:', baseUrl);
+    console.log('[GameAPI] Constructed with baseUrl:', this.baseUrl, 'localMode:', this.localMode);
   }
 
   /**
@@ -80,7 +90,7 @@ class GameAPI {
   async loginAsGuest() {
     console.log('[GameAPI] loginAsGuest() started');
     try {
-      const response = await fetch('/apiv2/public/create-guest', {
+      const response = await fetch(`${this.origin}/apiv2/public/create-guest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -128,7 +138,7 @@ class GameAPI {
   async login(email, password) {
     console.log('[GameAPI] login() started');
     try {
-      const response = await fetch('/apiv2/public/login', {
+      const response = await fetch(`${this.origin}/apiv2/public/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -248,7 +258,7 @@ class GameAPI {
         throw new APIError('Must be logged in to register', 401);
       }
 
-      const response = await fetch('/apiv2/external/promote', {
+      const response = await fetch(`${this.origin}/apiv2/external/promote`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

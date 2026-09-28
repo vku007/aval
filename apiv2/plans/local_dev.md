@@ -21,6 +21,20 @@ curl -s -X POST http://localhost:3000/apiv2/internal/games \
 
 Protected `/apiv2/external/*` and `/apiv2/internal/*` routes do not need a Bearer token. Public `create-guest` / `login` still call Cognito; do not use them for local load tests.
 
+The Phaser client uses this server when the page host is `localhost` or `127.0.0.1`. Boot calls `GET /apiv2/external/me` with no token (user `test-admin`) and does not create a guest. Classic and extended create/play go to `http://127.0.0.1:3000/apiv2/external`. Any other host keeps same-origin `/apiv2` and Cognito guest login.
+
+```bash
+# terminal 1
+cd apiv2
+npm run dev
+
+# terminal 2
+cd site
+python3 -m http.server 8080
+```
+
+Open `http://localhost:8080/html5Simple/`. The menu shows Test Admin. Login and register on that page still call Cognito through the local public routes.
+
 ## Env
 
 | Variable | `npm run dev` | Meaning |

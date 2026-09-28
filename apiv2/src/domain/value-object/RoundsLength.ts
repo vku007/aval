@@ -2,11 +2,13 @@
  * RoundsLength enum represents the number of rounds in a game.
  * BO1 - Best of 1
  * BO3 - Best of 3
+ * BO5 - Best of 5
  * BO7 - Best of 7
  */
 export enum RoundsLength {
   BO1 = 'BO1',
   BO3 = 'BO3',
+  BO5 = 'BO5',
   BO7 = 'BO7'
 }
 
@@ -25,6 +27,8 @@ export namespace RoundsLength {
         return 1;
       case RoundsLength.BO3:
         return 3;
+      case RoundsLength.BO5:
+        return 5;
       case RoundsLength.BO7:
         return 7;
       default:

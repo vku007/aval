@@ -262,6 +262,22 @@ describe('GameProcessor.processAction', () => {
       expect(processor.whoIsWinner(result)).toBe(USER_1);
     });
 
+    it('should finish game when victory threshold is reached (BO5)', () => {
+      const game = createGameWithContext('game-1', [USER_1, USER_2], RoundsLength.BO5);
+
+      for (let i = 0; i < 2; i++) {
+        processor.processAction(game, createMoveAction(USER_1, MoveType.Stone), USER_1);
+        processor.processAction(game, createMoveAction(USER_2, MoveType.Scissors), USER_2);
+        expect(game.status).not.toBe(GameStatus.Finished);
+      }
+
+      processor.processAction(game, createMoveAction(USER_1, MoveType.Paper), USER_1);
+      processor.processAction(game, createMoveAction(USER_2, MoveType.Stone), USER_2);
+
+      expect(game.status).toBe(GameStatus.Finished);
+      expect(processor.whoIsWinner(game)).toBe(USER_1);
+    });
+
     it('should finish game when victory threshold is reached (BO7)', () => {
       // Arrange - BO7 means first to 4 wins
       const game = createGameWithContext('game-1', [USER_1, USER_2], RoundsLength.BO7);
