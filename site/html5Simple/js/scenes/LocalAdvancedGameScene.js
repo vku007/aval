@@ -2,7 +2,7 @@
  * LocalAdvancedGameScene
  * Full-scene heat map with four stacked green frames.
  * Starts an extended best-of-5 match and sends the current stack as the move.
- * Item count is the extended size. Effect toggles match ExtendedGameScene.
+ * Item count is the extended size. Paper is a New Paper stack. Effect toggles match ExtendedGameScene.
  */
 class LocalAdvancedGameScene extends Phaser.Scene {
     constructor() {
@@ -45,7 +45,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             x: inventory.x + inventory.width / 2,
             y: inventoryBottom
         });
-        this.paper = createLocalAdvancedComposite(HotMapUiPaper, this.heatMap, boxes, {
+        this.paper = createLocalAdvancedComposite(HotMapUiNewPaper, this.heatMap, boxes, {
             x: inventoryRight,
             y: inventoryBottom
         });
@@ -56,7 +56,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         };
         this.enemyStone = createLocalAdvancedComposite(HotMapUiStone, this.heatMap, boxes, enemySpawn, enemyBox);
         this.enemyScissor = createLocalAdvancedComposite(HotMapUiScissor, this.heatMap, boxes, enemySpawn, enemyBox);
-        this.enemyPaper = createLocalAdvancedComposite(HotMapUiPaper, this.heatMap, boxes, enemySpawn, enemyBox);
+        this.enemyPaper = createLocalAdvancedComposite(HotMapUiNewPaper, this.heatMap, boxes, enemySpawn, enemyBox);
         this.playerByType = {
             Stone: this.stone,
             Scissors: this.scissor,

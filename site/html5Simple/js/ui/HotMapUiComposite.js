@@ -2,7 +2,7 @@
  * HotMapUiComposite
  * Heat-map group with a center. Parts keep offsets from that center.
  * Setting the center moves every part by the same amount.
- * Stone, Scissor, and Paper extend this and add their own items.
+ * Stone, Scissor, Paper, and New Paper extend this and add their own items.
  */
 class HotMapUiComposite {
     constructor(heatMap, options) {
@@ -144,6 +144,11 @@ class HotMapUiComposite {
                 target: hotMapStoneDelta(origin, emitter.target)
             };
         }
+        if (object.kind === 'new-sheet') {
+            return {
+                center: hotMapStoneDelta(origin, { col: object.pivotCol, row: object.pivotRow })
+            };
+        }
         return null;
     }
 
@@ -172,6 +177,13 @@ class HotMapUiComposite {
         if (object.kind === 'back-highlight' || object.kind === 'shard' || object.kind === 'sheet') {
             hotMapStonePlace(object.emitter.center, origin, local.center);
             hotMapStonePlace(object.emitter.target, origin, local.target);
+            return;
+        }
+        if (object.kind === 'new-sheet') {
+            const pivot = { col: object.pivotCol, row: object.pivotRow };
+            hotMapStonePlace(pivot, origin, local.center);
+            object.pivotCol = pivot.col;
+            object.pivotRow = pivot.row;
         }
     }
 

@@ -199,6 +199,12 @@ function uiObjectTypeLabel(object) {
     if (kind === 'hot-map-paper') {
         return 'Paper';
     }
+    if (kind === 'hot-map-new-paper') {
+        return 'Disk';
+    }
+    if (kind === 'new-sheet') {
+        return 'New Sheet';
+    }
     if (kind === 'shard') {
         return 'Shard';
     }
