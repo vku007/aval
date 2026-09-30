@@ -6,6 +6,8 @@
  * Three percents step up for each sheet already there: HEAT % on disk heat, DISK % on disk radius, BALL % on ball radius.
  * DISTANCE is the Z step for the next sheet. Tilt turns that depth into view.
  * SPAWN X and SPAWN Y are an untilted field offset. Balls leave that point and move to their tilted phase on the disk.
+ * DRAMA removes the last sheet in three speeds. Heat rises to 300%, the disk then grows to 300% radius while heat falls and the balls hop by JUMP, then the balls move to the center plus DROP and fade out.
+ * HEAT SPD, BURST SPD, and FALL SPD are percent of that step per second. 100 lasts one second.
  */
 class HotMapUiNewPaper extends HotMapUiComposite {
     static PROP_TABS = [
@@ -69,6 +71,11 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         this.heatGain = preset.heatGain;
         this.diskGain = preset.diskGain;
         this.radiusGain = preset.radiusGain;
+        this.dramaHeatSpeed = preset.dramaHeatSpeed;
+        this.dramaBurstSpeed = preset.dramaBurstSpeed;
+        this.dramaFallSpeed = preset.dramaFallSpeed;
+        this.dramaJump = preset.dramaJump;
+        this.dramaDrop = preset.dramaDrop;
         this.sheetInit = defaultHotMapNewPaperSheetInit();
         this.ballSpin = 0;
         this._spinEpoch = -1;
@@ -90,6 +97,7 @@ class HotMapUiNewPaper extends HotMapUiComposite {
     }
 
     advance(delta) {
+        this.finishDramas();
         const field = this.heatMap && this.heatMap.field;
         const epoch = field ? (field.sheetEpoch || 0) : -1;
         if (epoch >= 0 && this._spinEpoch === epoch) {
@@ -140,18 +148,60 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         return sheet;
     }
 
-    removeItem() {
-        const object = this.takeLast('new-sheet');
-        if (!object) {
+    removeItem(object) {
+        const target = this.takeSheet(object);
+        if (!target) {
             return null;
         }
+        target.drama = null;
         if (this.heatMap && typeof this.heatMap.removeHighlighter === 'function') {
-            this.heatMap.removeHighlighter(object);
+            this.heatMap.removeHighlighter(target);
         }
         if (typeof this.onPartRemoved === 'function') {
-            this.onPartRemoved(object);
+            this.onPartRemoved(target);
         }
+        return target;
+    }
+
+    takeSheet(object) {
+        if (!object) {
+            return this.takeLast('new-sheet');
+        }
+        const index = this.parts.findIndex((part) => part.object === object);
+        if (index < 0) {
+            return null;
+        }
+        this.parts.splice(index, 1);
         return object;
+    }
+
+    removeItemWithDrama() {
+        const sheet = this.lastPart('new-sheet');
+        if (!sheet || sheet.drama) {
+            return null;
+        }
+        sheet.beginRemoveDrama({
+            heatScale: HOT_MAP_NEW_PAPER_DRAMA_SCALE,
+            radiusScale: HOT_MAP_NEW_PAPER_DRAMA_SCALE,
+            jump: this.dramaJump,
+            drop: this.dramaDrop,
+            speeds: [this.dramaHeatSpeed, this.dramaBurstSpeed, this.dramaFallSpeed],
+            onDone: () => this.removeItem(sheet)
+        });
+        return sheet;
+    }
+
+    finishDramas() {
+        this.sheetList().forEach((sheet) => {
+            if (!sheet.drama || !sheet.drama.done) {
+                return;
+            }
+            const done = sheet.drama.onDone;
+            sheet.drama = null;
+            if (typeof done === 'function') {
+                done();
+            }
+        });
     }
 
     get params() {
@@ -175,7 +225,12 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             ballRadius: init.ballRadius,
             radiusGain: this.radiusGain,
             ballSize: init.ballSize,
-            ballHeat: init.ballHeat
+            ballHeat: init.ballHeat,
+            dramaHeatSpeed: this.dramaHeatSpeed,
+            dramaBurstSpeed: this.dramaBurstSpeed,
+            dramaFallSpeed: this.dramaFallSpeed,
+            dramaJump: this.dramaJump,
+            dramaDrop: this.dramaDrop
         });
     }
 
@@ -193,6 +248,9 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         }
         if (key === 'heatGain' || key === 'diskGain' || key === 'radiusGain') {
             return this.nudgeGain(key, dir);
+        }
+        if (HOT_MAP_NEW_PAPER_DRAMA_KEYS[key]) {
+            return this.nudgeDrama(key, dir);
         }
         if (HOT_MAP_NEW_PAPER_KEYS.indexOf(key) >= 0) {
             return this.nudgeInit(key, dir);
@@ -227,11 +285,23 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         return this[key];
     }
 
+    nudgeDrama(key, dir) {
+        const spec = HOT_MAP_NEW_PAPER_DRAMA_KEYS[key];
+        const next = this[key] + dir * spec.step;
+        this[key] = Math.max(spec.min, Math.min(spec.max, next));
+        return this[key];
+    }
+
     extendSerialized(data) {
         data.distance = this.distance;
         data.heatGain = this.heatGain;
         data.diskGain = this.diskGain;
         data.radiusGain = this.radiusGain;
+        data.dramaHeatSpeed = this.dramaHeatSpeed;
+        data.dramaBurstSpeed = this.dramaBurstSpeed;
+        data.dramaFallSpeed = this.dramaFallSpeed;
+        data.dramaJump = this.dramaJump;
+        data.dramaDrop = this.dramaDrop;
         data.ballSpin = this.ballSpin;
         data.sheetInit = copyHotMapNewPaperSheetInit(this.sheetInit);
         return data;
@@ -254,6 +324,11 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         if (typeof data.radiusGain === 'number') {
             this.radiusGain = clampHotMapNewPaperGain(data.radiusGain);
         }
+        Object.keys(HOT_MAP_NEW_PAPER_DRAMA_KEYS).forEach((key) => {
+            if (typeof data[key] === 'number') {
+                this[key] = clampHotMapNewPaperDrama(key, data[key]);
+            }
+        });
         if (typeof data.ballSpin === 'number') {
             this.ballSpin = wrapNewSheetAngle(data.ballSpin);
         }
@@ -266,6 +341,12 @@ HotMapUiNewPaper.REMOVE_TABS = [
     {
         id: 'remove',
         rows: [
+            { key: 'dramaHeatSpeed', label: 'HEAT SPD', decimals: 0 },
+            { key: 'dramaBurstSpeed', label: 'BURST SPD', decimals: 0 },
+            { key: 'dramaFallSpeed', label: 'FALL SPD', decimals: 0 },
+            { key: 'dramaJump', label: 'JUMP', decimals: 0 },
+            { key: 'dramaDrop', label: 'DROP', decimals: 0 },
+            { key: 'removeItemWithDrama', label: 'DRAMA', button: 'POP', type: 'action' },
             { key: 'removeItem', label: 'SHEET', button: 'RMV', type: 'action' }
         ]
     }
@@ -335,6 +416,11 @@ const HOT_MAP_NEW_PAPER_PRESET = {
     heatGain: 25,
     diskGain: 5,
     radiusGain: 5,
+    dramaHeatSpeed: 400,
+    dramaBurstSpeed: 900,
+    dramaFallSpeed: 160,
+    dramaJump: 18,
+    dramaDrop: 28,
     sheet: {
         isVisible: true,
         loopSpeed: 50,
@@ -356,8 +442,27 @@ const HOT_MAP_NEW_PAPER_PRESET = {
 
 const HOT_MAP_NEW_PAPER_GAIN = { min: 0, max: 100, step: 1 };
 
+const HOT_MAP_NEW_PAPER_DRAMA_SCALE = 3;
+
+const HOT_MAP_NEW_PAPER_DRAMA_SPEED = { min: 10, max: 2000, step: 10 };
+
+const HOT_MAP_NEW_PAPER_DRAMA_SHIFT = { min: 0, max: 160, step: 1 };
+
+const HOT_MAP_NEW_PAPER_DRAMA_KEYS = {
+    dramaHeatSpeed: HOT_MAP_NEW_PAPER_DRAMA_SPEED,
+    dramaBurstSpeed: HOT_MAP_NEW_PAPER_DRAMA_SPEED,
+    dramaFallSpeed: HOT_MAP_NEW_PAPER_DRAMA_SPEED,
+    dramaJump: HOT_MAP_NEW_PAPER_DRAMA_SHIFT,
+    dramaDrop: HOT_MAP_NEW_PAPER_DRAMA_SHIFT
+};
+
 function clampHotMapNewPaperGain(value) {
     const spec = HOT_MAP_NEW_PAPER_GAIN;
+    return Math.max(spec.min, Math.min(spec.max, value));
+}
+
+function clampHotMapNewPaperDrama(key, value) {
+    const spec = HOT_MAP_NEW_PAPER_DRAMA_KEYS[key];
     return Math.max(spec.min, Math.min(spec.max, value));
 }
 

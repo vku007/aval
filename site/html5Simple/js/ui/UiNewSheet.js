@@ -279,7 +279,35 @@ class UiNewSheet {
         };
     }
 
+    beginRemoveDrama(options) {
+        const opts = options || {};
+        const speeds = opts.speeds || [400, 900, 160];
+        const hot = Math.max(this.heat, this.heatFrom, this.heatTo);
+        const heatScale = opts.heatScale > 0 ? opts.heatScale : 3;
+        const radiusScale = opts.radiusScale > 0 ? opts.radiusScale : 3;
+        this.ballTravel = null;
+        this.drama = {
+            step: 1,
+            u: 0,
+            done: false,
+            jump: Math.max(0, opts.jump || 0),
+            drop: Math.max(0, opts.drop || 0),
+            speeds: speeds.map((speed) => Math.max(1, Number(speed) || 0)),
+            heat0: this.heat,
+            heat1: hot * heatScale,
+            radius0: this.radius,
+            radius1: this.radius * radiusScale,
+            onDone: opts.onDone || null,
+            ballFrom: null,
+            ballTo: null
+        };
+        this.applyDramaPose();
+    }
+
     ballAt(index) {
+        if (this.drama && this.drama.step >= 2) {
+            return this.dramaBall(index);
+        }
         const dest = this.ballPlace(index);
         const travel = this.ballTravel;
         if (!travel || travel.u >= 1) {
@@ -328,6 +356,10 @@ class UiNewSheet {
         this.angle = wrapNewSheetAngle(this.angle + this.speed * dt);
         if (!this.spinHost) {
             this.ballSpin = wrapNewSheetAngle(this.ballSpin + this.ballSpeed * dt);
+        }
+        if (this.drama) {
+            this.advanceDrama(dt);
+            return;
         }
         if (this.ballTravel && this.ballTravel.u < 1) {
             const duration = Math.max(0.05, this.ballTravel.duration || 1);
@@ -523,11 +555,108 @@ class UiNewSheet {
     }
 
     stampBall(grid, cols, rows, ball) {
+        let energy = this.ballHeat;
+        if (this.drama && this.drama.step === 3) {
+            energy *= 1 - this.drama.u;
+        }
         stampRotatedHotBall(grid, cols, rows, ball.col, ball.row, {
             radius: this.ballSize,
-            energy: this.ballHeat,
+            energy: energy,
             orbitRadius: Math.max(1, this.ballRadius)
         }, ball.depth);
+    }
+
+    dramaBall(index) {
+        const drama = this.drama;
+        if (drama.step === 3 && drama.ballFrom && drama.ballTo) {
+            const from = drama.ballFrom[index] || drama.ballFrom[0];
+            const to = drama.ballTo;
+            const u = drama.u;
+            return {
+                col: from.col + (to.col - from.col) * u,
+                row: from.row + (to.row - from.row) * u,
+                depth: from.depth + (to.depth - from.depth) * u
+            };
+        }
+        const orbit = this.ballPlace(index);
+        const jump = drama.step === 2 ? drama.jump * drama.u : drama.jump;
+        return {
+            col: orbit.col,
+            row: orbit.row - jump,
+            depth: orbit.depth
+        };
+    }
+
+    advanceDrama(dt) {
+        const drama = this.drama;
+        if (!drama || drama.done) {
+            this.applyDramaPose();
+            return;
+        }
+        let remain = Math.max(0, dt || 0);
+        while (remain > 0 && !drama.done) {
+            const rate = Math.max(1, drama.speeds[drama.step - 1] || 1) / 100;
+            const need = (1 - drama.u) / rate;
+            if (remain < need) {
+                drama.u += remain * rate;
+                remain = 0;
+                break;
+            }
+            remain -= need;
+            drama.u = 1;
+            if (drama.step < 3) {
+                this.enterDramaStep(drama.step + 1);
+            } else {
+                drama.done = true;
+            }
+        }
+        this.applyDramaPose();
+    }
+
+    enterDramaStep(step) {
+        if (step === 3) {
+            this.captureDramaFall();
+        }
+        this.drama.step = step;
+        this.drama.u = 0;
+    }
+
+    captureDramaFall() {
+        const drama = this.drama;
+        const from = [];
+        for (let index = 0; index < this.ballCount; index += 1) {
+            const orbit = this.ballPlace(index);
+            from.push({
+                col: orbit.col,
+                row: orbit.row - drama.jump,
+                depth: orbit.depth
+            });
+        }
+        const spun = newSheetRotate(this.armX, this.armY, this.angle);
+        const tilted = this.tiltPoint(spun.x, spun.y, this.depth);
+        drama.ballFrom = from;
+        drama.ballTo = {
+            col: this.pivotCol + tilted.x,
+            row: this.pivotRow + tilted.y + drama.drop,
+            depth: tilted.z
+        };
+    }
+
+    applyDramaPose() {
+        const drama = this.drama;
+        if (!drama) {
+            return;
+        }
+        const u = drama.u;
+        if (drama.step === 1) {
+            this.radius = drama.radius0;
+            this.heat = drama.heat0 + (drama.heat1 - drama.heat0) * u;
+            return;
+        }
+        this.radius = drama.step === 2
+            ? drama.radius0 + (drama.radius1 - drama.radius0) * u
+            : drama.radius1;
+        this.heat = drama.step === 2 ? drama.heat1 * (1 - u) : 0;
     }
 
     stampDisk(grid, cols, rows, center, radius, heat) {

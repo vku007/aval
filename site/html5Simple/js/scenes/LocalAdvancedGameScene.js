@@ -15,6 +15,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     create() {
         exitTestsCanvas(this);
+        this._visit = (this._visit || 0) + 1;
         console.log('[LocalAdvancedGameScene] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;
@@ -37,37 +38,33 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const inventory = boxes.find((box) => box.label === 'inventory');
         const inventoryBottom = inventory.y + inventory.height;
         const inventoryRight = inventory.x + inventory.width;
-        this.stone = createLocalAdvancedComposite(HotMapUiStone, this.heatMap, boxes, {
-            x: inventoryRight,
-            y: inventoryBottom
-        });
-        this.scissor = createLocalAdvancedComposite(HotMapUiScissor, this.heatMap, boxes, {
-            x: inventory.x + inventory.width / 2,
-            y: inventoryBottom
-        });
-        this.paper = createLocalAdvancedComposite(HotMapUiNewPaper, this.heatMap, boxes, {
-            x: inventoryRight,
-            y: inventoryBottom
-        });
         const enemyBox = boxes.find((box) => box.label === 'enemy_data');
         const enemySpawn = {
             x: enemyBox.x + enemyBox.width / 2,
             y: enemyBox.y + 4
         };
-        this.enemyStone = createLocalAdvancedComposite(HotMapUiStone, this.heatMap, boxes, enemySpawn, enemyBox);
-        this.enemyScissor = createLocalAdvancedComposite(HotMapUiScissor, this.heatMap, boxes, enemySpawn, enemyBox);
-        this.enemyPaper = createLocalAdvancedComposite(HotMapUiNewPaper, this.heatMap, boxes, enemySpawn, enemyBox);
-        this.playerByType = {
-            Stone: this.stone,
-            Scissors: this.scissor,
-            Paper: this.paper
-        };
-        this.enemyByType = {
-            Stone: this.enemyStone,
-            Scissors: this.enemyScissor,
-            Paper: this.enemyPaper
-        };
         this.panelBoxes = boxes;
+        this.compositeSpecs = [
+            { key: 'stone', Ctor: HotMapUiStone, spawn: { x: inventoryRight, y: inventoryBottom } },
+            {
+                key: 'scissor',
+                Ctor: HotMapUiScissor,
+                spawn: { x: inventory.x + inventory.width / 2, y: inventoryBottom }
+            },
+            { key: 'paper', Ctor: HotMapUiNewPaper, spawn: { x: inventoryRight, y: inventoryBottom } },
+            { key: 'enemyStone', Ctor: HotMapUiStone, spawn: enemySpawn, centerBox: enemyBox },
+            { key: 'enemyScissor', Ctor: HotMapUiScissor, spawn: enemySpawn, centerBox: enemyBox },
+            { key: 'enemyPaper', Ctor: HotMapUiNewPaper, spawn: enemySpawn, centerBox: enemyBox }
+        ];
+        // Previous visit's groups still have parts, but those parts stamp the
+        // destroyed heat map. A length check would keep them invisible.
+        this.stone = null;
+        this.scissor = null;
+        this.paper = null;
+        this.enemyStone = null;
+        this.enemyScissor = null;
+        this.enemyPaper = null;
+        this.syncSceneComposites();
         this.resultRods = [];
         this.createBackButton(width - UI.pad - UI.backW / 2, UI.pad + UI.backH / 2);
         this.selectedEffects = [];
@@ -75,6 +72,10 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this.gameData = null;
         this._sending = false;
         this._deferHealth = false;
+        // Scene instances are reused. Bars from the previous visit point at a
+        // destroyed heat map, and a length check would keep those dead emitters.
+        this.healthBars = null;
+        this.enemyHealthBars = null;
         this.createMatchReadout(boxes);
         this.createLocalAdvancedButtons(boxes);
         this.startMatch();
@@ -116,6 +117,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     currentSelection() {
+        this.syncSceneComposites();
         const stacks = [
             { composite: this.stone, moveType: 'Stone' },
             { composite: this.scissor, moveType: 'Scissors' },
@@ -167,6 +169,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this._sending = true;
         this.refreshMoveButtons();
         this.setStatus(`Sending ${selection.moveType} ${selection.size}...`);
+        const visit = this._visit;
         try {
             const response = await gameClient.updateGame(
                 this.currentGameId,
@@ -181,11 +184,17 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             this.refreshMatchReadout();
             await this.playMoveResult(user.id);
         } catch (error) {
+            if (visit !== this._visit) {
+                return;
+            }
             console.error('[LocalAdvancedGameScene] Failed to send move:', error);
             this.setStatus('Move failed');
             this.showErrorModal('Move Failed', error.message || 'An unexpected error occurred.');
             this.refreshMoveButtons();
         } finally {
+            if (visit !== this._visit) {
+                return;
+            }
             this._sending = false;
             if (this._deferHealth) {
                 this._deferHealth = false;
@@ -215,7 +224,12 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         };
     }
 
+    visitOpen(visit) {
+        return visit === this._visit && this.sys && this.sys.isActive();
+    }
+
     async playMoveResult(userId) {
+        const visit = this._visit;
         const exchange = this.latestExchange(userId);
         if (!exchange || !exchange.enemyType) {
             this.placeResultRod();
@@ -225,23 +239,41 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const enemyComposite = this.enemyByType[exchange.enemyType];
         this.revealEnemyMove(exchange.enemyType, exchange.enemySize);
         await this.pause(LOCAL_ADVANCED_REVEAL_PAUSE);
+        if (!this.visitOpen(visit)) {
+            return;
+        }
         await Promise.all([
             this.playHorisontalPulse(),
             this.playUserFightPulse()
         ]);
+        if (!this.visitOpen(visit)) {
+            return;
+        }
         await this.pause(LOCAL_ADVANCED_CLASH_PAUSE);
+        if (!this.visitOpen(visit)) {
+            return;
+        }
         const playerWon = exchange.winnerId && String(exchange.winnerId) === String(userId);
         const enemyWon = exchange.winnerId && !playerWon;
         if (exchange.winnerId) {
             const loser = playerWon ? enemyComposite : playerComposite;
             await this.playRemoveAll(loser);
+            if (!this.visitOpen(visit)) {
+                return;
+            }
         }
         if (playerWon) {
             await this.playVerticalPulse('enemyPostMortemPulse');
+            if (!this.visitOpen(visit)) {
+                return;
+            }
             this.clearCompositeItems(playerComposite);
             await this.playPlayerVictoryPulse();
         } else if (enemyWon) {
             await this.playUserPostMortemPulse();
+            if (!this.visitOpen(visit)) {
+                return;
+            }
             this.clearCompositeItems(enemyComposite);
             await this.playEnemyVictoryPulse();
         }
@@ -332,6 +364,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     revealEnemyMove(moveType, size) {
+        this.syncSceneComposites();
         const composite = this.enemyByType[moveType];
         if (!composite) {
             return;
@@ -362,6 +395,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     placeResultRod() {
+        this.syncResultRods();
         const enemy = (this.panelBoxes || []).find((box) => box.label === 'enemy_data');
         if (!enemy || !this.heatMap) {
             return;
@@ -501,8 +535,8 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
         const count = localAdvancedLossBars(this.gameRounds());
-        const playerReady = this.healthBars && this.healthBars.length === count;
-        const enemyReady = this.enemyHealthBars && this.enemyHealthBars.length === count;
+        const playerReady = this.healthBarsLive(this.healthBars, count);
+        const enemyReady = this.healthBarsLive(this.enemyHealthBars, count);
         if (!playerReady || !enemyReady) {
             this.clearHealthBars();
             this.createHealthBars(score, count);
@@ -511,6 +545,17 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
         this.updateHealthBar();
+    }
+
+    healthBarsLive(bars, count) {
+        if (!bars || bars.length !== count) {
+            return false;
+        }
+        const list = this.heatMap && this.heatMap.field && this.heatMap.field.highlighters;
+        if (!list) {
+            return false;
+        }
+        return bars.every((bar) => bar && bar.emitter && list.indexOf(bar.emitter) >= 0);
     }
 
     createHealthBars(score, count) {
@@ -622,19 +667,21 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     onStonePress() {
-        this.addCompositeItem(this.stone, LOCAL_ADVANCED_STONE_MAX);
+        this.addCompositeItem('stone', LOCAL_ADVANCED_STONE_MAX);
     }
 
     onScissorsPress() {
-        this.addCompositeItem(this.scissor, LOCAL_ADVANCED_SCISSOR_MAX);
+        this.addCompositeItem('scissor', LOCAL_ADVANCED_SCISSOR_MAX);
     }
 
     onPaperPress() {
-        this.addCompositeItem(this.paper, LOCAL_ADVANCED_PAPER_MAX);
+        this.addCompositeItem('paper', LOCAL_ADVANCED_PAPER_MAX);
     }
 
-    addCompositeItem(composite, maxItems) {
-        if (!composite || composite.parts.length >= maxItems) {
+    addCompositeItem(key, maxItems) {
+        this.syncSceneComposites();
+        const composite = this[key];
+        if (!composite || !composite.liveOn(this.heatMap) || composite.parts.length >= maxItems) {
             return;
         }
         composite.addItem();
@@ -642,6 +689,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     onCancelPress() {
+        this.syncSceneComposites();
         const composite = [this.stone, this.scissor, this.paper].find((item) => item && item.parts.length > 0);
         if (!composite) {
             return;
@@ -651,6 +699,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     refreshMoveButtons() {
+        this.syncSceneComposites();
         const counts = {
             stone: this.stone ? this.stone.parts.length : 0,
             scissors: this.scissor ? this.scissor.parts.length : 0,
@@ -790,9 +839,55 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        this.syncSceneComposites();
+        this.syncResultRods();
         if (this.heatMap && typeof this.heatMap.update === 'function') {
             this.heatMap.update(time, delta);
         }
+    }
+
+    syncSceneComposites() {
+        (this.compositeSpecs || []).forEach((spec) => {
+            let current = this[spec.key];
+            if (current && current.heatMap === this.heatMap) {
+                current.bindToField();
+            }
+            if (current && current.liveOn(this.heatMap)) {
+                return;
+            }
+            const count = current && current.heatMap === this.heatMap ? current.parts.length : 0;
+            if (current && current.heatMap === this.heatMap) {
+                this.clearCompositeItems(current);
+                if (current.kind === 'hot-map-new-paper') {
+                    this.heatMap.removeHighlighter(current);
+                }
+            }
+            const next = createLocalAdvancedComposite(
+                spec.Ctor,
+                this.heatMap,
+                this.panelBoxes,
+                spec.spawn,
+                spec.centerBox
+            );
+            this[spec.key] = next;
+            for (let index = 0; index < count; index += 1) {
+                next.addItem();
+            }
+        });
+        this.playerByType = {
+            Stone: this.stone,
+            Scissors: this.scissor,
+            Paper: this.paper
+        };
+        this.enemyByType = {
+            Stone: this.enemyStone,
+            Scissors: this.enemyScissor,
+            Paper: this.enemyPaper
+        };
+    }
+
+    syncResultRods() {
+        this.resultRods = (this.resultRods || []).filter((rod) => heatMapOwns(this.heatMap, rod));
     }
 
     createBackButton(x, y) {

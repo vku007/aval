@@ -232,6 +232,23 @@ class HotMapUiComposite {
     }
 
     applySerializedExtras() {}
+
+    liveOn(heatMap) {
+        if (!heatMap || this.heatMap !== heatMap) {
+            return false;
+        }
+        if (this.kind === 'hot-map-new-paper' && !heatMapOwns(heatMap, this)) {
+            return false;
+        }
+        return this.parts.every((part) => heatMapOwns(heatMap, part.object));
+    }
+
+    bindToField() {
+        if (this.kind === 'hot-map-new-paper') {
+            bindHeatMapObject(this.heatMap, this);
+        }
+        this.parts.forEach((part) => bindHeatMapObject(this.heatMap, part.object));
+    }
 }
 
 const HOT_MAP_STONE_POINT_KEYS = ['orbitCenter', 'orbitTarget', 'start', 'end', 'center', 'target'];

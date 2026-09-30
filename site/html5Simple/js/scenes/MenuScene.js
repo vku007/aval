@@ -145,7 +145,11 @@ class MenuScene extends Phaser.Scene {
 
     setMenuSkin(on) {
         if (on) {
-            if (!this.skinHost) {
+            if (!this.menuSkinLive()) {
+                if (this.skinHost) {
+                    this.skinHost.setVisible(false);
+                    this.skinHost = null;
+                }
                 const width = this.cameras.main.width;
                 const height = this.cameras.main.height;
                 this.skinHost = mountUiSkin(this, { x: 0, y: 0, width, height });
@@ -163,6 +167,15 @@ class MenuScene extends Phaser.Scene {
         (this.menuButtons || []).forEach((btn) => {
             styleUiSkinMenuButton(this, btn, on);
         });
+    }
+
+    menuSkinLive() {
+        const host = this.skinHost;
+        if (!host || !host.heatMap || host.heatMap.scene !== this) {
+            return false;
+        }
+        const lists = [host.balls, host.rods, host.highlighters];
+        return lists.every((list) => (list || []).every((item) => heatMapOwns(host.heatMap, item)));
     }
 
     /**

@@ -1123,6 +1123,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (!list) {
             return;
         }
+        list.slice().forEach((object) => {
+            if (!heatMapOwns(this.heatMap, object)) {
+                this.releaseObject(object);
+                this.dropFrom(this.objects, object);
+            }
+        });
         for (let index = list.length; index < wanted.length; index += 1) {
             const created = this.spawnObject(kind, wanted[index] || {});
             if (created && this.objects.indexOf(created) < 0) {
