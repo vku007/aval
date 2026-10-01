@@ -76,63 +76,11 @@ function sheetHeatPose(pose) {
 }
 
 function stepSheetGlisten(state, delta) {
-    if (state.glistenClock) {
-        const clock = state.glistenClock;
-        if (state.ballLead && state.params) {
-            clock.params.glistenSpeed = state.params.glistenSpeed;
-            clock.params.glistenDelay = state.params.glistenDelay;
-        }
-        const epoch = state.field ? state.field.sheetEpoch : 0;
-        if (clock.epoch !== epoch) {
-            clock.epoch = epoch;
-            stepSheetGlistenRun(clock, delta);
-        }
-        state.glisten = clock.glisten;
-        state.glistenPhase = clock.glistenPhase;
-        state.glistenWait = clock.glistenWait;
-        return;
-    }
     stepSheetGlistenRun(state, delta);
 }
 
 function stepSheetGlistenRun(state, delta) {
-    let dt = Math.min(Math.max(0, delta) / 1000, 0.05);
-    const speed = Math.max(0.2, state.params.glistenSpeed || 0.4);
-    const rate = speed * 100;
-    if (state.glistenPhase === 'gap') {
-        state.glistenWait -= dt;
-        if (state.glistenWait > 0) {
-            return;
-        }
-        dt = -state.glistenWait;
-        state.glistenWait = 0;
-        state.glisten = 0;
-        state.glistenPhase = 'run';
-    }
-    let dist = rate * dt;
-    const gap = Math.max(0, state.params.glistenDelay || 0);
-    while (dist > 0) {
-        if (state.glisten >= 100) {
-            state.glisten = 0;
-        }
-        const room = 100 - state.glisten;
-        if (dist < room) {
-            state.glisten += dist;
-            return;
-        }
-        dist -= room;
-        state.glisten = 0;
-        if (gap <= 0) {
-            continue;
-        }
-        const gapDist = gap * rate;
-        if (dist < gapDist) {
-            state.glistenPhase = 'gap';
-            state.glistenWait = gap - dist / rate;
-            return;
-        }
-        dist -= gapDist;
-    }
+    advanceGlisten(state, delta);
 }
 
 function setSheetGlistenOn(state, value) {
@@ -155,32 +103,7 @@ function sheetCenterPoint(pose, center, progress) {
 }
 
 function stepSheetBall(state, delta) {
-    const dt = Math.min(Math.max(0, delta) / 1000, 0.05);
-    if (state.ballClock) {
-        const clock = state.ballClock;
-        if (state.ballLead) {
-            clock.speed = Math.max(0, state.params.ballSpeed || 0);
-        }
-        const epoch = state.field ? state.field.sheetEpoch : 0;
-        if (clock.epoch !== epoch) {
-            clock.epoch = epoch;
-            const speed = Math.max(0, clock.speed || 0);
-            if (speed > 0) {
-                clock.phase = (clock.phase + speed * dt) % 1;
-            }
-        }
-        let ball = (clock.phase + (state.ballShift || 0)) % 1;
-        if (ball < 0) {
-            ball += 1;
-        }
-        state.ball = ball;
-        return;
-    }
-    const speed = Math.max(0, state.params.ballSpeed || 0);
-    if (speed <= 0) {
-        return;
-    }
-    state.ball = (state.ball + speed * dt) % 1;
+    advanceBallRunner(state, delta);
 }
 
 function sheetOscillationPoints(pose, center, state) {
@@ -317,27 +240,6 @@ function blendSheetPose(current, from, to, t) {
 }
 
 function stepSheetPose(state, delta) {
-    if (state.shapeClock) {
-        const clock = state.shapeClock;
-        if (state.ballLead && state.params) {
-            clock.params.speed = state.params.speed;
-            clock.params.delay = state.params.delay;
-            clock.params.gap = state.params.gap;
-            clock.cycling = state.cycling !== false;
-        }
-        const epoch = state.field ? state.field.sheetEpoch : 0;
-        if (clock.epoch !== epoch) {
-            clock.epoch = epoch;
-            stepBackHighlightPose(clock, delta);
-        }
-        blendSheetPose(state.current, state.from, state.to, clock.current.heat);
-        state.phase = clock.phase;
-        state.waitLeft = clock.waitLeft;
-        if (state.glistenOn !== false) {
-            stepSheetGlisten(state, delta);
-        }
-        return state.current;
-    }
     const pose = stepBackHighlightPose(state, delta);
     if (state.glistenOn !== false) {
         stepSheetGlisten(state, delta);
@@ -417,6 +319,81 @@ function stampSheetGlisten(grid, shine, cols, rows, center, pose, glisten, power
         }
         grid[i] = Math.min(1, grid[i] + amount * (1 - grid[i]));
     }
+}
+
+function heatStampSheet(grid, emitter, frame) {
+    const pose = heatPresentPose(frame, emitter.current, emitter.from, emitter.to);
+    const local = {
+        col: emitter.center.col + frame.own.offset.col,
+        row: emitter.center.row + frame.own.offset.row
+    };
+    const extra = frame.own['balls.offset'] || { col: 0, row: 0 };
+    const center = heatGroupPoint(frame, local.col, local.row);
+    const ballCenter = heatGroupPoint(frame, local.col + extra.col, local.row + extra.row);
+    const ballScale = frame.own['balls.scale'] == null ? 1 : frame.own['balls.scale'];
+    const ballHeat = frame.own['balls.heat'] == null ? 1 : frame.own['balls.heat'];
+    const gain = frame.own['glisten.gain'] == null ? 1 : frame.own['glisten.gain'];
+    const scale = (frame.own.scale == null ? 1 : frame.own.scale) * (frame.group ? frame.group.scale : 1);
+    const state = Object.assign({}, emitter, {
+        params: Object.assign({}, emitter.params, {
+            radius: heatMul(heatScale(frame, emitter.params.radius), ballScale),
+            energy: heatMul(heatHeat(frame, emitter.params.energy), ballHeat),
+            ballDelta: heatMul(emitter.params.ballDelta, scale)
+        })
+    });
+    const glistenPower = heatMul(heatHeat(frame, emitter.params.glistenPower), gain);
+    const gather = frame.own['balls.gather'] || 0;
+    if (emitter.travel && emitter.travel.stage === 'wait') {
+        heatStampSheetBalls(grid, emitter, frame, ballCenter, pose, state, gather);
+        return;
+    }
+    if (emitter.travel && emitter.travel.stage !== 'done') {
+        const dx = center.col - emitter.center.col;
+        const dy = center.row - emitter.center.row;
+        if (dx !== 0 || dy !== 0) {
+            const travel = Object.assign({}, emitter.travel);
+            ['pair', 'upper', 'lower'].forEach((key) => {
+                if (travel[key]) {
+                    travel[key] = { col: travel[key].col + dx, row: travel[key].row + dy };
+                }
+            });
+            state.travel = travel;
+        }
+        stampSheetTravelBalls(grid, emitter.cols, emitter.rows, state);
+        return;
+    }
+    stampSheet(grid, emitter.cols, emitter.rows, center, pose);
+    heatStampSheetBalls(grid, emitter, frame, ballCenter, pose, state, gather);
+    if (emitter.glistenOn !== false && emitter.glistenPhase !== 'gap') {
+        stampSheetGlisten(
+            grid,
+            emitter.shine,
+            emitter.cols,
+            emitter.rows,
+            center,
+            pose,
+            emitter.glisten,
+            glistenPower
+        );
+    }
+}
+
+function heatStampSheetBalls(grid, emitter, frame, ballCenter, pose, state, gather) {
+    if (!gather) {
+        stampSheetBall(grid, emitter.cols, emitter.rows, ballCenter, pose, state);
+        return;
+    }
+    const slots = sheetOscillationPoints(pose, ballCenter, state);
+    const at = frame.own['balls.gatherAt'] || { col: 0, row: 0 };
+    const dot = {
+        radius: state.params.radius,
+        energy: state.params.energy
+    };
+    [slots.lower, slots.upper].forEach((point) => {
+        const col = point.col + (at.col - point.col) * gather;
+        const row = point.row + (at.row - point.row) * gather;
+        addHotDot(grid, emitter.cols, emitter.rows, col, row, dot);
+    });
 }
 
 function stampSheet(grid, cols, rows, center, pose) {
@@ -738,31 +715,40 @@ function createSheetEmitterState(field, options) {
             return emitter.current;
         },
         stamp: (grid) => {
-            const pose = emitter.current;
-            if (emitter.travel && emitter.travel.stage === 'wait') {
+            const frame = heatFrame(heatNodeOf(emitter));
+            if (heatRest(frame)) {
+                const pose = emitter.current;
+                if (emitter.travel && emitter.travel.stage === 'wait') {
+                    stampSheetBall(grid, emitter.cols, emitter.rows, emitter.center, pose, emitter);
+                    return;
+                }
+                if (emitter.travel && emitter.travel.stage !== 'done') {
+                    stampSheetTravelBalls(grid, emitter.cols, emitter.rows, emitter);
+                    return;
+                }
+                stampSheet(grid, emitter.cols, emitter.rows, emitter.center, pose);
                 stampSheetBall(grid, emitter.cols, emitter.rows, emitter.center, pose, emitter);
+                if (emitter.glistenOn !== false && emitter.glistenPhase !== 'gap') {
+                    stampSheetGlisten(
+                        grid,
+                        emitter.shine,
+                        emitter.cols,
+                        emitter.rows,
+                        emitter.center,
+                        pose,
+                        emitter.glisten,
+                        emitter.params.glistenPower
+                    );
+                }
                 return;
             }
-            if (emitter.travel && emitter.travel.stage !== 'done') {
-                stampSheetTravelBalls(grid, emitter.cols, emitter.rows, emitter);
-                return;
-            }
-            stampSheet(grid, emitter.cols, emitter.rows, emitter.center, pose);
-            stampSheetBall(grid, emitter.cols, emitter.rows, emitter.center, pose, emitter);
-            if (emitter.glistenOn !== false && emitter.glistenPhase !== 'gap') {
-                stampSheetGlisten(
-                    grid,
-                    emitter.shine,
-                    emitter.cols,
-                    emitter.rows,
-                    emitter.center,
-                    pose,
-                    emitter.glisten,
-                    emitter.params.glistenPower
-                );
-            }
+            heatStampSheet(grid, emitter, frame);
         },
         retarget: (cell) => emitter.setCenter(cell)
     };
+    emitter.pose = new PoseCycle(emitter, { sheet: true });
+    emitter.glistenLoop = new Glisten(emitter);
+    emitter.ballRunner = new BallRunner(emitter);
+    emitter.loops = [emitter.pose, emitter.glistenLoop, emitter.ballRunner];
     return emitter;
 }

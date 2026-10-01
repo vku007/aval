@@ -79,13 +79,15 @@ class GameClient {
    * @param {object} gameContext - Game initialization context
    * @returns {Promise<object>} Response with status and gameId
    */
-  async createGame(gameContext = {}) {
+  async createGame(gameContext = {}, options) {
     console.log('[GameClient] createGame() called with context:', gameContext);
-    
+    const extra = options || {};
+
     try {
       const response = await this.request('/games', {
         method: 'POST',
-        body: JSON.stringify(gameContext)
+        body: JSON.stringify(gameContext),
+        signal: extra.signal
       });
 
       console.log('[GameClient] Game created successfully:', response);
@@ -102,16 +104,18 @@ class GameClient {
    * @param {string} gameId - The game ID
    * @returns {Promise<object>} Response with status and game payload
    */
-  async getGame(gameId) {
+  async getGame(gameId, options) {
     console.log('[GameClient] getGame() called with gameId:', gameId);
-    
+    const extra = options || {};
+
     if (!gameId) {
       throw new Error('Game ID is required');
     }
 
     try {
       const response = await this.request(`/games/${gameId}`, {
-        method: 'GET'
+        method: 'GET',
+        signal: extra.signal
       });
 
       console.log('[GameClient] Game retrieved successfully:', response);
@@ -129,9 +133,10 @@ class GameClient {
    * @param {object} actionContext - Player action context
    * @returns {Promise<object>} Response with updated game state
    */
-  async updateGame(gameId, actionContext) {
+  async updateGame(gameId, actionContext, options) {
     console.log('[GameClient] updateGame() called with gameId:', gameId, 'action:', actionContext);
-    
+    const extra = options || {};
+
     if (!gameId) {
       throw new Error('Game ID is required');
     }
@@ -139,7 +144,8 @@ class GameClient {
     try {
       const response = await this.request(`/games/${gameId}`, {
         method: 'PUT',
-        body: JSON.stringify(actionContext)
+        body: JSON.stringify(actionContext),
+        signal: extra.signal
       });
 
       console.log('[GameClient] Game updated successfully:', response);

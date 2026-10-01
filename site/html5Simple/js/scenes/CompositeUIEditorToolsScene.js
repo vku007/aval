@@ -768,16 +768,16 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             return;
         }
         if (this.host.stone && typeof this.host.stone.remove === 'function') {
-            this.host.stone.remove(object);
+            this.host.stone.unlinkPart(object);
         }
         if (this.host.scissor && typeof this.host.scissor.remove === 'function') {
-            this.host.scissor.remove(object);
+            this.host.scissor.unlinkPart(object);
         }
         if (this.host.paper && typeof this.host.paper.remove === 'function') {
-            this.host.paper.remove(object);
+            this.host.paper.unlinkPart(object);
         }
         if (this.host.newPaper && typeof this.host.newPaper.remove === 'function') {
-            this.host.newPaper.remove(object);
+            this.host.newPaper.unlinkPart(object);
         }
         if (object.kind === 'hot-ball') {
             this.heatMap.removeBall(object.motion);
@@ -798,7 +798,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.heatMap.removeHighlighter(object);
         } else if (object.kind === 'hot-map-new-paper' && typeof object.sheetList === 'function') {
             object.sheetList().slice().forEach((sheet) => {
-                object.remove(sheet);
+                object.unlinkPart(sheet);
                 this.heatMap.removeHighlighter(sheet);
             });
             object.sheet = null;
@@ -1178,8 +1178,8 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             return;
         }
         [this.host.stone, this.host.scissor, this.host.paper, this.host.newPaper].forEach((other) => {
-            if (other && other !== group && typeof other.remove === 'function') {
-                other.remove(created);
+            if (other && other !== group && typeof other.unlinkPart === 'function') {
+                other.unlinkPart(created);
             }
         });
         if (group.parts.every((part) => part.object !== created)) {

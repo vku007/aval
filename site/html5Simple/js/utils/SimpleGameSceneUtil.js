@@ -110,13 +110,16 @@ class SimpleGameSceneUtil {
      * @param {object} move
      * @returns {string}
      */
-    static formatMoveLabel(move) {
+    static formatMoveLabel(move, options) {
         if (!move) {
             return '—';
         }
         const type = move.context?.moveType || '—';
         const size = move.context?.size;
-        let label = typeof size === 'number' && size > 0 ? `${type} ${size}` : String(type);
+        const showZero = !!(options && options.showZero);
+        let label = typeof size === 'number' && (size > 0 || (showZero && size === 0))
+            ? `${type} ${size}`
+            : String(type);
         const tags = this.formatEffectTags(move);
         return tags ? `${label} ${tags}` : label;
     }
@@ -145,7 +148,7 @@ class SimpleGameSceneUtil {
      * @param {string} currentUserId
      * @returns {{ playerMove: string, enemyMove: string, result: string, resultKind: string }}
      */
-    static getLastSubRoundStage(gameData, currentUserId) {
+    static getLastSubRoundStage(gameData, currentUserId, options) {
         const empty = { playerMove: '—', enemyMove: '—', result: 'WAIT', resultKind: 'wait' };
         if (!gameData || !currentUserId) {
             return empty;
@@ -174,8 +177,8 @@ class SimpleGameSceneUtil {
         }
 
         return {
-            playerMove: this.formatMoveLabel(playerMove),
-            enemyMove: this.formatMoveLabel(enemyMove),
+            playerMove: this.formatMoveLabel(playerMove, options),
+            enemyMove: this.formatMoveLabel(enemyMove, options),
             result,
             resultKind
         };

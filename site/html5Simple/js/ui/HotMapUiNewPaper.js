@@ -77,37 +77,25 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         this.dramaJump = preset.dramaJump;
         this.dramaDrop = preset.dramaDrop;
         this.sheetInit = defaultHotMapNewPaperSheetInit();
-        this.ballSpin = 0;
-        this._spinEpoch = -1;
+        this.exitInstant = true;
         if (typeof heatMap.addHighlighter === 'function') {
             heatMap.addHighlighter(this);
         }
     }
 
-    afterAdd(object) {
-        if (object && object.kind === 'new-sheet') {
-            object.spinHost = this;
-        }
-    }
-
-    afterRemove(object) {
-        if (object && object.spinHost === this) {
-            object.spinHost = null;
-        }
-    }
-
-    advance(delta) {
+    pump() {
         this.finishDramas();
-        const field = this.heatMap && this.heatMap.field;
-        const epoch = field ? (field.sheetEpoch || 0) : -1;
-        if (epoch >= 0 && this._spinEpoch === epoch) {
-            return;
-        }
-        this._spinEpoch = epoch;
-        const dt = Math.min(Math.max(0, delta || 0) / 1000, 0.05);
-        const speed = this.sheetInit.ballSpeed || 0;
-        this.ballSpin = wrapNewSheetAngle(this.ballSpin + speed * dt);
     }
+
+    afterAdd(object) {
+        const disks = this.sheetList();
+        const lead = disks[0];
+        if (lead && object && object !== lead) {
+            copyDiskCycles(object, lead);
+        }
+    }
+
+    afterRemove() {}
 
     sheetList() {
         return this.parts
@@ -115,7 +103,8 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             .filter((object) => object && object.kind === 'new-sheet');
     }
 
-    addItem() {
+    addItem(opts) {
+        const animate = !opts || opts.animate !== false;
         const init = this.sheetInit;
         const index = this.parts.length;
         HOT_MAP_NEW_PAPER_SHEET_SEQ += 1;
@@ -140,12 +129,54 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             ballSize: init.ballSize,
             ballHeat: init.ballHeat
         });
-        sheet.beginBallTravel(this.spawn);
+        if (animate) {
+            sheet.beginBallTravel(this.spawn);
+        }
         this.add(sheet);
+        if (!animate) {
+            this.layoutItems();
+        }
         if (typeof this.onPartAdded === 'function') {
             this.onPartAdded(sheet);
         }
+        this.emit('added', sheet);
         return sheet;
+    }
+
+    layoutItems() {
+        layoutDiskItems(this);
+    }
+
+    resyncCycles() {
+        alignDiskStack(this);
+    }
+
+    writeField(item, key, value) {
+        if (key === 'isVisible' && item) {
+            item.isVisible = !!value;
+            return item.isVisible;
+        }
+        return HeatComposite.prototype.writeField.call(this, item, key, value);
+    }
+
+    keepTemplate(key, value) {
+        if (key === 'distance' && typeof value === 'number') {
+            this.distance = value;
+            return;
+        }
+        if (key === 'heatGain' || key === 'diskGain' || key === 'radiusGain') {
+            this[key] = value;
+            return;
+        }
+        if (this.sheetInit && (typeof this.sheetInit[key] === 'number' || typeof this.sheetInit[key] === 'boolean')) {
+            this.sheetInit[key] = value;
+        }
+    }
+
+    onFieldSet(key) {
+        if (key === 'distance' || key === 'heatGain' || key === 'diskGain' || key === 'radiusGain') {
+            this.layoutItems();
+        }
     }
 
     removeItem(object) {
@@ -240,8 +271,7 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             return placed;
         }
         if (key === 'isVisible') {
-            this.sheetInit.isVisible = !this.sheetInit.isVisible;
-            return this.sheetInit.isVisible;
+            return this.set('isVisible', !this.sheetInit.isVisible);
         }
         if (key === 'distance') {
             return this.nudgeDistance(dir);
@@ -265,9 +295,11 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         }
         if (key === 'ballPhase') {
             this.sheetInit[key] = wrapNewSheetAngle(this.sheetInit[key] + dir * spec.step);
+            this.items.forEach((item) => this.writeField(item, key, this.sheetInit[key]));
             return this.sheetInit[key];
         }
         this.sheetInit[key] = clampNewSheetSpec(key, this.sheetInit[key] + dir * spec.step);
+        this.items.forEach((item) => this.writeField(item, key, this.sheetInit[key]));
         return this.sheetInit[key];
     }
 
@@ -275,6 +307,7 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         const spec = HOT_MAP_NEW_PAPER_DISTANCE;
         const next = this.distance + dir * spec.step;
         this.distance = Math.max(spec.min, Math.min(spec.max, next));
+        this.layoutItems();
         return this.distance;
     }
 
@@ -282,6 +315,7 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         const spec = HOT_MAP_NEW_PAPER_GAIN;
         const next = this[key] + dir * spec.step;
         this[key] = Math.max(spec.min, Math.min(spec.max, next));
+        this.layoutItems();
         return this[key];
     }
 
@@ -302,7 +336,8 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         data.dramaFallSpeed = this.dramaFallSpeed;
         data.dramaJump = this.dramaJump;
         data.dramaDrop = this.dramaDrop;
-        data.ballSpin = this.ballSpin;
+        const lead = this.sheetList()[0];
+        data.ballSpin = lead ? lead.ballSpin : 0;
         data.sheetInit = copyHotMapNewPaperSheetInit(this.sheetInit);
         return data;
     }
@@ -330,7 +365,10 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             }
         });
         if (typeof data.ballSpin === 'number') {
-            this.ballSpin = wrapNewSheetAngle(data.ballSpin);
+            const spin = wrapNewSheetAngle(data.ballSpin);
+            this.sheetList().forEach((sheet) => {
+                sheet.ballSpin = spin;
+            });
         }
     }
 }
@@ -472,6 +510,12 @@ function hotMapNewPaperScaled(specName, base, index, gain) {
     const next = (Number(base) || 0) * scale;
     return Math.max(spec.min, Math.min(spec.max, next));
 }
+
+heatRegisterComposite('diskStack', {
+    create(heatMap, overrides) {
+        return new HotMapUiNewPaper(heatMap, overrides);
+    }
+});
 
 function defaultHotMapNewPaperSheetInit() {
     return copyHotMapNewPaperSheetInit(HOT_MAP_NEW_PAPER_PRESET.sheet);

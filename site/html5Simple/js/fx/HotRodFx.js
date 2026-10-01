@@ -341,46 +341,7 @@ function beginHotRodStartHold(state) {
 }
 
 function stepHotRodLoop(state, delta) {
-    const dt = Math.min(delta / 1000, 0.05);
-    const start = state.start;
-    const end = state.end;
-    const startAngle = state.startAngle;
-    const endAngle = state.endAngle;
-    if (hotRodLoopIdle(state)) {
-        snapHotRodTo(state, start, startAngle);
-        return state.center;
-    }
-    if (state.phase === 'wait') {
-        state.waitLeft -= dt;
-        snapHotRodTo(state, end, endAngle);
-        if (state.waitLeft <= 0) {
-            beginHotRodStartHold(state);
-        }
-        return state.center;
-    }
-    if (state.phase === 'hold') {
-        state.waitLeft -= dt;
-        snapHotRodTo(state, start, startAngle);
-        if (state.waitLeft <= 0) {
-            state.phase = 'toEnd';
-        }
-        return state.center;
-    }
-    state.target.col = end.col;
-    state.target.row = end.row;
-    const k = hotRodFollowK(state, delta);
-    stepHotRodMotion(state, delta);
-    state.params.angle += (endAngle - state.params.angle) * k;
-    if (hotRodPoseArrived(state, end, endAngle, 0.6, 1)) {
-        snapHotRodTo(state, end, endAngle);
-        state.waitLeft = Math.max(0, state.params.delay || 0);
-        if (state.waitLeft <= 0) {
-            beginHotRodStartHold(state);
-        } else {
-            state.phase = 'wait';
-        }
-    }
-    return state.center;
+    return advancePathLoop(state, delta);
 }
 
 function createHotRodEmitterState(field, options) {
@@ -463,8 +424,25 @@ function createHotRodEmitterState(field, options) {
             return stepHotRodMotion(rod, delta);
         },
         retarget: (cell) => retargetHotRod(rod, cell),
-        stamp: (grid) => stampHotRodLine(grid, rod.cols, rod.rows, rod.center, rod.params, rod.t)
+        stamp: (grid) => {
+            const frame = heatFrame(heatNodeOf(rod));
+            if (heatRest(frame)) {
+                stampHotRodLine(grid, rod.cols, rod.rows, rod.center, rod.params, rod.t);
+                return;
+            }
+            stampHotRodLine(
+                grid,
+                rod.cols,
+                rod.rows,
+                heatPlace(frame, rod.center.col, rod.center.row),
+                heatRodParams(frame, rod.params),
+                rod.t,
+                heatClip(frame, null)
+            );
+        }
     };
+    rod.path = new PathLoop(rod);
+    rod.loops = [rod.path];
     return rod;
 }
 

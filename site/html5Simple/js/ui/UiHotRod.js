@@ -15,7 +15,7 @@ const UI_EDITOR_ROD_PATH_KEYS = {
     endY: { key: 'end', axis: 'row' }
 };
 
-class UiHotRod {
+class UiHotRod extends HeatItem {
     static PROP_TABS = [
         {
             id: 'heat',
@@ -54,15 +54,20 @@ class UiHotRod {
 
     constructor(heatMap, options) {
         const opts = options || {};
+        UI_HOT_ROD_SEQ += 1;
+        super({
+            kind: 'hot-rod',
+            name: opts.name || `Hot Rod ${UI_HOT_ROD_SEQ}`,
+            field: heatMap.field
+        });
         this.heatMap = heatMap;
         this.scene = heatMap.scene;
-        this.kind = 'hot-rod';
-        UI_HOT_ROD_SEQ += 1;
-        this.name = opts.name || `Hot Rod ${UI_HOT_ROD_SEQ}`;
         this.emitter = createHotRodEmitterState(heatMap.field, Object.assign({
             isVisible: true,
             loopOn: true
         }, opts));
+        this.bindBehaviour('rods', this.emitter);
+        this.loops = this.emitter.loops;
         heatMap.addRod(this.emitter);
     }
 

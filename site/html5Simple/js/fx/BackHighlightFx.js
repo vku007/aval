@@ -236,56 +236,7 @@ function stepBackHighlightPose(state, delta) {
     if (state.drive === 'hover') {
         return stepBackHighlightHover(state, delta);
     }
-    let dt = Math.min(Math.max(0, delta) / 1000, 0.05);
-    if (posesMatch(state.from, state.to)) {
-        state.current = copyBackHighlightPose(state.from);
-        return state.current;
-    }
-    if (state.phase === 'wait') {
-        state.waitLeft -= dt;
-        state.current = copyBackHighlightPose(state.to);
-        if (state.waitLeft > 0) {
-            return state.current;
-        }
-        dt = -state.waitLeft;
-        state.waitLeft = 0;
-        if (state.cycling) {
-            state.phase = 'toStart';
-        } else {
-            beginBackHighlightHold(state);
-            if (state.phase === 'hold') {
-                return state.current;
-            }
-        }
-    }
-    if (state.phase === 'hold') {
-        state.waitLeft -= dt;
-        state.current = copyBackHighlightPose(state.from);
-        if (state.waitLeft > 0) {
-            return state.current;
-        }
-        dt = -state.waitLeft;
-        state.waitLeft = 0;
-        state.phase = 'toEnd';
-    }
-    if (state.phase === 'toStart' && !state.cycling) {
-        beginBackHighlightHold(state);
-        return state.current;
-    }
-    if (dt <= 0) {
-        return state.current;
-    }
-    const toward = state.phase === 'toStart' ? state.from : state.to;
-    const k = 1 - Math.exp(-state.params.speed * dt);
-    easeBackHighlightPose(state.current, toward, k);
-    if (posesMatch(state.current, toward)) {
-        if (state.phase === 'toStart') {
-            beginBackHighlightHold(state);
-        } else {
-            arriveBackHighlightEnd(state);
-        }
-    }
-    return state.current;
+    return advancePoseCycle(state, delta);
 }
 
 function attachBackHighlight(scene, x, y, width, height) {
@@ -521,8 +472,23 @@ function createBackHighlightEmitterState(field, options) {
             emitter.center.row += (emitter.target.row - emitter.center.row) * k;
             return stepBackHighlightPose(emitter, delta);
         },
-        stamp: (grid) => stampBackHighlightRect(grid, emitter.cols, emitter.rows, emitter.center, emitter.current),
+        stamp: (grid) => {
+            const frame = heatFrame(heatNodeOf(emitter));
+            if (heatRest(frame)) {
+                stampBackHighlightRect(grid, emitter.cols, emitter.rows, emitter.center, emitter.current);
+                return;
+            }
+            stampBackHighlightRect(
+                grid,
+                emitter.cols,
+                emitter.rows,
+                heatPlace(frame, emitter.center.col, emitter.center.row),
+                heatPresentPose(frame, emitter.current, emitter.from, emitter.to)
+            );
+        },
         retarget: (cell) => emitter.setCenter(cell)
     };
+    emitter.pose = new PoseCycle(emitter);
+    emitter.loops = [emitter.pose];
     return emitter;
 }

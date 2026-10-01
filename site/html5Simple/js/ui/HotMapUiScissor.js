@@ -2,8 +2,9 @@
  * HotMapUiScissor
  * Heat-map group with a center. Parts keep offsets from that center.
  * Setting the center moves every part by the same amount.
- * A new shard flies in from the spawn point at 1×1, grows to its pose size,
- * and turns through 360° plus TURN so it lands on its final angle.
+ * A new shard's field position is the landing cell. Enter moves from the
+ * spawn offset, grows from nearly nothing, and spins through 360° plus TURN.
+ * Spawn and turn are frozen when that run starts.
  */
 class HotMapUiScissor extends HotMapUiComposite {
     static PROP_TABS = [
@@ -106,6 +107,7 @@ class HotMapUiScissor extends HotMapUiComposite {
             const next = this.angleStep + dir * spec.step;
             const clamped = Math.max(spec.min, Math.min(spec.max, next));
             this.angleStep = clamped;
+            this.layoutItems();
             return this.angleStep;
         }
         if (key === 'shardCycling') {
@@ -131,6 +133,7 @@ class HotMapUiScissor extends HotMapUiComposite {
             name,
             this.shardInit[name] + dir * spec.step
         );
+        this.items.forEach((item) => this.writeField(item, name, this.shardInit[name]));
         return this.shardInit[name];
     }
 
@@ -147,10 +150,13 @@ class HotMapUiScissor extends HotMapUiComposite {
             prop,
             (pose[prop] || 0) + dir * spec.step
         );
+        const label = prop.charAt(0).toUpperCase() + prop.slice(1);
+        this.items.forEach((item) => this.writeField(item, group + label, pose[prop]));
         return pose[prop];
     }
 
-    addItem() {
+    addItem(opts) {
+        const animate = !opts || opts.animate !== false;
         const init = this.shardInit;
         const spawn = {
             col: this.center.col + this.spawn.col,
@@ -163,6 +169,7 @@ class HotMapUiScissor extends HotMapUiComposite {
             from.angle = wrapHotMapScissorAngle(last.emitter.from.angle + this.angleStep);
             to.angle = wrapHotMapScissorAngle(last.emitter.to.angle + this.angleStep);
         }
+        const landing = { col: this.center.col, row: this.center.row };
         const shard = new UiShard(this.heatMap, {
             cycling: init.cycling !== false,
             params: {
@@ -172,52 +179,75 @@ class HotMapUiScissor extends HotMapUiComposite {
             },
             from: from,
             to: to,
-            center: spawn,
-            target: { col: this.center.col, row: this.center.row }
+            center: landing,
+            target: { col: landing.col, row: landing.row }
         });
-        this.armShardFlight(shard);
         this.add(shard);
+        shard.define('exit', scissorExit());
+        if (animate) {
+            this.playShardEnter(shard, spawn, landing);
+        } else {
+            this.layoutItems();
+        }
         if (typeof this.onPartAdded === 'function') {
             this.onPartAdded(shard);
         }
+        this.emit('added', shard);
         return shard;
     }
 
-    armShardFlight(shard) {
-        const emitter = shard.emitter;
-        const dx = emitter.target.col - emitter.center.col;
-        const dy = emitter.target.row - emitter.center.row;
-        const span = Math.hypot(dx, dy);
-        if (span < 0.5) {
+    layoutItems() {
+        layoutScissorItems(this);
+    }
+
+    keepTemplate(key, value) {
+        const field = HOT_MAP_SCISSOR_SHARD_FIELD_KEYS[key];
+        if (field && this.shardInit) {
+            this.shardInit[field] = value;
             return;
         }
-        emitter.travel = {
-            span: span,
-            spin: HOT_MAP_SCISSOR_FLIGHT_SPIN + this.angleStep
-        };
-        const restStamp = emitter.stamp;
-        emitter.stamp = (grid) => {
-            const pose = hotMapScissorFlightPose(emitter);
-            if (!emitter.travel) {
-                emitter.stamp = restStamp;
-                restStamp(grid);
-                return;
-            }
-            stampBackHighlightRect(grid, emitter.cols, emitter.rows, emitter.center, pose);
-        };
+        const pose = HOT_MAP_SCISSOR_SHARD_POSE_KEYS[key];
+        if (pose && this.shardInit && this.shardInit[pose[0]]) {
+            this.shardInit[pose[0]][pose[1]] = value;
+            return;
+        }
+        if (key === 'angleStep' && typeof value === 'number') {
+            this.angleStep = value;
+        }
+    }
+
+    writeField(item, key, value) {
+        const field = HOT_MAP_SCISSOR_SHARD_FIELD_KEYS[key] || key;
+        return HeatComposite.prototype.writeField.call(this, item, field, value);
+    }
+
+    onFieldSet(key) {
+        if (key === 'angleStep') {
+            this.layoutItems();
+        }
+    }
+
+    playShardEnter(shard, spawn, landing) {
+        const turn = this.angleStep;
+        const speed = shard.emitter.params.speed;
+        shard.define('enter', scissorEnter());
+        return shard.play('enter', {
+            spawn: {
+                col: spawn.col - landing.col,
+                row: spawn.row - landing.row
+            },
+            turn: turn,
+            spin: -(HOT_MAP_SCISSOR_FLIGHT_SPIN + turn),
+            duration: 3 / speed
+        });
     }
 
     removeItem() {
-        const object = this.takeLast('shard');
+        const object = this.lastPart('shard');
         if (!object) {
             return null;
         }
-        if (this.heatMap && typeof this.heatMap.removeHighlighter === 'function') {
-            this.heatMap.removeHighlighter(object.emitter);
-        }
-        if (typeof this.onPartRemoved === 'function') {
-            this.onPartRemoved(object);
-        }
+        this.remove(object, { instant: true });
         return object;
     }
 
@@ -250,30 +280,7 @@ HotMapUiScissor.ADD_TABS = [
 ];
 
 const HOT_MAP_SCISSOR_ANGLE_STEP = { min: 0, max: 180, step: 5 };
-const HOT_MAP_SCISSOR_FLIGHT_SIZE = 1;
 const HOT_MAP_SCISSOR_FLIGHT_SPIN = 360;
-
-function hotMapScissorFlightPose(emitter) {
-    const travel = emitter.travel;
-    const pose = emitter.current;
-    if (!travel) {
-        return pose;
-    }
-    const dx = emitter.target.col - emitter.center.col;
-    const dy = emitter.target.row - emitter.center.row;
-    const remain = Math.hypot(dx, dy) / travel.span;
-    if (remain <= 0.002) {
-        emitter.travel = null;
-        return pose;
-    }
-    const along = Math.max(0, Math.min(1, 1 - remain));
-    const shown = copyBackHighlightPose(pose);
-    const start = HOT_MAP_SCISSOR_FLIGHT_SIZE;
-    shown.width = start + (shown.width - start) * along;
-    shown.height = start + (shown.height - start) * along;
-    shown.angle -= (1 - along) * travel.spin;
-    return shown;
-}
 
 const HOT_MAP_SCISSOR_SHARD_FIELD_KEYS = {
     shardSpeed: 'speed',
@@ -352,6 +359,12 @@ function defaultHotMapScissorShardInit() {
         to: to
     };
 }
+
+heatRegisterComposite('scissor', {
+    create(heatMap, overrides) {
+        return new HotMapUiScissor(heatMap, overrides);
+    }
+});
 
 function copyHotMapScissorShardInit(raw) {
     const base = defaultHotMapScissorShardInit();

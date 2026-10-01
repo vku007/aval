@@ -1,0 +1,12 @@
+{
+  "name": "html5simple-heat-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "goldens": "UPDATE_GOLDENS=1 vitest run idle.test.js"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

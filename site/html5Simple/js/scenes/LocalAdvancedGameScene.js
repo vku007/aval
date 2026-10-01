@@ -15,7 +15,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     create() {
         exitTestsCanvas(this);
-        this._visit = (this._visit || 0) + 1;
         console.log('[LocalAdvancedGameScene] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;
@@ -56,15 +55,25 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             { key: 'enemyScissor', Ctor: HotMapUiScissor, spawn: enemySpawn, centerBox: enemyBox },
             { key: 'enemyPaper', Ctor: HotMapUiNewPaper, spawn: enemySpawn, centerBox: enemyBox }
         ];
-        // Previous visit's groups still have parts, but those parts stamp the
-        // destroyed heat map. A length check would keep them invisible.
-        this.stone = null;
-        this.scissor = null;
-        this.paper = null;
-        this.enemyStone = null;
-        this.enemyScissor = null;
-        this.enemyPaper = null;
-        this.syncSceneComposites();
+        this.compositeSpecs.forEach((spec) => {
+            this[spec.key] = createLocalAdvancedComposite(
+                spec.Ctor,
+                this.heatMap,
+                this.panelBoxes,
+                spec.spawn,
+                spec.centerBox
+            );
+        });
+        this.playerByType = {
+            Stone: this.stone,
+            Scissors: this.scissor,
+            Paper: this.paper
+        };
+        this.enemyByType = {
+            Stone: this.enemyStone,
+            Scissors: this.enemyScissor,
+            Paper: this.enemyPaper
+        };
         this.resultRods = [];
         this.createBackButton(width - UI.pad - UI.backW / 2, UI.pad + UI.backH / 2);
         this.selectedEffects = [];
@@ -72,8 +81,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this.gameData = null;
         this._sending = false;
         this._deferHealth = false;
-        // Scene instances are reused. Bars from the previous visit point at a
-        // destroyed heat map, and a length check would keep those dead emitters.
         this.healthBars = null;
         this.enemyHealthBars = null;
         this.createMatchReadout(boxes);
@@ -91,6 +98,8 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     async startMatch() {
+        const field = this.heatMap && this.heatMap.field;
+        const abort = this.abortOnShutdown();
         this.setStatus('Starting match...');
         try {
             if (typeof gameClient === 'undefined') {
@@ -102,14 +111,23 @@ class LocalAdvancedGameScene extends Phaser.Scene {
                 kind: 'extended',
                 level: { name: 'Level1' },
                 episode: { name: 'Episode1' }
-            });
+            }, { signal: abort.signal });
+            if (!this.fieldLive(field)) {
+                return;
+            }
             if (!response.gameId) {
                 throw new Error('No game ID returned');
             }
             this.currentGameId = response.gameId;
-            this.gameData = await gameClient.getGame(response.gameId);
+            this.gameData = await gameClient.getGame(response.gameId, { signal: abort.signal });
+            if (!this.fieldLive(field)) {
+                return;
+            }
             this.refreshMatchReadout();
         } catch (error) {
+            if (!this.fieldLive(field)) {
+                return;
+            }
             console.error('[LocalAdvancedGameScene] Failed to create game:', error);
             this.setStatus('Could not start match');
             this.showErrorModal('Failed to create game', error.message || 'An unexpected error occurred.');
@@ -117,7 +135,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     currentSelection() {
-        this.syncSceneComposites();
         const stacks = [
             { composite: this.stone, moveType: 'Stone' },
             { composite: this.scissor, moveType: 'Scissors' },
@@ -166,15 +183,20 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
 
+        const field = this.heatMap && this.heatMap.field;
+        const abort = this.abortOnShutdown();
         this._sending = true;
         this.refreshMoveButtons();
         this.setStatus(`Sending ${selection.moveType} ${selection.size}...`);
-        const visit = this._visit;
         try {
             const response = await gameClient.updateGame(
                 this.currentGameId,
-                this.buildMoveAction(user.id, selection.moveType, selection.size)
+                this.buildMoveAction(user.id, selection.moveType, selection.size),
+                { signal: abort.signal }
             );
+            if (!this.fieldLive(field)) {
+                return;
+            }
             const statusLower = String(response.status || '').toLowerCase();
             if (statusLower === 'failed' || statusLower === 'error') {
                 throw new Error(response.message || response.detail || 'The move could not be processed.');
@@ -184,7 +206,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             this.refreshMatchReadout();
             await this.playMoveResult(user.id);
         } catch (error) {
-            if (visit !== this._visit) {
+            if (!this.fieldLive(field)) {
                 return;
             }
             console.error('[LocalAdvancedGameScene] Failed to send move:', error);
@@ -192,7 +214,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             this.showErrorModal('Move Failed', error.message || 'An unexpected error occurred.');
             this.refreshMoveButtons();
         } finally {
-            if (visit !== this._visit) {
+            if (!this.fieldLive(field)) {
                 return;
             }
             this._sending = false;
@@ -224,12 +246,40 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         };
     }
 
-    visitOpen(visit) {
-        return visit === this._visit && this.sys && this.sys.isActive();
+    fieldLive(field) {
+        return !!(field && field.destroyed !== true && this.heatMap && this.heatMap.field === field);
+    }
+
+    abortOnShutdown() {
+        const abort = new AbortController();
+        this.events.once('shutdown', () => abort.abort());
+        return abort;
+    }
+
+    fieldWait(ms) {
+        const field = this.heatMap && this.heatMap.field;
+        return heatFieldWait(field, ms / 1000);
+    }
+
+    async finishRun(run, field) {
+        if (!this.fieldLive(field)) {
+            return false;
+        }
+        if (!run || !run.finished) {
+            return this.fieldLive(field);
+        }
+        const result = await run.finished;
+        if (!this.fieldLive(field)) {
+            return false;
+        }
+        return !!(result && result.status === 'finished');
     }
 
     async playMoveResult(userId) {
-        const visit = this._visit;
+        const field = this.heatMap && this.heatMap.field;
+        if (!this.fieldLive(field)) {
+            return;
+        }
         const exchange = this.latestExchange(userId);
         if (!exchange || !exchange.enemyType) {
             this.placeResultRod();
@@ -237,52 +287,73 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         }
         const playerComposite = this.playerByType[exchange.playerType];
         const enemyComposite = this.enemyByType[exchange.enemyType];
-        this.revealEnemyMove(exchange.enemyType, exchange.enemySize);
-        await this.pause(LOCAL_ADVANCED_REVEAL_PAUSE);
-        if (!this.visitOpen(visit)) {
+        this.resetEnemyBoards();
+        const shown = Math.min(
+            Math.max(0, exchange.enemySize),
+            localAdvancedMax(exchange.enemyType)
+        );
+        let emptySweep = null;
+        if (shown === 0 && enemyComposite) {
+            this.setStatus(`Enemy ${exchange.enemyType} 0`);
+            emptySweep = this.playHorisontalPulse('enemyEmptyPulse');
+        } else if (enemyComposite && !(await this.finishRun(enemyComposite.reveal(shown), field))) {
             return;
         }
-        await Promise.all([
-            this.playHorisontalPulse(),
-            this.playUserFightPulse()
+        if (!(await this.finishRun(this.fieldWait(LOCAL_ADVANCED_REVEAL_PAUSE), field))) {
+            return;
+        }
+        if (emptySweep && !(await this.finishRun(emptySweep, field))) {
+            return;
+        }
+        const fight = await Promise.all([
+            this.finishRun(this.playHorisontalPulse(), field),
+            this.finishRun(this.playUserFightPulse(), field)
         ]);
-        if (!this.visitOpen(visit)) {
+        if (fight.some((ok) => !ok)) {
             return;
         }
-        await this.pause(LOCAL_ADVANCED_CLASH_PAUSE);
-        if (!this.visitOpen(visit)) {
+        if (!(await this.finishRun(this.fieldWait(LOCAL_ADVANCED_CLASH_PAUSE), field))) {
             return;
         }
         const playerWon = exchange.winnerId && String(exchange.winnerId) === String(userId);
         const enemyWon = exchange.winnerId && !playerWon;
         if (exchange.winnerId) {
             const loser = playerWon ? enemyComposite : playerComposite;
-            await this.playRemoveAll(loser);
-            if (!this.visitOpen(visit)) {
+            if (loser && !(await this.finishRun(loser.clear(), field))) {
                 return;
             }
         }
         if (playerWon) {
-            await this.playVerticalPulse('enemyPostMortemPulse');
-            if (!this.visitOpen(visit)) {
+            if (!(await this.finishRun(this.playVerticalPulse('enemyPostMortemPulse'), field))) {
                 return;
             }
-            this.clearCompositeItems(playerComposite);
-            await this.playPlayerVictoryPulse();
+            if (this.fieldLive(field) && playerComposite) {
+                playerComposite.reset({ items: 'spec' });
+            }
+            await this.finishRun(this.playPlayerVictoryPulse(), field);
         } else if (enemyWon) {
-            await this.playUserPostMortemPulse();
-            if (!this.visitOpen(visit)) {
+            if (!(await this.finishRun(this.playUserPostMortemPulse(), field))) {
                 return;
             }
-            this.clearCompositeItems(enemyComposite);
-            await this.playEnemyVictoryPulse();
+            if (this.fieldLive(field) && enemyComposite) {
+                enemyComposite.reset({ items: 'spec' });
+            }
+            await this.finishRun(this.playEnemyVictoryPulse(), field);
         }
+    }
+
+    resetEnemyBoards() {
+        [this.enemyStone, this.enemyScissor, this.enemyPaper].forEach((group) => {
+            if (group && typeof group.reset === 'function') {
+                group.reset({ items: 'spec' });
+            }
+        });
     }
 
     playHorisontalPulse(name) {
         const enemy = (this.panelBoxes || []).find((box) => box.label === 'enemy_data');
         if (!enemy || !this.heatMap) {
-            return Promise.resolve();
+            return heatDoneRun();
         }
         return new HorisontalPulse(this.heatMap, {
             panel: enemy,
@@ -293,7 +364,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     playVerticalPulse(name) {
         const enemy = (this.panelBoxes || []).find((box) => box.label === 'enemy_data');
         if (!enemy || !this.heatMap) {
-            return Promise.resolve();
+            return heatDoneRun();
         }
         return new VerticalPulse(this.heatMap, {
             panel: enemy,
@@ -305,7 +376,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const panel = (this.panelBoxes || []).find((box) => box.label === 'current turn');
         const target = hotHealthBarPoint(this.heatMap, this.enemyHealthBars, 'left');
         if (!panel || !target || !this.heatMap) {
-            return Promise.resolve();
+            return heatDoneRun();
         }
         return new VictoryPulse(this.heatMap, {
             name: 'playerVictoryPulse',
@@ -323,7 +394,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const panel = (this.panelBoxes || []).find((box) => box.label === 'enemy_data');
         const target = hotHealthBarPoint(this.heatMap, this.healthBars, 'right');
         if (!panel || !target || !this.heatMap) {
-            return Promise.resolve();
+            return heatDoneRun();
         }
         return new VictoryPulse(this.heatMap, {
             name: 'enemyVictoryPulse',
@@ -340,7 +411,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     playUserFightPulse() {
         const panel = (this.panelBoxes || []).find((box) => box.label === 'current turn');
         if (!panel || !this.heatMap) {
-            return Promise.resolve();
+            return heatDoneRun();
         }
         return new HorisontalPulse(this.heatMap, {
             panel: panel,
@@ -353,7 +424,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     playUserPostMortemPulse() {
         const panel = (this.panelBoxes || []).find((box) => box.label === 'current turn');
         if (!panel || !this.heatMap) {
-            return Promise.resolve();
+            return heatDoneRun();
         }
         return new VerticalPulse(this.heatMap, {
             panel: panel,
@@ -363,39 +434,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         }).play();
     }
 
-    revealEnemyMove(moveType, size) {
-        this.syncSceneComposites();
-        const composite = this.enemyByType[moveType];
-        if (!composite) {
-            return;
-        }
-        while (composite.parts.length > 0) {
-            composite.removeItem();
-        }
-        const shown = Math.min(Math.max(0, size), localAdvancedMax(moveType));
-        for (let index = 0; index < shown; index += 1) {
-            composite.addItem();
-        }
-    }
-
-    clearCompositeItems(composite) {
-        if (!composite) {
-            return;
-        }
-        while (composite.parts.length > 0) {
-            composite.removeItem();
-        }
-    }
-
-    async playRemoveAll(composite) {
-        while (composite && composite.parts.length > 0) {
-            composite.removeItem();
-            await this.pause(LOCAL_ADVANCED_REMOVE_PAUSE);
-        }
-    }
-
     placeResultRod() {
-        this.syncResultRods();
         const enemy = (this.panelBoxes || []).find((box) => box.label === 'enemy_data');
         if (!enemy || !this.heatMap) {
             return;
@@ -415,16 +454,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             loopOn: false
         });
         this.resultRods.push(rod);
-    }
-
-    pause(ms) {
-        return new Promise((resolve) => {
-            if (!this.sys || !this.sys.isActive()) {
-                resolve();
-                return;
-            }
-            this.time.delayedCall(ms, resolve);
-        });
     }
 
     clearSelection(composite) {
@@ -483,7 +512,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             const suffix = over ? '  ·  match over' : '';
             this.scoreText.setText(`you ${scores.playerScore}  —  enemy ${scores.enemyScore}${suffix}`);
         }
-        const stage = SimpleGameSceneUtil.getLastSubRoundStage(this.gameData, userId);
+        const stage = SimpleGameSceneUtil.getLastSubRoundStage(this.gameData, userId, { showZero: true });
         if (this.enemyReadout) {
             this.enemyReadout.setText(`you  ${stage.playerMove}\nenemy  ${stage.enemyMove}\n${stage.result}`);
         }
@@ -679,9 +708,8 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     addCompositeItem(key, maxItems) {
-        this.syncSceneComposites();
         const composite = this[key];
-        if (!composite || !composite.liveOn(this.heatMap) || composite.parts.length >= maxItems) {
+        if (!composite || composite.parts.length >= maxItems) {
             return;
         }
         composite.addItem();
@@ -689,7 +717,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     onCancelPress() {
-        this.syncSceneComposites();
         const composite = [this.stone, this.scissor, this.paper].find((item) => item && item.parts.length > 0);
         if (!composite) {
             return;
@@ -699,7 +726,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     refreshMoveButtons() {
-        this.syncSceneComposites();
         const counts = {
             stone: this.stone ? this.stone.parts.length : 0,
             scissors: this.scissor ? this.scissor.parts.length : 0,
@@ -839,55 +865,9 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     update(time, delta) {
-        this.syncSceneComposites();
-        this.syncResultRods();
         if (this.heatMap && typeof this.heatMap.update === 'function') {
             this.heatMap.update(time, delta);
         }
-    }
-
-    syncSceneComposites() {
-        (this.compositeSpecs || []).forEach((spec) => {
-            let current = this[spec.key];
-            if (current && current.heatMap === this.heatMap) {
-                current.bindToField();
-            }
-            if (current && current.liveOn(this.heatMap)) {
-                return;
-            }
-            const count = current && current.heatMap === this.heatMap ? current.parts.length : 0;
-            if (current && current.heatMap === this.heatMap) {
-                this.clearCompositeItems(current);
-                if (current.kind === 'hot-map-new-paper') {
-                    this.heatMap.removeHighlighter(current);
-                }
-            }
-            const next = createLocalAdvancedComposite(
-                spec.Ctor,
-                this.heatMap,
-                this.panelBoxes,
-                spec.spawn,
-                spec.centerBox
-            );
-            this[spec.key] = next;
-            for (let index = 0; index < count; index += 1) {
-                next.addItem();
-            }
-        });
-        this.playerByType = {
-            Stone: this.stone,
-            Scissors: this.scissor,
-            Paper: this.paper
-        };
-        this.enemyByType = {
-            Stone: this.enemyStone,
-            Scissors: this.enemyScissor,
-            Paper: this.enemyPaper
-        };
-    }
-
-    syncResultRods() {
-        this.resultRods = (this.resultRods || []).filter((rod) => heatMapOwns(this.heatMap, rod));
     }
 
     createBackButton(x, y) {
@@ -1022,13 +1002,17 @@ function createLocalAdvancedComposite(Ctor, heatMap, boxes, spawnPixel, centerBo
         current.y + current.height / 2
     );
     const spawnPoint = heatMapCellAt(heatMap, spawnPixel.x, spawnPixel.y);
-    return new Ctor(heatMap, {
+    const group = new Ctor(heatMap, {
         center: center,
         spawn: {
             col: spawnPoint.col - center.col,
             row: spawnPoint.row - center.row
-        }
+        },
+        count: 0
     });
+    group.specCount = 0;
+    group.reset({ items: 'spec' });
+    return group;
 }
 
 function hotHealthBarPoint(heatMap, bars, edge) {

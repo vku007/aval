@@ -49,6 +49,7 @@ class UiHeatMap {
                 texKey: `ui-heatmap-${UI_HEAT_MAP_SEQ}`
             }, options || {})
         );
+        this.field.heatMap = this;
         this.field.onTap = (cell) => {
             if (typeof this.onTap === 'function') {
                 this.onTap(cell);
@@ -298,43 +299,3 @@ function heatMapOwns(heatMap, object) {
     return !!list && list.indexOf(reg.item) >= 0;
 }
 
-function bindHeatMapObject(heatMap, object) {
-    if (!heatMap || heatMapOwns(heatMap, object)) {
-        return;
-    }
-    const reg = heatMapRegistration(object);
-    if (!reg) {
-        return;
-    }
-    if (reg.list === 'balls') {
-        heatMap.addBall(reg.item);
-    } else if (reg.list === 'rods') {
-        heatMap.addRod(reg.item);
-    } else {
-        heatMap.addHighlighter(reg.item);
-    }
-}
-
-function bindHeatMapList(heatMap, list) {
-    (list || []).forEach((object) => bindHeatMapObject(heatMap, object));
-}
-
-function bindSceneHeatObjects(scene) {
-    if (!scene || !scene.heatMap) {
-        return;
-    }
-    ['balls', 'rods', 'highlighters', 'shards', 'sheets'].forEach((key) => {
-        bindHeatMapList(scene.heatMap, scene[key]);
-    });
-    ['stone', 'scissor', 'paper', 'newPaper', 'sheet'].forEach((key) => {
-        const object = scene[key];
-        if (!object) {
-            return;
-        }
-        if (typeof object.bindToField === 'function' && object.heatMap === scene.heatMap) {
-            object.bindToField();
-            return;
-        }
-        bindHeatMapObject(scene.heatMap, object);
-    });
-}

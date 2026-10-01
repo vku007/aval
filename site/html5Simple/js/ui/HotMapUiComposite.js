@@ -4,27 +4,9 @@
  * Setting the center moves every part by the same amount.
  * Stone, Scissor, Paper, and New Paper extend this and add their own items.
  */
-class HotMapUiComposite {
+class HotMapUiComposite extends HeatComposite {
     constructor(heatMap, options) {
-        const opts = options || {};
-        const field = heatMap.field;
-        this.heatMap = heatMap;
-        this.kind = opts.kind || '';
-        this.name = opts.name || 'Group';
-        this.center = {
-            col: opts.center && typeof opts.center.col === 'number'
-                ? opts.center.col
-                : (field.cols - 1) * 0.5,
-            row: opts.center && typeof opts.center.row === 'number'
-                ? opts.center.row
-                : (field.rows - 1) * 0.5
-        };
-        this.parts = [];
-        const spawn = opts.spawn || {};
-        this.spawn = {
-            col: typeof spawn.col === 'number' ? spawn.col : 0,
-            row: typeof spawn.row === 'number' ? spawn.row : 0
-        };
+        super(heatMap, options);
     }
 
     add(object) {
@@ -33,17 +15,39 @@ class HotMapUiComposite {
         }
         const part = { object: object, local: null };
         this.parts.push(part);
+        if (object.isHeatNode) {
+            object.parent = this;
+            this.watchDetach(object);
+        }
         part.local = this.captureLocal(object);
         this.afterAdd(object);
         return object;
     }
 
-    remove(object) {
+    unlinkPart(object) {
         const index = this.parts.findIndex((part) => part.object === object);
-        if (index >= 0) {
-            this.parts.splice(index, 1);
-            this.afterRemove(object);
+        if (index < 0) {
+            return;
         }
+        this.parts.splice(index, 1);
+        if (object.parent === this) {
+            object.parent = null;
+        }
+        this.afterRemove(object);
+    }
+
+    watchDetach(object) {
+        if (!object || object._groupDetach) {
+            return;
+        }
+        object._groupDetach = true;
+        const inner = object.detach.bind(object);
+        const group = this;
+        object.detach = function detachFromGroup() {
+            const result = inner();
+            group.noteDetached(object);
+            return result;
+        };
     }
 
     afterAdd() {}
@@ -95,6 +99,9 @@ class HotMapUiComposite {
                 continue;
             }
             this.parts.splice(index, 1);
+            if (object.parent === this) {
+                object.parent = null;
+            }
             return object;
         }
         return null;
@@ -221,6 +228,9 @@ class HotMapUiComposite {
             this.spawn = { col: data.spawn.col, row: data.spawn.row };
         }
         this.applySerializedExtras(data);
+        if (data.parts) {
+            this.specCount = data.parts.length;
+        }
         (data.parts || []).forEach((entry, index) => {
             const part = this.parts[index];
             if (!part || !entry || !entry.object || typeof part.object.applySerialized !== 'function') {
@@ -232,23 +242,6 @@ class HotMapUiComposite {
     }
 
     applySerializedExtras() {}
-
-    liveOn(heatMap) {
-        if (!heatMap || this.heatMap !== heatMap) {
-            return false;
-        }
-        if (this.kind === 'hot-map-new-paper' && !heatMapOwns(heatMap, this)) {
-            return false;
-        }
-        return this.parts.every((part) => heatMapOwns(heatMap, part.object));
-    }
-
-    bindToField() {
-        if (this.kind === 'hot-map-new-paper') {
-            bindHeatMapObject(this.heatMap, this);
-        }
-        this.parts.forEach((part) => bindHeatMapObject(this.heatMap, part.object));
-    }
 }
 
 const HOT_MAP_STONE_POINT_KEYS = ['orbitCenter', 'orbitTarget', 'start', 'end', 'center', 'target'];

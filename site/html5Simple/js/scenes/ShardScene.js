@@ -50,7 +50,6 @@ class ShardScene extends Phaser.Scene {
     }
 
     update(time, delta) {
-        bindSceneHeatObjects(this);
         if (this.heatMap && typeof this.heatMap.update === 'function') {
             this.heatMap.update(time, delta);
         }

@@ -1,6 +1,6 @@
 # Step 1: heat UI objects, composites, and transitions
 
-Status: proposal. Scope: `site/html5Simple` heat objects, composites, pulses, and `LocalAdvancedGameScene`. This is the first step of [heatmap_game_refactor.md](heatmap_game_refactor.md). It replaces that plan's Layers 3 and 5 where they differ.
+Status: proposal. Implementation order and resolved conflicts: [heatmap_step1_agent_implementation.md](heatmap_step1_agent_implementation.md). Scope: `site/html5Simple` heat objects, composites, pulses, and `LocalAdvancedGameScene`. This is the first step of [heatmap_game_refactor.md](heatmap_game_refactor.md). It replaces that plan's Layers 3 and 5 where they differ. Where this file and [heatmap_ui_objects_transitions.md](heatmap_ui_objects_transitions.md) differ, this file wins.
 
 ## Intentions
 

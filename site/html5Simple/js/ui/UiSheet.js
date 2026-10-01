@@ -12,7 +12,7 @@ const UI_EDITOR_SHEET_PARAM_KEYS = [
     'radius', 'energy', 'ballSpeed', 'ballDelta'
 ];
 
-class UiSheet {
+class UiSheet extends HeatItem {
     static PROP_TABS = [
         {
             id: 'field',
@@ -69,12 +69,17 @@ class UiSheet {
 
     constructor(heatMap, options) {
         const opts = options || {};
+        UI_SHEET_SEQ += 1;
+        super({
+            kind: 'sheet',
+            name: opts.name || `Sheet ${UI_SHEET_SEQ}`,
+            field: heatMap.field
+        });
         this.heatMap = heatMap;
         this.scene = heatMap.scene;
-        this.kind = 'sheet';
-        UI_SHEET_SEQ += 1;
-        this.name = opts.name || `Sheet ${UI_SHEET_SEQ}`;
         this.emitter = createSheetEmitterState(heatMap.field, opts);
+        this.bindBehaviour('highlighters', this.emitter);
+        this.loops = this.emitter.loops;
         heatMap.addHighlighter(this.emitter);
     }
 

@@ -85,28 +85,22 @@ class HotMapUiPaper extends HotMapUiComposite {
             splitDelay: HOT_MAP_PAPER_REVEAL_DELAY,
             stackGap: HOT_MAP_PAPER_STACK_GAP
         };
-        this.ballClock = { phase: 0, speed: 0, epoch: -1 };
-        this.glistenClock = {
-            glisten: 0,
-            glistenPhase: 'run',
-            glistenWait: 0,
-            epoch: -1,
-            params: {
-                glistenSpeed: this.sheetInit.glistenSpeed,
-                glistenDelay: this.sheetInit.glistenDelay
-            }
-        };
-        this.shapeClock = createSheetShapeClock();
+        this.layoutAnchor = { col: this.center.col, row: this.center.row };
     }
 
-    afterAdd() {
-        this.syncBalls();
+    afterAdd(object) {
+        const sheets = this.sheetList();
+        const lead = sheets[0];
+        const index = sheets.indexOf(object);
+        if (index > 0) {
+            copyPaperCycles(object, lead, index * HOT_MAP_PAPER_BALL_SHIFT);
+        }
+        if (object && object.kind === 'sheet') {
+            object.define('exit', paperExit());
+        }
     }
 
-    afterRemove(object) {
-        this.clearSheetClocks(object);
-        this.syncBalls();
-    }
+    afterRemove() {}
 
     get params() {
         const init = this.sheetInit;
@@ -151,12 +145,10 @@ class HotMapUiPaper extends HotMapUiComposite {
             return placed;
         }
         if (key === 'cycling') {
-            this.sheetInit.cycling = !this.sheetInit.cycling;
-            return this.sheetInit.cycling;
+            return this.set('cycling', !this.sheetInit.cycling);
         }
         if (key === 'glistenOn') {
-            this.sheetInit.glistenOn = !this.sheetInit.glistenOn;
-            return this.sheetInit.glistenOn;
+            return this.set('glistenOn', !this.sheetInit.glistenOn);
         }
         if (HOT_MAP_PAPER_ADD_SPECS[key]) {
             return this.nudgeAddMotion(key, dir);
@@ -176,6 +168,9 @@ class HotMapUiPaper extends HotMapUiComposite {
         const clamped = Math.max(spec.min, Math.min(spec.max, next));
         const decimals = spec.step < 0.1 ? 2 : spec.step < 1 ? 1 : 0;
         this.addMotion[key] = Number(clamped.toFixed(decimals));
+        if (key === 'stackGap') {
+            this.layoutItems();
+        }
         return this.addMotion[key];
     }
 
@@ -190,6 +185,7 @@ class HotMapUiPaper extends HotMapUiComposite {
             name,
             this.sheetInit[name] + dir * spec.step
         );
+        this.items.forEach((item) => this.writeField(item, name, this.sheetInit[name]));
         return this.sheetInit[name];
     }
 
@@ -207,10 +203,14 @@ class HotMapUiPaper extends HotMapUiComposite {
             (pose[prop] || 0) + dir * spec.step
         );
         pose.angle = 0;
+        const label = prop.charAt(0).toUpperCase() + prop.slice(1);
+        const param = group + label;
+        this.items.forEach((item) => this.writeField(item, param, pose[prop]));
         return pose[prop];
     }
 
-    addItem() {
+    addItem(opts) {
+        const animate = !opts || opts.animate !== false;
         const init = this.sheetInit;
         const last = this.lastPart('sheet');
         const motion = this.addMotion;
@@ -245,34 +245,70 @@ class HotMapUiPaper extends HotMapUiComposite {
             },
             from: mergeSheetPose(init.from),
             to: mergeSheetPose(init.to),
-            center: spawn,
+            center: animate ? spawn : place,
             target: place
         });
-        sheet.emitter.travel = {
-            stage: 'pair',
-            u: 0,
-            radiusScale: motion.pairSize,
-            spawnLocal: {
-                col: spawn.col - place.col,
-                row: spawn.row - place.row
-            },
-            waypointLocal: {
-                col: waypoint.col - place.col,
-                row: waypoint.row - place.row
-            },
-            revealDelay: motion.splitDelay,
-            pair: { col: spawn.col, row: spawn.row },
-            upper: null,
-            lower: null,
-            upperFrom: null,
-            lowerFrom: null
-        };
+        if (animate) {
+            sheet.emitter.travel = {
+                stage: 'pair',
+                u: 0,
+                radiusScale: motion.pairSize,
+                spawnLocal: {
+                    col: spawn.col - place.col,
+                    row: spawn.row - place.row
+                },
+                waypointLocal: {
+                    col: waypoint.col - place.col,
+                    row: waypoint.row - place.row
+                },
+                revealDelay: motion.splitDelay,
+                pair: { col: spawn.col, row: spawn.row },
+                upper: null,
+                lower: null,
+                upperFrom: null,
+                lowerFrom: null
+            };
+        }
         this.add(sheet);
-        this.fitStack();
+        if (animate) {
+            this.fitStack();
+        } else {
+            this.layoutItems();
+        }
         if (typeof this.onPartAdded === 'function') {
             this.onPartAdded(sheet);
         }
+        this.emit('added', sheet);
         return sheet;
+    }
+
+    layoutItems() {
+        layoutPaperItems(this);
+    }
+
+    resyncCycles() {
+        alignPaperStack(this);
+    }
+
+    keepTemplate(key, value) {
+        const pose = HOT_MAP_PAPER_POSE_KEYS[key];
+        if (pose && this.sheetInit && this.sheetInit[pose[0]]) {
+            this.sheetInit[pose[0]][pose[1]] = value;
+            return;
+        }
+        if (this.addMotion && typeof this.addMotion[key] === 'number') {
+            this.addMotion[key] = value;
+            return;
+        }
+        if (this.sheetInit && (typeof this.sheetInit[key] === 'number' || typeof this.sheetInit[key] === 'boolean')) {
+            this.sheetInit[key] = value;
+        }
+    }
+
+    onFieldSet(key) {
+        if (key === 'stackGap') {
+            this.layoutItems();
+        }
     }
 
     sheetList() {
@@ -309,52 +345,13 @@ class HotMapUiPaper extends HotMapUiComposite {
         return this.center;
     }
 
-    syncBalls() {
-        const sheets = this.sheetList();
-        if (sheets.length) {
-            const lead = sheets[0].emitter.params;
-            this.ballClock.speed = Math.max(0, lead.ballSpeed || 0);
-            this.glistenClock.params.glistenSpeed = lead.glistenSpeed;
-            this.glistenClock.params.glistenDelay = lead.glistenDelay;
-            this.shapeClock.params.speed = lead.speed;
-            this.shapeClock.params.delay = lead.delay;
-            this.shapeClock.params.gap = lead.gap;
-            this.shapeClock.cycling = sheets[0].emitter.cycling !== false;
-        }
-        sheets.forEach((sheet, index) => {
-            const emitter = sheet.emitter;
-            emitter.ballClock = this.ballClock;
-            emitter.ballLead = index === 0;
-            emitter.ballShift = index * HOT_MAP_PAPER_BALL_SHIFT;
-            emitter.glistenClock = this.glistenClock;
-            emitter.shapeClock = this.shapeClock;
-        });
-    }
-
-    clearSheetClocks(object) {
-        if (!object || !object.emitter) {
-            return;
-        }
-        object.emitter.ballClock = null;
-        object.emitter.ballLead = false;
-        object.emitter.glistenClock = null;
-        object.emitter.shapeClock = null;
-    }
-
     removeItem() {
-        const object = this.takeLast('sheet');
+        const object = this.lastPart('sheet');
         if (!object) {
             return null;
         }
-        this.clearSheetClocks(object);
-        if (this.heatMap && typeof this.heatMap.removeHighlighter === 'function') {
-            this.heatMap.removeHighlighter(object.emitter);
-        }
-        this.syncBalls();
+        this.remove(object, { instant: true });
         this.fitStack();
-        if (typeof this.onPartRemoved === 'function') {
-            this.onPartRemoved(object);
-        }
         return object;
     }
 
@@ -533,6 +530,12 @@ function defaultHotMapPaperSheetInit() {
         to: to
     };
 }
+
+heatRegisterComposite('paper', {
+    create(heatMap, overrides) {
+        return new HotMapUiPaper(heatMap, overrides);
+    }
+});
 
 function copyHotMapPaperSheetInit(raw) {
     const base = defaultHotMapPaperSheetInit();

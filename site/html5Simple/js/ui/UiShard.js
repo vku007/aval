@@ -9,7 +9,7 @@ let UI_SHARD_SEQ = 0;
 const UI_EDITOR_SHARD_PARAM_KEYS = ['speed', 'delay', 'gap'];
 const UI_EDITOR_SHARD_POSE_KEYS = ['width', 'height', 'angle', 'skew', 'shapeHeat', 'heat', 'glisten'];
 
-class UiShard {
+class UiShard extends HeatItem {
     static PROP_TABS = [
         {
             id: 'field',
@@ -54,12 +54,17 @@ class UiShard {
 
     constructor(heatMap, options) {
         const opts = options || {};
+        UI_SHARD_SEQ += 1;
+        super({
+            kind: 'shard',
+            name: opts.name || `Shard ${UI_SHARD_SEQ}`,
+            field: heatMap.field
+        });
         this.heatMap = heatMap;
         this.scene = heatMap.scene;
-        this.kind = 'shard';
-        UI_SHARD_SEQ += 1;
-        this.name = opts.name || `Shard ${UI_SHARD_SEQ}`;
         this.emitter = createBackHighlightEmitterState(heatMap.field, opts);
+        this.bindBehaviour('highlighters', this.emitter);
+        this.loops = this.emitter.loops;
         heatMap.addHighlighter(this.emitter);
     }
 

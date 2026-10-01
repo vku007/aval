@@ -53,6 +53,13 @@ function newSheetRotate(x, y, deg) {
     };
 }
 
+function diskHeatBuffer(field, grid) {
+    if (!field.diskHeat || field.diskHeat.length !== grid.length) {
+        field.diskHeat = new Float32Array(grid.length);
+    }
+    return field.diskHeat;
+}
+
 function clampNewSheetSpec(name, value) {
     const spec = UI_NEW_SHEET_SPECS[name];
     if (!spec) {
@@ -63,7 +70,7 @@ function clampNewSheetSpec(name, value) {
     return Number(clamped.toFixed(newSheetDecimals(spec.step)));
 }
 
-class UiNewSheet {
+class UiNewSheet extends HeatItem {
     static PROP_TABS = [
         {
             id: 'loop',
@@ -121,10 +128,13 @@ class UiNewSheet {
 
     constructor(heatMap, options) {
         const opts = options || {};
+        super({
+            kind: 'new-sheet',
+            name: opts.name || 'New Sheet',
+            field: heatMap.field
+        });
         this.heatMap = heatMap;
         this.scene = heatMap.scene;
-        this.kind = 'new-sheet';
-        this.name = opts.name || 'New Sheet';
         this.loopSpeed = 90;
         this.loopAngle = 0;
         this.radFrom = 14;
@@ -164,6 +174,10 @@ class UiNewSheet {
             field.setParam('viewY', 0);
             field.setParam('viewZ', 0);
         }
+        this.bindBehaviour('highlighters', this);
+        this.spin = new Spin(this);
+        this.diskLoop = new DiskLoop(this);
+        this.loops = [this.spin, this.diskLoop];
         if (typeof heatMap.addHighlighter === 'function') {
             heatMap.addHighlighter(this);
         }
@@ -238,17 +252,10 @@ class UiNewSheet {
     }
 
     sharedBallSpin() {
-        if (this.spinHost && typeof this.spinHost.ballSpin === 'number') {
-            return this.spinHost.ballSpin;
-        }
         return this.ballSpin;
     }
 
     sharedBallSpeed() {
-        const init = this.spinHost && this.spinHost.sheetInit;
-        if (init && typeof init.ballSpeed === 'number') {
-            return init.ballSpeed;
-        }
         return this.ballSpeed;
     }
 
@@ -353,10 +360,7 @@ class UiNewSheet {
 
     step(delta) {
         const dt = Math.min(Math.max(0, delta || 0) / 1000, 0.05);
-        this.angle = wrapNewSheetAngle(this.angle + this.speed * dt);
-        if (!this.spinHost) {
-            this.ballSpin = wrapNewSheetAngle(this.ballSpin + this.ballSpeed * dt);
-        }
+        this.spin.advance(dt);
         if (this.drama) {
             this.advanceDrama(dt);
             return;
@@ -368,10 +372,7 @@ class UiNewSheet {
                 this.ballTravel = null;
             }
         }
-        this.loopAngle = wrapNewSheetAngle(this.loopAngle + this.loopSpeed * dt);
-        const wave = 0.5 + 0.5 * Math.sin(this.loopAngle * Math.PI / 180);
-        this.radius = this.radFrom + (this.radTo - this.radFrom) * wave;
-        this.heat = this.heatFrom + (this.heatTo - this.heatFrom) * wave;
+        this.diskLoop.advance(dt);
     }
 
     advance(delta) {
@@ -467,10 +468,6 @@ class UiNewSheet {
             this.setPivot({ col: home.col + pivot.x, row: home.row + pivot.y });
             return this.params[key];
         }
-        if (key === 'ballSpeed' && this.spinHost && this.spinHost.sheetInit) {
-            this.spinHost.sheetInit.ballSpeed = clampNewSheetSpec('ballSpeed', value);
-            return this.spinHost.sheetInit.ballSpeed;
-        }
         if (!UI_NEW_SHEET_SPECS[key]) {
             return this.params[key];
         }
@@ -522,6 +519,11 @@ class UiNewSheet {
     }
 
     stamp(grid) {
+        const frame = heatFrame(this);
+        if (!heatRest(frame)) {
+            this.stampWithChannels(grid, frame);
+            return;
+        }
         const field = this.heatMap.field;
         if (!this.diskSum || this.diskSum.length !== grid.length) {
             this.diskSum = new Float32Array(grid.length);
@@ -529,16 +531,7 @@ class UiNewSheet {
             this.diskSum.fill(0);
         }
         this.stampDisk(this.diskSum, field.cols, field.rows, this.diskCenter(this.depth), this.radius, this.heat);
-        const epoch = field.sheetEpoch || 0;
-        if (!field.diskHeat || field.diskHeat.length !== grid.length || field.diskHeatEpoch !== epoch) {
-            if (!field.diskHeat || field.diskHeat.length !== grid.length) {
-                field.diskHeat = new Float32Array(grid.length);
-            } else {
-                field.diskHeat.fill(0);
-            }
-            field.diskHeatEpoch = epoch;
-        }
-        const sum = field.diskHeat;
+        const sum = diskHeatBuffer(field, grid);
         for (let i = 0; i < grid.length; i++) {
             const add = this.diskSum[i];
             if (add <= 0) {
@@ -554,13 +547,72 @@ class UiNewSheet {
         }
     }
 
-    stampBall(grid, cols, rows, ball) {
-        let energy = this.ballHeat;
+    stampWithChannels(grid, frame) {
+        const field = this.heatMap.field;
+        const baseAngle = this.angle;
+        const localRotate = frame.own.rotate || 0;
+        if (localRotate !== 0) {
+            this.angle = baseAngle + localRotate;
+        }
+        const rawCenter = this.diskCenter(this.depth);
+        const rawBalls = [];
+        for (let index = 0; index < this.ballCount; index += 1) {
+            rawBalls.push(this.ballAt(index));
+        }
+        const groupRotate = frame.group ? frame.group.rotate : 0;
+        if (groupRotate !== 0) {
+            this.angle = baseAngle + localRotate + groupRotate;
+        }
+        try {
+            if (!this.diskSum || this.diskSum.length !== grid.length) {
+                this.diskSum = new Float32Array(grid.length);
+            } else {
+                this.diskSum.fill(0);
+            }
+            const diskScale = frame.own['disk.scale'] == null ? 1 : frame.own['disk.scale'];
+            const diskHeat = frame.own['disk.heat'] == null ? 1 : frame.own['disk.heat'];
+            const center = heatPlace(frame, rawCenter.col, rawCenter.row);
+            const radius = heatMul(heatScale(frame, this.radius), diskScale);
+            const heat = heatMul(heatHeat(frame, this.heat), diskHeat);
+            this.stampDisk(this.diskSum, field.cols, field.rows, center, radius, heat);
+            const sum = diskHeatBuffer(field, grid);
+            for (let i = 0; i < grid.length; i++) {
+                const add = this.diskSum[i];
+                if (add <= 0) {
+                    continue;
+                }
+                sum[i] = Math.min(1, sum[i] + add);
+                if (sum[i] > grid[i]) {
+                    grid[i] = sum[i];
+                }
+            }
+            const ballScale = frame.own['balls.scale'] == null ? 1 : frame.own['balls.scale'];
+            const ballHeat = frame.own['balls.heat'] == null ? 1 : frame.own['balls.heat'];
+            const dot = {
+                radius: heatMul(heatScale(frame, this.ballSize), ballScale),
+                energy: heatMul(heatHeat(frame, this.ballHeat), ballHeat)
+            };
+            rawBalls.forEach((ball) => {
+                const placed = heatBallPoint(frame, ball.col, ball.row);
+                this.stampBall(grid, field.cols, field.rows, {
+                    col: placed.col,
+                    row: placed.row,
+                    depth: ball.depth
+                }, dot);
+            });
+        } finally {
+            this.angle = baseAngle;
+        }
+    }
+
+    stampBall(grid, cols, rows, ball, dot) {
+        let energy = dot && typeof dot.energy === 'number' ? dot.energy : this.ballHeat;
+        const radius = dot && typeof dot.radius === 'number' ? dot.radius : this.ballSize;
         if (this.drama && this.drama.step === 3) {
             energy *= 1 - this.drama.u;
         }
         stampRotatedHotBall(grid, cols, rows, ball.col, ball.row, {
-            radius: this.ballSize,
+            radius: radius,
             energy: energy,
             orbitRadius: Math.max(1, this.ballRadius)
         }, ball.depth);

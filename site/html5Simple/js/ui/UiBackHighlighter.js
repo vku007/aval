@@ -9,7 +9,7 @@ let UI_BACK_HIGHLIGHT_SEQ = 0;
 const UI_EDITOR_HIGHLIGHT_PARAM_KEYS = ['speed', 'delay', 'gap'];
 const UI_EDITOR_HIGHLIGHT_POSE_KEYS = ['width', 'height', 'angle', 'heat'];
 
-class UiBackHighlighter {
+class UiBackHighlighter extends HeatItem {
     static PROP_TABS = [
         {
             id: 'field',
@@ -48,12 +48,17 @@ class UiBackHighlighter {
 
     constructor(heatMap, options) {
         const opts = options || {};
+        UI_BACK_HIGHLIGHT_SEQ += 1;
+        super({
+            kind: 'back-highlight',
+            name: opts.name || `Back Highlight ${UI_BACK_HIGHLIGHT_SEQ}`,
+            field: heatMap.field
+        });
         this.heatMap = heatMap;
         this.scene = heatMap.scene;
-        this.kind = 'back-highlight';
-        UI_BACK_HIGHLIGHT_SEQ += 1;
-        this.name = opts.name || `Back Highlight ${UI_BACK_HIGHLIGHT_SEQ}`;
         this.emitter = createBackHighlightEmitterState(heatMap.field, opts);
+        this.bindBehaviour('highlighters', this.emitter);
+        this.loops = this.emitter.loops;
         heatMap.addHighlighter(this.emitter);
     }
 

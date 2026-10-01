@@ -5,7 +5,7 @@
  */
 let UI_HOT_BALL_SEQ = 0;
 
-class UiHotBall {
+class UiHotBall extends HeatItem {
     static PROP_TABS = [
         {
             id: 'heat',
@@ -34,16 +34,21 @@ class UiHotBall {
 
     constructor(heatMap, options) {
         const opts = options || {};
+        UI_HOT_BALL_SEQ += 1;
+        super({
+            kind: 'hot-ball',
+            name: opts.name || `Hot Ball ${UI_HOT_BALL_SEQ}`,
+            field: heatMap.field
+        });
         this.heatMap = heatMap;
         this.scene = heatMap.scene;
-        this.kind = 'hot-ball';
-        UI_HOT_BALL_SEQ += 1;
-        this.name = opts.name || `Hot Ball ${UI_HOT_BALL_SEQ}`;
         this.motion = createRotatedHotBallState(heatMap.field, Object.assign({
             keepPhaseOnOrbit: true,
             orbitOn: true,
             isVisible: true
         }, opts));
+        this.bindBehaviour('balls', this.motion);
+        this.loops = this.motion.loops;
         heatMap.addBall(this.motion);
     }
 
@@ -169,6 +174,14 @@ class UiHotBall {
         this.motion.orbitTarget = target || (this.motion.orbitOn
             ? copyOrbitPoint(this.motion.orbitCenter)
             : null);
+    }
+
+    applyCommitted(values) {
+        if (!values || typeof values.phase !== 'number') {
+            return;
+        }
+        this.motion.angle += values.phase * Math.PI / 180;
+        this.motion.params.phase = wrapPhaseDeg(this.motion.angle * 180 / Math.PI);
     }
 
     retarget(cell) {

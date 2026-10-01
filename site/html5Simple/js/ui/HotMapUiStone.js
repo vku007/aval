@@ -89,10 +89,12 @@ class HotMapUiStone extends HotMapUiComposite {
         const next = this.ballInit[key] + dir * spec.step;
         const clamped = Math.max(spec.min, Math.min(spec.max, next));
         this.ballInit[key] = key === 'phase' ? wrapPhaseDeg(clamped) : clamped;
+        this.items.forEach((item) => this.writeField(item, key, this.ballInit[key]));
         return this.ballInit[key];
     }
 
-    addItem() {
+    addItem(opts) {
+        const animate = !opts || opts.animate !== false;
         const params = {};
         HOT_MAP_STONE_BALL_INIT_KEYS.forEach((key) => {
             params[key] = this.ballInit[key];
@@ -106,17 +108,65 @@ class HotMapUiStone extends HotMapUiComposite {
             row: this.center.row + this.spawn.row
         };
         const off = rotatedOrbitOffset(motion, motion.angle);
-        motion.orbitCenter.col = spawn.col - off.col;
-        motion.orbitCenter.row = spawn.row - off.row;
+        motion.orbitCenter.col = this.center.col;
+        motion.orbitCenter.row = this.center.row;
         motion.orbitTarget.col = this.center.col;
         motion.orbitTarget.row = this.center.row;
-        motion.centerFollow = this.spawnSpeed;
+        motion.centerFollow = null;
+        motion.phaseGoal = null;
+        motion.phaseFollow = null;
         this.add(ball);
-        this.spreadBallPhases();
+        ball.define('exit', stoneExit());
+        if (animate) {
+            ball.define('enter', stoneEnter());
+            ball.play('enter', {
+                spawn: {
+                    col: spawn.col - this.center.col - off.col,
+                    row: spawn.row - this.center.row - off.row
+                },
+                duration: 3 / this.spawnSpeed
+            });
+            this.spreadBallPhases();
+        } else {
+            this.layoutItems();
+        }
         if (typeof this.onPartAdded === 'function') {
             this.onPartAdded(ball);
         }
+        this.emit('added', ball);
         return ball;
+    }
+
+    layoutItems() {
+        layoutStoneItems(this);
+    }
+
+    keepTemplate(key, value) {
+        const field = key.indexOf('newBallInit_') === 0 ? key.slice('newBallInit_'.length) : key;
+        if (this.ballInit && typeof this.ballInit[field] === 'number') {
+            this.ballInit[field] = value;
+        }
+        if (key === 'spawnSpeed' && typeof value === 'number') {
+            this.spawnSpeed = value;
+        }
+    }
+
+    writeField(item, key, value) {
+        const field = key.indexOf('newBallInit_') === 0 ? key.slice('newBallInit_'.length) : key;
+        if (HOT_MAP_STONE_BALL_INIT_KEYS.indexOf(field) < 0) {
+            return value;
+        }
+        if (field === 'phase' && item && item.motion) {
+            item.motion.params.phase = value;
+            item.motion.angle = wrapPhaseDeg(value) * Math.PI / 180;
+            return value;
+        }
+        return HeatComposite.prototype.writeField.call(this, item, field, value);
+    }
+
+    visualAngle(ball) {
+        const extra = ball.channels ? ball.channels.combined().phase || 0 : 0;
+        return ball.motion.angle + extra * Math.PI / 180;
     }
 
     spreadBallPhases() {
@@ -126,24 +176,21 @@ class HotMapUiStone extends HotMapUiComposite {
         if (balls.length < 2) {
             return;
         }
-        const goals = hotMapStoneEvenPhaseGoals(balls.map((ball) => ball.motion.angle));
+        const goals = hotMapStoneEvenPhaseGoals(balls.map((ball) => this.visualAngle(ball)));
+        const duration = 3 / this.spawnSpeed;
         balls.forEach((ball, index) => {
-            ball.motion.phaseGoal = goals[index];
-            ball.motion.phaseFollow = this.spawnSpeed;
+            const degrees = (goals[index] - ball.motion.angle) * 180 / Math.PI;
+            ball.define('spread', stoneSpread());
+            ball.play('spread', { phase: degrees, duration: duration });
         });
     }
 
     removeItem() {
-        const object = this.takeLast('hot-ball');
+        const object = this.lastPart('hot-ball');
         if (!object) {
             return null;
         }
-        if (this.heatMap && typeof this.heatMap.removeBall === 'function') {
-            this.heatMap.removeBall(object.motion);
-        }
-        if (typeof this.onPartRemoved === 'function') {
-            this.onPartRemoved(object);
-        }
+        this.remove(object, { instant: true });
         return object;
     }
 
@@ -274,3 +321,9 @@ const HOT_MAP_STONE_SPAWN_SPEED = { min: 0.2, max: 8, step: 0.2 };
 const HOT_MAP_STONE_BALL_INIT_KEYS = [
     'radius', 'energy', 'angleSpeed', 'phase', 'orbitRadius', 'tiltX', 'tiltY', 'tiltZ'
 ];
+
+heatRegisterComposite('stone', {
+    create(heatMap, overrides) {
+        return new HotMapUiStone(heatMap, overrides);
+    }
+});

@@ -254,16 +254,20 @@ function wanderRotatedBall(state) {
     };
 }
 
-function rotatedBallPos(state) {
-    if (!state.orbitOn) {
-        return wanderRotatedBall(state);
-    }
-    const off = rotatedOrbitOffset(state, state.angle);
+function rotatedBallPosAt(state, angle) {
+    const off = rotatedOrbitOffset(state, angle);
     return {
         col: state.orbitCenter.col + off.col,
         row: state.orbitCenter.row + off.row,
         depth: off.depth
     };
+}
+
+function rotatedBallPos(state) {
+    if (!state.orbitOn) {
+        return wanderRotatedBall(state);
+    }
+    return rotatedBallPosAt(state, state.angle);
 }
 
 function beginOrRetargetRotatedOrbit(state, target) {
@@ -305,21 +309,9 @@ function stepRotatedMotion(state, delta) {
             }
             state.params.phase = wrapPhaseDeg(state.angle * 180 / Math.PI);
         } else {
-            state.angle += dt * state.params.angleSpeed;
+            advanceOrbit(state, dt);
         }
-        const follow = state.centerFollow != null ? state.centerFollow : ROTATED_HEAT_CENTER_FOLLOW;
-        const k = 1 - Math.exp(-follow * (delta / 1000));
-        state.orbitCenter.col += (state.orbitTarget.col - state.orbitCenter.col) * k;
-        state.orbitCenter.row += (state.orbitTarget.row - state.orbitCenter.row) * k;
-        if (state.centerFollow != null) {
-            const dx = state.orbitTarget.col - state.orbitCenter.col;
-            const dy = state.orbitTarget.row - state.orbitCenter.row;
-            if (dx * dx + dy * dy <= 0.25) {
-                state.orbitCenter.col = state.orbitTarget.col;
-                state.orbitCenter.row = state.orbitTarget.row;
-                state.centerFollow = null;
-            }
-        }
+        advanceFollow(state, dt);
     }
     return rotatedBallPos(state);
 }
@@ -350,6 +342,9 @@ function createRotatedHotBallState(field, options) {
         advance: (delta) => stepRotatedMotion(ball, delta),
         retarget: (cell) => beginOrRetargetRotatedOrbit(ball, cell)
     };
+    ball.orbit = new Orbit(ball);
+    ball.follow = new Follow(ball);
+    ball.loops = [ball.orbit, ball.follow];
     return ball;
 }
 
@@ -397,6 +392,10 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         balls: [],
         rods: [],
         highlighters: [],
+        roots: [],
+        pending: [],
+        ticking: false,
+        destroyed: false,
         params,
         onTap: (options && options.onTap) || null,
         setParam: api.setParam,
@@ -406,69 +405,214 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
             field.ctx.putImageData(field.imageData, 0, 0);
             field.tex.refresh();
         },
-        addBall: (ball) => {
-            field.balls.push(ball);
-            return ball;
+        addBall: (ball) => field.changeListed('balls', ball, true),
+        addRod: (rod) => field.changeListed('rods', rod, true),
+        addHighlighter: (item) => field.changeListed('highlighters', item, true),
+        removeBall: (ball) => field.changeListed('balls', ball, false),
+        removeRod: (rod) => field.changeListed('rods', rod, false),
+        removeHighlighter: (item) => field.changeListed('highlighters', item, false),
+        addRoot: (node) => {
+            if (!node || field.destroyed) {
+                return node;
+            }
+            if (field.ticking) {
+                field.pending.push({ rootOnly: true, item: node, adding: true });
+                return node;
+            }
+            field.linkRoot(node);
+            return node;
         },
-        addRod: (rod) => {
-            field.rods.push(rod);
-            return rod;
+        removeRoot: (node) => {
+            if (!node) {
+                return;
+            }
+            if (field.ticking && !field.destroyed) {
+                field.pending.push({ rootOnly: true, item: node, adding: false });
+                return;
+            }
+            field.unlinkRoot(node);
         },
-        addHighlighter: (item) => {
-            field.highlighters.push(item);
+        linkRoot: (node) => {
+            if (!node || field.destroyed) {
+                return;
+            }
+            if (field.roots.indexOf(node) < 0) {
+                field.roots.push(node);
+            }
+            node.field = field;
+            node.attached = true;
+            node.detached = false;
+        },
+        unlinkRoot: (node) => {
+            if (!node) {
+                return;
+            }
+            const index = field.roots.indexOf(node);
+            if (index >= 0) {
+                field.roots.splice(index, 1);
+            }
+            if (node.field === field) {
+                node.attached = false;
+                node.field = null;
+            }
+        },
+        changeListed: (key, item, adding) => {
+            if (!item || (field.destroyed && adding)) {
+                return item;
+            }
+            if (field.ticking) {
+                field.pending.push({ key: key, item: item, adding: adding });
+                if (adding) {
+                    const root = item.root && item.root.isHeatNode
+                        ? item.root
+                        : (item.isHeatNode ? item : null);
+                    if (root) {
+                        field.linkRoot(root);
+                    }
+                }
+                return item;
+            }
+            field.applyListed(key, item, adding);
             return item;
         },
-        removeBall: (ball) => {
-            const index = field.balls.indexOf(ball);
-            if (index >= 0) {
-                field.balls.splice(index, 1);
+        applyListed: (key, item, adding) => {
+            const list = field[key];
+            const index = list.indexOf(item);
+            if (adding) {
+                if (index < 0) {
+                    list.push(item);
+                }
+            } else if (index >= 0) {
+                list.splice(index, 1);
+            }
+            const root = item.root && item.root.isHeatNode
+                ? item.root
+                : (item.isHeatNode ? item : null);
+            if (!root) {
+                return;
+            }
+            if (adding) {
+                field.linkRoot(root);
+            } else {
+                field.unlinkRoot(root);
             }
         },
-        removeRod: (rod) => {
-            const index = field.rods.indexOf(rod);
-            if (index >= 0) {
-                field.rods.splice(index, 1);
-            }
+        flushPending: () => {
+            const batch = field.pending.splice(0, field.pending.length);
+            batch.forEach((op) => {
+                if (op.rootOnly) {
+                    if (op.adding) {
+                        field.linkRoot(op.item);
+                    } else {
+                        field.unlinkRoot(op.item);
+                    }
+                    return;
+                }
+                field.applyListed(op.key, op.item, op.adding);
+            });
         },
-        removeHighlighter: (item) => {
-            const index = field.highlighters.indexOf(item);
-            if (index >= 0) {
-                field.highlighters.splice(index, 1);
+        destroy: () => {
+            if (field.destroyed) {
+                return;
+            }
+            field.ticking = false;
+            field.pending = [];
+            field.roots.slice().forEach((node) => {
+                if (typeof node.detach === 'function') {
+                    node.detach();
+                }
+            });
+            field.destroyed = true;
+            field.balls = [];
+            field.rods = [];
+            field.highlighters = [];
+            field.roots = [];
+            field.update = () => {};
+            if (field.hit) {
+                field.hit.destroy();
+                field.hit = null;
+            }
+            if (field.view) {
+                field.view.destroy();
+                field.view = null;
+            }
+            if (scene.textures.exists(texKey)) {
+                scene.textures.remove(texKey);
             }
         },
         pointerToCell: (pointer) => pointerToRotatedHeatCell(pointer, x, y, width, height, cols, rows),
         update: (_, delta) => {
-            field.sheetEpoch = (field.sheetEpoch || 0) + 1;
+            if (field.destroyed) {
+                return;
+            }
+            if (field.diskHeat) {
+                field.diskHeat.fill(0);
+            }
             stepRotatedHeat(field.src, field.dst, cols, rows, delta, field.params);
             const swap = field.src;
             field.src = field.dst;
             field.dst = swap;
-            field.balls.forEach((ball) => {
-                const pos = ball.advance(delta);
-                if (ball.isVisible === false) {
+            heatEnterTick();
+            field.ticking = true;
+            const phased = [];
+            const seen = new Set();
+            const take = (node) => {
+                if (!node || seen.has(node) || typeof node.advanceState !== 'function') {
                     return;
                 }
-                stampRotatedHotBall(field.src, cols, rows, pos.col, pos.row, ball.params, pos.depth);
+                seen.add(node);
+                phased.push(node);
+            };
+            const consider = (item, legacy) => {
+                const node = item && item.root && typeof item.root.advanceState === 'function'
+                    ? item.root
+                    : (item && item.isHeatNode && typeof item.advanceState === 'function' ? item : null);
+                if (node) {
+                    take(node);
+                    return;
+                }
+                legacy();
+            };
+            field.balls.forEach((ball) => {
+                consider(ball, () => {
+                    const pos = ball.advance(delta);
+                    if (ball.isVisible === false) {
+                        return;
+                    }
+                    stampRotatedHotBall(field.src, cols, rows, pos.col, pos.row, ball.params, pos.depth);
+                });
             });
             field.rods.forEach((rod) => {
-                rod.advance(delta);
-                if (rod.isVisible === false) {
-                    return;
-                }
-                if (typeof rod.stamp === 'function') {
-                    rod.stamp(field.src);
-                }
+                consider(rod, () => {
+                    rod.advance(delta);
+                    if (rod.isVisible === false) {
+                        return;
+                    }
+                    if (typeof rod.stamp === 'function') {
+                        rod.stamp(field.src);
+                    }
+                });
             });
             (field.highlighters || []).forEach((item) => {
-                item.advance(delta);
-                if (item.isVisible === false) {
-                    return;
-                }
-                if (typeof item.stamp === 'function') {
-                    item.stamp(field.src);
-                }
+                consider(item, () => {
+                    item.advance(delta);
+                    if (item.isVisible === false) {
+                        return;
+                    }
+                    if (typeof item.stamp === 'function') {
+                        item.stamp(field.src);
+                    }
+                });
             });
-            field.paint();
+            field.roots.forEach((node) => take(node));
+            phased.forEach((node) => node.advanceState(delta));
+            phased.forEach((node) => node.stampNow());
+            field.ticking = false;
+            heatLeaveTick();
+            field.flushPending();
+            if (!field.destroyed) {
+                field.paint();
+            }
         }
     };
 
@@ -486,15 +630,7 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
     }
 
     scene.events.once('shutdown', () => {
-        if (field.hit) {
-            field.hit.destroy();
-        }
-        if (field.view) {
-            field.view.destroy();
-        }
-        if (scene.textures.exists(texKey)) {
-            scene.textures.remove(texKey);
-        }
+        field.destroy();
     });
 
     return field;
