@@ -349,9 +349,14 @@ function createRotatedHotBallState(field, options) {
 }
 
 function attachRotatedHeatField(scene, x, y, width, height, options) {
-    const texKey = (options && options.texKey) || ROTATED_HEAT_TEX_KEY;
-    const cols = Math.max(48, Math.round(width / ROTATED_HEAT_CELL_PX));
-    const rows = Math.max(64, Math.round(height / ROTATED_HEAT_CELL_PX));
+    const opts = options || {};
+    const texKey = opts.texKey || ROTATED_HEAT_TEX_KEY;
+    const cellPx = opts.cellPx || ROTATED_HEAT_CELL_PX;
+    const minCols = opts.minCols != null ? opts.minCols : 48;
+    const minRows = opts.minRows != null ? opts.minRows : 64;
+    const cols = Math.max(minCols, Math.round(width / cellPx));
+    const rows = Math.max(minRows, Math.round(height / cellPx));
+    const present = opts.present !== false;
     const src = new Float32Array(cols * rows);
     const dst = new Float32Array(cols * rows);
 
@@ -400,10 +405,13 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         onTap: (options && options.onTap) || null,
         setParam: api.setParam,
         nudgeParam: api.nudgeParam,
+        present: present,
         paint: () => {
             paintRotatedHeat(field.imageData, field.src, cols, rows);
             field.ctx.putImageData(field.imageData, 0, 0);
-            field.tex.refresh();
+            if (field.present && field.tex) {
+                field.tex.refresh();
+            }
         },
         addBall: (ball) => field.changeListed('balls', ball, true),
         addRod: (rod) => field.changeListed('rods', rod, true),

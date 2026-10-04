@@ -28,6 +28,28 @@ const config = {
 console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);
 const game = new Phaser.Game(config);
 window.game = game;
+showGameFps(game);
+
+function showGameFps(game) {
+    const parent = document.getElementById('game-container');
+    if (!parent) {
+        return;
+    }
+    const label = document.createElement('div');
+    label.id = 'game-fps';
+    label.textContent = 'FPS 0';
+    parent.appendChild(label);
+    let shownAt = 0;
+    game.events.on('poststep', () => {
+        const now = performance.now();
+        if (now - shownAt < 250) {
+            return;
+        }
+        shownAt = now;
+        const fps = game.loop && game.loop.actualFps;
+        label.textContent = 'FPS ' + (fps ? Math.round(fps) : 0);
+    });
+}
 
 let resizeTimer;
 window.addEventListener('resize', () => {

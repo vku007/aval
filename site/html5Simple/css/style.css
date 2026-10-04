@@ -14,6 +14,7 @@ body, html {
 }
 
 #game-container {
+    position: relative;
     width: var(--game-frame-w, 390px);
     height: var(--game-frame-h, 844px);
     max-width: 100vw;
@@ -25,6 +26,21 @@ body, html {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+#game-fps {
+    position: absolute;
+    top: 60px;
+    right: 6px;
+    z-index: 5;
+    margin: 0;
+    padding: 2px 6px;
+    font: 12px monospace;
+    line-height: 1.2;
+    color: #111111;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #000000;
+    pointer-events: none;
 }
 
 #phaser-game {

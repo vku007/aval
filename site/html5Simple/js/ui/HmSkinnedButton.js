@@ -1,9 +1,12 @@
 /**
  * HmSkinnedButton
  * A stage button whose face is a heat-map image.
- * A subclass installs the composite. Each tick the map paints a canvas,
+ * A subclass installs the composite. The map paints a canvas,
  * and that canvas is scaled to the button and clipped to the button shape.
+ * The field is 100×100 cells. It advances on every scene frame.
  */
+const HM_SKINNED_HEAT_SIZE = 100;
+
 class HmSkinnedButton extends UiStageButton {
     constructor(scene, options) {
         const opts = options || {};
@@ -17,13 +20,17 @@ class HmSkinnedButton extends UiStageButton {
         });
         this.minSize = opts.minSize != null ? opts.minSize : 64;
         this.maxSize = opts.maxSize != null ? opts.maxSize : size;
-        const source = 300;
+        const source = HM_SKINNED_HEAT_SIZE;
         this.heatMap = new UiHeatMap(scene, {
             x: 0,
             y: 0,
             width: source,
             height: source
-        }, { interactive: false });
+        }, {
+            interactive: false,
+            cellPx: 1,
+            present: false
+        });
         applyCompositeHeatMapDefault({
             heatMap: this.heatMap,
             cache: scene.cache
