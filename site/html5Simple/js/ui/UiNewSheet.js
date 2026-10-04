@@ -35,6 +35,73 @@ function newSheetDecimals(step) {
     return parts[1] ? parts[1].length : 0;
 }
 
+/**
+ * Parabola through the ball's start and the bucket (disk center, drop below).
+ * The vertex is `jump` above the start, so the path arcs up and then down.
+ */
+function dramaArcVertex(jump, row0, rowEnd) {
+    const rise = Math.max(0, jump);
+    let rowApex = row0 - rise;
+    if (rowEnd <= rowApex) {
+        rowApex = Math.min(row0, rowEnd) - rise;
+    }
+    const aboveStart = Math.max(1e-4, row0 - rowApex);
+    const aboveEnd = Math.max(0, rowEnd - rowApex);
+    return {
+        sTop: 1 / (1 + Math.sqrt(aboveEnd / aboveStart)),
+        rowApex: rowApex
+    };
+}
+
+function dramaArcPoint(from, to, jump, s) {
+    const clamped = s <= 0 ? 0 : (s >= 1 ? 1 : s);
+    if (!(jump > 1e-4)) {
+        return {
+            col: from.col + (to.col - from.col) * clamped,
+            row: from.row + (to.row - from.row) * clamped,
+            depth: from.depth + (to.depth - from.depth) * clamped
+        };
+    }
+    const arc = dramaArcVertex(jump, from.row, to.row);
+    const a = (from.row - arc.rowApex) / (arc.sTop * arc.sTop);
+    return {
+        col: from.col + (to.col - from.col) * clamped,
+        row: arc.rowApex + a * (clamped - arc.sTop) * (clamped - arc.sTop),
+        depth: from.depth + (to.depth - from.depth) * clamped
+    };
+}
+
+/**
+ * Disk heat runs 33% shorter than 100/speed, disk burst 25% shorter.
+ * The ball arc keeps the unscaled times, so its crest is not the burst.
+ */
+const DRAMA_DISK_TIME_SCALE = [0.67, 0.75, 1];
+
+/**
+ * Path parameter along the parabola. The rise starts at a steady pace and
+ * eases to a stop at the crest. The fall starts from that stop and speeds up.
+ * Crest time is the ball clock, not the end of the disk burst.
+ */
+function dramaArcS(t, tPeak, tEnd, sTop) {
+    if (!(t > 0)) {
+        return 0;
+    }
+    if (!(tEnd > 0) || t >= tEnd) {
+        return 1;
+    }
+    const crest = tPeak > 0 ? Math.min(tPeak, tEnd) : 0;
+    if (t <= crest && crest > 0) {
+        const r = t / crest;
+        return sTop * (r + r * r - r * r * r);
+    }
+    const span = tEnd - crest;
+    if (span <= 0) {
+        return 1;
+    }
+    const f = (t - crest) / span;
+    return sTop + (1 - sTop) * f * f;
+}
+
 function wrapNewSheetAngle(deg) {
     let turns = ((Number(deg) + 180) % 360 + 360) % 360 - 180;
     if (turns <= -179.5) {
@@ -68,6 +135,97 @@ function clampNewSheetSpec(name, value) {
     const stepped = Math.round(value / spec.step) * spec.step;
     const clamped = Math.max(spec.min, Math.min(spec.max, stepped));
     return Number(clamped.toFixed(newSheetDecimals(spec.step)));
+}
+
+/**
+ * Rim coverage. dist is 1 on the ellipse. When tilt squeezes the old 2-cell
+ * skirt under 1.5 pixels, feather about 1.5 pixels on each side of the rim
+ * so the flattened edge does not stair-step. A wide rim keeps the old skirt.
+ */
+function diskRimWeight(dist, s, t, basis, edge) {
+    if (!(dist > 1e-5)) {
+        return 1;
+    }
+    const invD = 1 / dist;
+    const gx = (s * basis.a + t * basis.c) * invD;
+    const gy = (s * basis.b + t * basis.d) * invD;
+    const grad = Math.hypot(gx, gy);
+    if (!(grad > 1e-8)) {
+        return dist <= 1 ? 1 : 0;
+    }
+    const px = (dist - 1) / grad;
+    const oldPx = edge / grad;
+    if (oldPx >= 1.5) {
+        if (px > oldPx) {
+            return 0;
+        }
+        if (px <= 0) {
+            return 1;
+        }
+        const fall = px / oldPx;
+        return Math.exp(-fall * fall * 3);
+    }
+    const band = 1.5;
+    if (px >= band) {
+        return 0;
+    }
+    if (px <= -band) {
+        return 1;
+    }
+    const u = (px + band) / (2 * band);
+    const smooth = u * u * (3 - 2 * u);
+    return 1 - smooth;
+}
+
+/**
+ * Fly-in curve. t is eased progress. The control sits off the straight
+ * chord, away from the disk, so the path is a bit wider before the slot.
+ * A spinning slot can carry that chord across the center. The bow eases
+ * through that crossing so the trail stays one continuous curve.
+ */
+const DISK_TRAVEL_BULGE = 16;
+const DISK_TRAVEL_SIDE_REACH = 12;
+
+function diskTravelSide(towardCenter) {
+    const x = towardCenter / DISK_TRAVEL_SIDE_REACH;
+    if (x >= 1) {
+        return -1;
+    }
+    if (x <= -1) {
+        return 1;
+    }
+    const u = (x + 1) * 0.5;
+    const s = u * u * (3 - 2 * u);
+    return 1 - 2 * s;
+}
+
+function diskTravelPoint(spawn, dest, center, t) {
+    const dx = dest.col - spawn.col;
+    const dy = dest.row - spawn.row;
+    const len = Math.hypot(dx, dy);
+    const midCol = (spawn.col + dest.col) * 0.5;
+    const midRow = (spawn.row + dest.row) * 0.5;
+    let px = 0;
+    let py = 0;
+    let side = 0;
+    if (len > 1e-4) {
+        px = -dy / len;
+        py = dx / len;
+        const towardCenter = (center.col - midCol) * px + (center.row - midRow) * py;
+        side = diskTravelSide(towardCenter);
+    }
+    const bulge = DISK_TRAVEL_BULGE * side;
+    const ctrlCol = midCol + px * bulge;
+    const ctrlRow = midRow + py * bulge;
+    const omt = 1 - t;
+    const w0 = omt * omt;
+    const w1 = 2 * omt * t;
+    const w2 = t * t;
+    return {
+        col: w0 * spawn.col + w1 * ctrlCol + w2 * dest.col,
+        row: w0 * spawn.row + w1 * ctrlRow + w2 * dest.row,
+        depth: dest.depth * t
+    };
 }
 
 class UiNewSheet extends HeatItem {
@@ -278,7 +436,7 @@ class UiNewSheet extends HeatItem {
         const local = spawnLocal || {};
         this.ballTravel = {
             u: 0,
-            duration: 1,
+            duration: 2,
             spawnLocal: {
                 col: typeof local.col === 'number' ? local.col : 0,
                 row: typeof local.row === 'number' ? local.row : 0
@@ -306,13 +464,19 @@ class UiNewSheet extends HeatItem {
             radius1: this.radius * radiusScale,
             onDone: opts.onDone || null,
             ballFrom: null,
-            ballTo: null
+            ballTo: null,
+            elapsed: 0,
+            diskDone: false
         };
+        const durations = [0, 1, 2].map((index) => 100 / Math.max(1, this.drama.speeds[index] || 1));
+        this.drama.peakTime = durations[0] + durations[1];
+        this.drama.totalTime = this.drama.peakTime + durations[2];
+        this.captureDramaArc();
         this.applyDramaPose();
     }
 
     ballAt(index) {
-        if (this.drama && this.drama.step >= 2) {
+        if (this.drama) {
             return this.dramaBall(index);
         }
         const dest = this.ballPlace(index);
@@ -320,14 +484,16 @@ class UiNewSheet extends HeatItem {
         if (!travel || travel.u >= 1) {
             return dest;
         }
-        const u = travel.u;
-        const spawnCol = this.pivotCol + travel.spawnLocal.col;
-        const spawnRow = this.pivotRow + travel.spawnLocal.row;
-        return {
-            col: spawnCol + (dest.col - spawnCol) * u,
-            row: spawnRow + (dest.row - spawnRow) * u,
-            depth: dest.depth * u
-        };
+        const t = heatEase('expOut', travel.u);
+        const center = this.diskCenter(this.depth);
+        return diskTravelPoint({
+            col: this.pivotCol + travel.spawnLocal.col,
+            row: this.pivotRow + travel.spawnLocal.row
+        }, dest, center, t);
+    }
+
+    diskTraveling() {
+        return !!(this.ballTravel && this.ballTravel.u < 1);
     }
 
     ballCenter() {
@@ -530,7 +696,8 @@ class UiNewSheet extends HeatItem {
         } else {
             this.diskSum.fill(0);
         }
-        this.stampDisk(this.diskSum, field.cols, field.rows, this.diskCenter(this.depth), this.radius, this.heat);
+        const diskHeat = this.diskTraveling() ? 0 : this.heat;
+        this.stampDisk(this.diskSum, field.cols, field.rows, this.diskCenter(this.depth), this.radius, diskHeat);
         const sum = diskHeatBuffer(field, grid);
         for (let i = 0; i < grid.length; i++) {
             const add = this.diskSum[i];
@@ -573,7 +740,7 @@ class UiNewSheet extends HeatItem {
             const diskHeat = frame.own['disk.heat'] == null ? 1 : frame.own['disk.heat'];
             const center = heatPlace(frame, rawCenter.col, rawCenter.row);
             const radius = heatMul(heatScale(frame, this.radius), diskScale);
-            const heat = heatMul(heatHeat(frame, this.heat), diskHeat);
+            const heat = this.diskTraveling() ? 0 : heatMul(heatHeat(frame, this.heat), diskHeat);
             this.stampDisk(this.diskSum, field.cols, field.rows, center, radius, heat);
             const sum = diskHeatBuffer(field, grid);
             for (let i = 0; i < grid.length; i++) {
@@ -608,8 +775,8 @@ class UiNewSheet extends HeatItem {
     stampBall(grid, cols, rows, ball, dot) {
         let energy = dot && typeof dot.energy === 'number' ? dot.energy : this.ballHeat;
         const radius = dot && typeof dot.radius === 'number' ? dot.radius : this.ballSize;
-        if (this.drama && this.drama.step === 3) {
-            energy *= 1 - this.drama.u;
+        if (this.drama) {
+            energy *= this.dramaBallFade();
         }
         stampRotatedHotBall(grid, cols, rows, ball.col, ball.row, {
             radius: radius,
@@ -620,23 +787,30 @@ class UiNewSheet extends HeatItem {
 
     dramaBall(index) {
         const drama = this.drama;
-        if (drama.step === 3 && drama.ballFrom && drama.ballTo) {
-            const from = drama.ballFrom[index] || drama.ballFrom[0];
-            const to = drama.ballTo;
-            const u = drama.u;
-            return {
-                col: from.col + (to.col - from.col) * u,
-                row: from.row + (to.row - from.row) * u,
-                depth: from.depth + (to.depth - from.depth) * u
-            };
+        const from = drama.ballFrom && (drama.ballFrom[index] || drama.ballFrom[0]);
+        const to = drama.ballTo;
+        if (!from || !to) {
+            return this.ballPlace(index);
         }
-        const orbit = this.ballPlace(index);
-        const jump = drama.step === 2 ? drama.jump * drama.u : drama.jump;
-        return {
-            col: orbit.col,
-            row: orbit.row - jump,
-            depth: orbit.depth
-        };
+        const arc = drama.jump > 1e-4
+            ? dramaArcVertex(drama.jump, from.row, to.row)
+            : { sTop: 0.5 };
+        const s = dramaArcS(drama.elapsed || 0, drama.peakTime || 0, drama.totalTime || 0, arc.sTop);
+        return dramaArcPoint(from, to, drama.jump, s);
+    }
+
+    dramaBallFade() {
+        const drama = this.drama;
+        if (!drama) {
+            return 1;
+        }
+        const hot = 3;
+        const span = (drama.totalTime || 0) - (drama.peakTime || 0);
+        if (span <= 0 || (drama.elapsed || 0) <= drama.peakTime) {
+            return hot;
+        }
+        const fall = Math.min(1, (drama.elapsed - drama.peakTime) / span);
+        return hot * (1 - fall);
     }
 
     advanceDrama(dt) {
@@ -646,8 +820,9 @@ class UiNewSheet extends HeatItem {
             return;
         }
         let remain = Math.max(0, dt || 0);
-        while (remain > 0 && !drama.done) {
-            const rate = Math.max(1, drama.speeds[drama.step - 1] || 1) / 100;
+        while (remain > 0 && !drama.diskDone) {
+            const scale = DRAMA_DISK_TIME_SCALE[drama.step - 1] || 1;
+            const rate = (Math.max(1, drama.speeds[drama.step - 1] || 1) / 100) / scale;
             const need = (1 - drama.u) / rate;
             if (remain < need) {
                 drama.u += remain * rate;
@@ -659,28 +834,33 @@ class UiNewSheet extends HeatItem {
             if (drama.step < 3) {
                 this.enterDramaStep(drama.step + 1);
             } else {
-                drama.done = true;
+                drama.diskDone = true;
             }
+        }
+        drama.elapsed = Math.min(drama.totalTime, (drama.elapsed || 0) + Math.max(0, dt || 0));
+        if (drama.diskDone && drama.elapsed >= drama.totalTime) {
+            drama.done = true;
+            drama.elapsed = drama.totalTime;
+            // The group pump runs before this disk on the next tick and clears
+            // drama, which would let the idle loop stamp for one frame.
+            this.isVisible = false;
         }
         this.applyDramaPose();
     }
 
     enterDramaStep(step) {
-        if (step === 3) {
-            this.captureDramaFall();
-        }
         this.drama.step = step;
         this.drama.u = 0;
     }
 
-    captureDramaFall() {
+    captureDramaArc() {
         const drama = this.drama;
         const from = [];
         for (let index = 0; index < this.ballCount; index += 1) {
             const orbit = this.ballPlace(index);
             from.push({
                 col: orbit.col,
-                row: orbit.row - drama.jump,
+                row: orbit.row,
                 depth: orbit.depth
             });
         }
@@ -731,21 +911,23 @@ class UiNewSheet extends HeatItem {
             return;
         }
         const inv = 1 / det;
+        const basis = {
+            a: ey.y * inv,
+            b: -ey.x * inv,
+            c: -ex.y * inv,
+            d: ex.x * inv
+        };
         for (let y = y0; y <= y1; y++) {
             const dy = y - center.row;
             const base = y * cols;
             for (let x = x0; x <= x1; x++) {
                 const dx = x - center.col;
-                const s = (ey.y * dx - ey.x * dy) * inv;
-                const t = (ex.x * dy - ex.y * dx) * inv;
+                const s = basis.a * dx + basis.b * dy;
+                const t = basis.c * dx + basis.d * dy;
                 const dist = Math.hypot(s, t);
-                if (dist > 1 + edge) {
+                const w = diskRimWeight(dist, s, t, basis, edge);
+                if (w <= 0) {
                     continue;
-                }
-                let w = 1;
-                if (dist > 1) {
-                    const fall = (dist - 1) / edge;
-                    w = Math.exp(-fall * fall * 3);
                 }
                 const i = base + x;
                 grid[i] = Math.min(1, grid[i] + heat * w);

@@ -4,9 +4,14 @@
  * Effects, props, and objects live on a second Phaser canvas.
  */
 class UIEditorScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'UIEditorScene' });
-        console.log('[UIEditorScene] Constructor called');
+    constructor(config) {
+        const key = config && config.key ? config.key : 'UIEditorScene';
+        super({ key: key });
+        console.log('[' + key + '] Constructor called');
+    }
+
+    toolsSceneClass() {
+        return UIEditorToolsScene;
     }
 
     init() {
@@ -15,7 +20,7 @@ class UIEditorScene extends Phaser.Scene {
 
     create() {
         exitTestsCanvas(this);
-        console.log('[UIEditorScene] create() started');
+        console.log('[' + this.scene.key + '] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
@@ -39,6 +44,15 @@ class UIEditorScene extends Phaser.Scene {
             }
         };
 
+        this.seedObjects();
+        this.stageMarkup = createUiStageMarkup(this, width, height);
+        this.menuMarkup = createUiMenuMarkup(this, width, height);
+        this.applyEditorDefaults();
+        this.events.once('shutdown', () => closeEditorTools());
+        openEditorTools(this, this.toolsSceneClass());
+    }
+
+    seedObjects() {
         this.balls = [
             new UiHotBall(this.heatMap, {
                 name: 'Hot Ball 1',
@@ -67,27 +81,12 @@ class UIEditorScene extends Phaser.Scene {
                 params: { energy: 1.8, thickness: 5, delay: 0.2, startAngle: 120, endAngle: 20 }
             })
         ];
-        this.highlighters = [
-            new UiBackHighlighter(this.heatMap, {
-                name: 'Back Highlight 1',
-                centerX: 32,
-                centerY: 42,
-                to: { width: 72, height: 28, angle: 18, heat: 1.8 }
-            }),
-            new UiBackHighlighter(this.heatMap, {
-                name: 'Back Highlight 2',
-                centerX: 68,
-                centerY: 62,
-                from: { width: 24, height: 18, angle: 12, heat: 0.7 },
-                to: { width: 64, height: 36, angle: -20, heat: 1.5 }
-            })
-        ];
+        this.highlighters = createUiEditorHighlights(this.heatMap);
         this.objects = this.balls.concat(this.rods, this.highlighters);
         this.selectedObject = this.balls[0];
-        this.stageMarkup = createUiStageMarkup(this, width, height);
-        this.menuMarkup = createUiMenuMarkup(this, width, height);
-        this.events.once('shutdown', () => closeEditorTools());
-        openEditorTools(this);
+    }
+
+    applyEditorDefaults() {
     }
 
     update(time, delta) {
@@ -104,6 +103,24 @@ class UIEditorScene extends Phaser.Scene {
         closeEditorTools();
         fxGoTo(this, 'TestsScene');
     }
+}
+
+function createUiEditorHighlights(heatMap) {
+    return [
+        new UiBackHighlighter(heatMap, {
+            name: 'Back Highlight 1',
+            centerX: 32,
+            centerY: 42,
+            to: { width: 72, height: 28, angle: 18, heat: 1.8 }
+        }),
+        new UiBackHighlighter(heatMap, {
+            name: 'Back Highlight 2',
+            centerX: 68,
+            centerY: 62,
+            from: { width: 24, height: 18, angle: 12, heat: 0.7 },
+            to: { width: 64, height: 36, angle: -20, heat: 1.5 }
+        })
+    ];
 }
 
 function openEditorTools(host, toolsScene) {
@@ -202,6 +219,9 @@ function uiObjectTypeLabel(object) {
     if (kind === 'hot-map-new-paper') {
         return 'Disk';
     }
+    if (kind === 'hot-map-cross') {
+        return 'Cross';
+    }
     if (kind === 'new-sheet') {
         return 'New Sheet';
     }
@@ -249,5 +269,9 @@ function shiftUiObjectCopy(kind, data, field) {
     if (kind === 'back-highlight' || kind === 'shard' || kind === 'sheet') {
         data.center = shiftUiObjectPoint(field, data.center);
         data.target = shiftUiObjectPoint(field, data.target || data.center);
+        return;
+    }
+    if (kind === 'hot-map-cross' && data.center) {
+        data.center = shiftUiObjectPoint(field, data.center);
     }
 }

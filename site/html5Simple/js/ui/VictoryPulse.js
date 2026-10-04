@@ -4,7 +4,7 @@
  * It starts on the bottom of a panel at that panel's width, slides to a
  * target on the field clock, and arrives at the given end width.
  */
-const VICTORY_PULSE_MS = 1500;
+const VICTORY_PULSE_MS = 750;
 
 class VictoryPulse {
     constructor(heatMap, options) {

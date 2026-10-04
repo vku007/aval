@@ -179,7 +179,7 @@ class HeatComposite extends HeatNode {
         if (!object.definitions || !object.definitions.exit) {
             object.define('exit', this.exitDefinition());
         }
-        const run = object.play('exit');
+        const run = object.play('exit', opts && opts.ctx);
         if (run && run.finished && typeof run.finished.then === 'function') {
             run.finished.then((result) => {
                 if (result && result.status === 'finished') {

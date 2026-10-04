@@ -140,14 +140,14 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             { composite: this.scissor, moveType: 'Scissors' },
             { composite: this.paper, moveType: 'Paper' }
         ];
-        const selected = stacks.find((stack) => stack.composite && stack.composite.parts.length > 0);
+        const selected = stacks.find((stack) => activePartCount(stack.composite) > 0);
         if (!selected) {
             return null;
         }
         return {
             composite: selected.composite,
             moveType: selected.moveType,
-            size: selected.composite.parts.length
+            size: activePartCount(selected.composite)
         };
     }
 
@@ -460,9 +460,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (!composite) {
             return;
         }
-        while (composite.parts.length > 0) {
-            composite.removeItem();
-        }
+        composite.clear({ instant: true });
     }
 
     isMatchOver() {
@@ -709,7 +707,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     addCompositeItem(key, maxItems) {
         const composite = this[key];
-        if (!composite || composite.parts.length >= maxItems) {
+        if (!composite || activePartCount(composite) >= maxItems) {
             return;
         }
         composite.addItem();
@@ -717,7 +715,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     onCancelPress() {
-        const composite = [this.stone, this.scissor, this.paper].find((item) => item && item.parts.length > 0);
+        const composite = [this.stone, this.scissor, this.paper].find((item) => activePartCount(item) > 0);
         if (!composite) {
             return;
         }
@@ -727,9 +725,9 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     refreshMoveButtons() {
         const counts = {
-            stone: this.stone ? this.stone.parts.length : 0,
-            scissors: this.scissor ? this.scissor.parts.length : 0,
-            paper: this.paper ? this.paper.parts.length : 0
+            stone: activePartCount(this.stone),
+            scissors: activePartCount(this.scissor),
+            paper: activePartCount(this.paper)
         };
         const limits = {
             stone: LOCAL_ADVANCED_STONE_MAX,
@@ -757,6 +755,13 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
         btn.isEnabled = enabled;
+        if (btn instanceof HmSkinnedButton) {
+            btn.root.setAlpha(enabled ? 1 : 0.35);
+            if (btn.root.input) {
+                btn.root.input.cursor = enabled ? 'pointer' : 'default';
+            }
+            return;
+        }
         this.paintGreenButton(btn);
         btn.buttonText.setColor(enabled ? (btn.isSelected ? '#ffffff' : '#00ff66') : '#3a5a48');
         if (btn.input) {
@@ -792,49 +797,127 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (control) {
             const row = panelButtonRow(control);
             const goW = 72;
-            const cancelW = 108;
+            const goH = 36;
             this.goButton = this.createGreenButton(
                 control.x + row.inset + goW / 2,
                 row.y,
                 goW,
-                row.height,
+                goH,
                 'go',
                 () => this.onGoPress()
             );
             this.setGreenButtonEnabled(this.goButton, false);
-            this.cancelButton = this.createGreenButton(
-                control.x + control.width - row.inset - cancelW / 2,
-                row.y,
-                cancelW,
-                row.height,
-                'cancel',
-                () => this.onCancelPress()
-            );
-            this.setGreenButtonEnabled(this.cancelButton, false);
+            const size = LOCAL_ADVANCED_CANCEL_BUTTON;
+            const cx = control.x + control.width - row.inset - size / 2;
+            this.cancelButton = this.createCancelButton(cx, row.y);
         }
         if (selection) {
             const row = panelButtonRow(selection);
             const labels = ['stone', 'scissors', 'paper'];
-            const presses = {
-                stone: () => this.onStonePress(),
-                scissors: () => this.onScissorsPress(),
-                paper: () => this.onPaperPress()
-            };
             const gap = 8;
             const btnW = Math.floor((selection.width - row.inset * 2 - gap * (labels.length - 1)) / labels.length);
             this.moveButtons = {};
             labels.forEach((label, index) => {
-                this.moveButtons[label] = this.createGreenButton(
-                    selection.x + row.inset + btnW / 2 + index * (btnW + gap),
-                    row.y,
-                    btnW,
-                    row.height,
-                    label,
-                    presses[label]
-                );
+                const cx = selection.x + row.inset + btnW / 2 + index * (btnW + gap);
+                if (label === 'stone') {
+                    this.moveButtons.stone = this.createStoneMoveButton(cx, row.y);
+                    return;
+                }
+                if (label === 'scissors') {
+                    this.moveButtons.scissors = this.createScissorsMoveButton(cx, row.y);
+                    return;
+                }
+                this.moveButtons.paper = this.createPaperMoveButton(cx, row.y);
             });
             this.refreshMoveButtons();
         }
+    }
+
+    createCancelButton(cx, cy) {
+        const size = LOCAL_ADVANCED_CANCEL_BUTTON;
+        const button = new HmSkinnedCrossButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size
+        });
+        button.isEnabled = false;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onCancelPress()
+        });
+        this.setGreenButtonEnabled(button, false);
+        return button;
+    }
+
+    createStoneMoveButton(cx, cy) {
+        const size = LOCAL_ADVANCED_STONE_BUTTON;
+        const button = new HmSkinnedStoneButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size,
+            ballRadius: LOCAL_ADVANCED_STONE_BALL_RADIUS,
+            ballHeat: LOCAL_ADVANCED_STONE_BALL_HEAT
+        });
+        button.isEnabled = true;
+        this.stoneButton = button;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onStonePress()
+        });
+        if (button.root.input) {
+            button.root.input.cursor = 'pointer';
+        }
+        return button;
+    }
+
+    createScissorsMoveButton(cx, cy) {
+        const size = LOCAL_ADVANCED_STONE_BUTTON;
+        const button = new HmSkinnedScissorsButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size
+        });
+        button.isEnabled = true;
+        this.scissorsButton = button;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onScissorsPress()
+        });
+        if (button.root.input) {
+            button.root.input.cursor = 'pointer';
+        }
+        return button;
+    }
+
+    createPaperMoveButton(cx, cy) {
+        const size = LOCAL_ADVANCED_STONE_BUTTON;
+        const button = new HmSkinnedPaperButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size
+        });
+        button.isEnabled = true;
+        this.paperButton = button;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onPaperPress()
+        });
+        if (button.root.input) {
+            button.root.input.cursor = 'pointer';
+        }
+        return button;
     }
 
     createGreenButton(x, y, width, height, label, onClick) {
@@ -867,6 +950,18 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.heatMap && typeof this.heatMap.update === 'function') {
             this.heatMap.update(time, delta);
+        }
+        if (this.stoneButton && typeof this.stoneButton.update === 'function') {
+            this.stoneButton.update(time, delta);
+        }
+        if (this.scissorsButton && typeof this.scissorsButton.update === 'function') {
+            this.scissorsButton.update(time, delta);
+        }
+        if (this.paperButton && typeof this.paperButton.update === 'function') {
+            this.paperButton.update(time, delta);
+        }
+        if (this.cancelButton && typeof this.cancelButton.update === 'function') {
+            this.cancelButton.update(time, delta);
         }
     }
 
@@ -916,18 +1011,20 @@ function localAdvancedPanelBoxes(width, height) {
         if (panel.label === 'current turn') {
             const innerH = panelH * 0.2;
             const pad = 8;
+            const selectionH = Math.max(innerH, panelButtonRowHeight(LOCAL_ADVANCED_STONE_BUTTON));
+            const controlH = Math.max(innerH, panelButtonRowHeight(LOCAL_ADVANCED_CANCEL_BUTTON));
             boxes.push({
                 x: pad,
                 y: y + pad,
                 width: width - pad * 2,
-                height: innerH,
+                height: controlH,
                 label: 'control'
             });
             boxes.push({
                 x: pad,
-                y: y + panelH - pad - innerH,
+                y: y + panelH - pad - selectionH,
                 width: width - pad * 2,
-                height: innerH,
+                height: selectionH,
                 label: 'selection'
             });
         }
@@ -936,6 +1033,10 @@ function localAdvancedPanelBoxes(width, height) {
     return boxes;
 }
 
+const LOCAL_ADVANCED_STONE_BUTTON = 80;
+const LOCAL_ADVANCED_CANCEL_BUTTON = 60;
+const LOCAL_ADVANCED_STONE_BALL_RADIUS = 6.4;
+const LOCAL_ADVANCED_STONE_BALL_HEAT = 2;
 const LOCAL_ADVANCED_STONE_MAX = 9;
 const LOCAL_ADVANCED_SCISSOR_MAX = 4;
 const LOCAL_ADVANCED_PAPER_MAX = 8;
@@ -1057,13 +1158,34 @@ function heatMapCellAt(heatMap, x, y) {
     };
 }
 
+function activePartCount(composite) {
+    if (!composite || !composite.parts) {
+        return 0;
+    }
+    let count = 0;
+    composite.parts.forEach((part) => {
+        if (!part.object || !part.object._stoneLeaving) {
+            count += 1;
+        }
+    });
+    return count;
+}
+
+function panelButtonChrome() {
+    return { labelH: 16, inset: 6 };
+}
+
+function panelButtonRowHeight(buttonSize) {
+    const chrome = panelButtonChrome();
+    return chrome.labelH + buttonSize + chrome.inset;
+}
+
 function panelButtonRow(panel) {
-    const labelH = 16;
-    const inset = 6;
-    const height = Math.max(24, panel.height - labelH - inset);
+    const chrome = panelButtonChrome();
+    const height = Math.max(24, panel.height - chrome.labelH - chrome.inset);
     return {
-        inset: inset,
+        inset: chrome.inset,
         height: height,
-        y: panel.y + labelH + height / 2
+        y: panel.y + chrome.labelH + height / 2
     };
 }

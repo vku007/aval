@@ -178,7 +178,7 @@ Shared library: `move`, `grow`, `spin`, `fade`, `flash`, `shake`, `gather`, `pos
 | Paper `enter` | `sequence(set shape.heat 0, glisten 0, balls.scale 2, gather 1 at $spawn; move gatherAt → $waypoint; parallel(gather 1→0, balls.scale 2→1); wait $splitDelay; set shape.heat 1, glisten 1)` |
 | New Paper disk `enter` | `gather 1→0 from $spawn`, 1 s |
 | New Paper disk `drama` | `sequence(disk.heat 1→3 in 0.25 s; parallel(disk.scale 1→3, disk.heat 3→0, balls.offset −$jump) in 0.11 s; parallel(gather 0→1 to center + $drop, balls.heat 1→0) in 0.63 s; call detach)`. Today's speeds 400 / 900 / 160 map to those durations exactly. |
-| Pulses (horizontal, vertical, victory) | A standalone HotRod plus `move` (plus `clip` for victory), 3 s / 3 s / 1.5 s, sine ease, then `call detach` |
+| Pulses (horizontal, vertical, victory) | A standalone HotRod plus `move` (plus `clip` for victory), 1.5 s / 1.5 s / 0.75 s, sine ease, then `call detach` |
 | Health bar lost | `pose 0→1`, fill `hold`. `reset()` restores the bar for a new match |
 | Menu hover | `pose →1` / `pose →0`, slot `hover`, `replace` from current |
 

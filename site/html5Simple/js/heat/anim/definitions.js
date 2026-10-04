@@ -182,6 +182,20 @@ function heatFreeze(block, ctx, current) {
             cycles: heatResolveNumber(block.cycles == null ? 1 : block.cycles, ctx)
         };
     }
+    if (block.type === 'arc') {
+        const frozen = {
+            type: 'arc',
+            duration: heatResolveNumber(block.duration, ctx),
+            dir: heatResolveValue(block.dir, 'offset', ctx, current),
+            distance: heatResolveNumber(block.distance, ctx),
+            drop: heatResolveNumber(block.drop, ctx)
+        };
+        if (block.end != null) {
+            frozen.end = heatResolveValue(block.end, 'offset', ctx, current);
+            frozen.kick = heatResolveNumber(block.kick, ctx);
+        }
+        return frozen;
+    }
     if (block.type === 'stagger') {
         return {
             type: 'stagger',
@@ -300,6 +314,43 @@ function heatSample(block, time) {
         const cycles = block.cycles || 1;
         const mag = amp * Math.sin(u * cycles * Math.PI * 2) * (1 - u);
         return { values: { offset: { col: mag, row: 0 } }, events: [] };
+    }
+    if (block.type === 'arc') {
+        const dur = heatResolveNumber(block.duration, null);
+        const u = dur <= 0 ? 1 : Math.max(0, Math.min(1, time / dur));
+        const dir = block.dir || { col: 0, row: 0 };
+        const span = Math.hypot(dir.col, dir.row);
+        if (block.end) {
+            const aim = span > 1e-6
+                ? { col: dir.col / span, row: dir.row / span }
+                : { col: 1, row: 0 };
+            const kick = block.kick || 0;
+            const end = block.end;
+            const leadCol = aim.col * kick;
+            const leadRow = aim.row * kick;
+            const uu = u * u;
+            return {
+                values: {
+                    offset: {
+                        col: leadCol * u + (end.col - leadCol) * uu,
+                        row: leadRow * u + (end.row - leadRow) * uu
+                    }
+                },
+                events: []
+            };
+        }
+        const aim = span > 1e-6 ? dir : { col: 1, row: 0 };
+        const distance = block.distance || 0;
+        const drop = block.drop || 0;
+        return {
+            values: {
+                offset: {
+                    col: aim.col * distance * u,
+                    row: aim.row * distance * u + drop * u * u
+                }
+            },
+            events: []
+        };
     }
     if (block.type === 'set') {
         const events = [];

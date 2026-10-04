@@ -45,7 +45,7 @@ Step 1 (slices 1a–1h) is implemented. Do not reintroduce the mechanisms it rem
 
 `createItem` names: `hot-ball`, `hot-rod`, `heat-rect` / `back-highlight`, `shard`, `sheet` / `heat-sheet`, `disk` / `new-sheet` / `heat-disk`.
 
-`createComposite` names: `stone`, `scissor`, `paper`, `diskStack`.
+`createComposite` names: `stone`, `scissor`, `paper`, `diskStack`, `cross`.
 
 ## Run contract
 

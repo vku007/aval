@@ -4,7 +4,7 @@
  * The rod sits on the end cell. A sweep run carries it in from the start
  * edge on the field clock, then detaches it.
  */
-const HORISONTAL_PULSE_MS = 3000;
+const HORISONTAL_PULSE_MS = 1500;
 const HORISONTAL_PULSE_EXIT = -0.3;
 
 class HorisontalPulse {

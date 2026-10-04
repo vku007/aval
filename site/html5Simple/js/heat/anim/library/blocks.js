@@ -185,6 +185,83 @@ function sweep(options) {
     });
 }
 
+/**
+ * Offset along a toss. u moves at constant speed in `dir`.
+ * `drop` is extra downward cells (positive row) at the end, grown by u²,
+ * so the path leaves along dir and bends down.
+ */
+function arc(options) {
+    const opts = options || {};
+    const block = {
+        type: 'arc',
+        duration: opts.duration,
+        dir: opts.dir != null ? opts.dir : { col: 1, row: 0 },
+        distance: opts.distance != null ? opts.distance : 0,
+        drop: opts.drop != null ? opts.drop : 0
+    };
+    if (opts.end != null) {
+        block.end = opts.end;
+        block.kick = opts.kick != null ? opts.kick : 0;
+    }
+    return transition(block, {
+        slot: opts.slot || 'move',
+        policy: opts.policy || 'replace',
+        fill: opts.fill || 'none'
+    });
+}
+
+/**
+ * Stone hit. The ball is already stopped. Heat snaps to 3. Scale snaps
+ * to 2 — half the previous swell — so the crunch reads as a strike, not
+ * a balloon. Then `shatter` spawns the pieces and the ball detaches.
+ */
+const STONE_DRAMA_HIT = 0.07;
+const STONE_DRAMA_SCALE = 2;
+
+function stoneDrama() {
+    return sequence([
+        parallel([
+            set({ scale: STONE_DRAMA_SCALE }, { slot: 'life' }),
+            set({ heat: 3 }, { slot: 'life' })
+        ], { slot: 'life', fill: 'hold' }),
+        wait(STONE_DRAMA_HIT),
+        call('shatter'),
+        call('detach')
+    ], { slot: 'life', policy: 'replace', fill: 'hold' });
+}
+
+stoneDrama.hit = STONE_DRAMA_HIT;
+stoneDrama.scale = STONE_DRAMA_SCALE;
+
+/**
+ * One shard. `$flight` is the launch shove, `$kick` how far that shove
+ * carries, `$drop` the downward gravity. It stays hot, then fades as it falls.
+ */
+function stoneShard() {
+    return sequence([
+        parallel([
+            arc({
+                dir: '$flight',
+                distance: '$kick',
+                drop: '$drop',
+                duration: '$duration',
+                slot: 'life'
+            }),
+            sequence([
+                wait('$hold'),
+                fade({
+                    from: 1,
+                    to: 0,
+                    duration: '$fade',
+                    ease: 'linear',
+                    slot: 'life'
+                })
+            ], { slot: 'life', fill: 'hold' })
+        ], { slot: 'life', policy: 'replace', fill: 'hold' }),
+        call('detach')
+    ], { slot: 'life', policy: 'replace', fill: 'hold' });
+}
+
 function gather(options) {
     const opts = options || {};
     const channels = {

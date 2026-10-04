@@ -35,6 +35,7 @@ const HEAT_SCRIPTS = [
     'js/heat/composites/scissor.js',
     'js/heat/composites/paper.js',
     'js/heat/composites/diskStack.js',
+    'js/heat/composites/cross.js',
     'js/ui/UiHeatMap.js',
     'js/ui/UiEditorPreset.js',
     'js/ui/UiHotBall.js',
@@ -50,7 +51,8 @@ const HEAT_SCRIPTS = [
     'js/ui/HotMapUiStone.js',
     'js/ui/HotMapUiScissor.js',
     'js/ui/HotMapUiPaper.js',
-    'js/ui/HotMapUiNewPaper.js'
+    'js/ui/HotMapUiNewPaper.js',
+    'js/ui/HotMapUiCross.js'
 ];
 
 const EXPORTED = [
@@ -82,11 +84,17 @@ const EXPORTED = [
     'gather',
     'pose',
     'sweep',
+    'arc',
+    'stoneDrama',
+    'stoneShard',
+    'heatSample',
     'heatFieldWait',
     'heatDoneRun',
     'scissorEnter',
     'stoneEnter',
     'stoneSpread',
+    'stoneTangent',
+    'stoneShardFlights',
     'rotatedOrbitOffset',
     'HeatNode',
     'HeatItem',
@@ -104,6 +112,7 @@ const EXPORTED = [
     'HotMapUiScissor',
     'HotMapUiPaper',
     'HotMapUiNewPaper',
+    'HotMapUiCross',
     'HorisontalPulse',
     'VerticalPulse',
     'VictoryPulse',

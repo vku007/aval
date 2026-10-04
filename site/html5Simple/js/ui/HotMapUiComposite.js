@@ -2,7 +2,7 @@
  * HotMapUiComposite
  * Heat-map group with a center. Parts keep offsets from that center.
  * Setting the center moves every part by the same amount.
- * Stone, Scissor, Paper, and New Paper extend this and add their own items.
+ * Stone, Scissor, Paper, New Paper, and Cross extend this and add their own items.
  */
 class HotMapUiComposite extends HeatComposite {
     constructor(heatMap, options) {

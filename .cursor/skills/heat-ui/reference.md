@@ -20,6 +20,7 @@ js/heat/composites/stone.js
 js/heat/composites/scissor.js
 js/heat/composites/paper.js
 js/heat/composites/diskStack.js
+js/heat/composites/cross.js
 ```
 
 Editor classes stay in `js/ui/` and register composites at the bottom of each file. One global class or factory per file. Split a file past about 400 lines.
@@ -38,10 +39,11 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
    ├─ HotMapUiStone       kind hot-map-stone, config stone
    ├─ HotMapUiScissor     kind hot-map-scissor, config scissor
    ├─ HotMapUiPaper       kind hot-map-paper, config paper
-   └─ HotMapUiNewPaper    kind hot-map-new-paper, config diskStack
+   ├─ HotMapUiNewPaper    kind hot-map-new-paper, config diskStack
+   └─ HotMapUiCross       kind hot-map-cross, config cross
 ```
 
-Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
+Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
 
 Behaviours in `js/heat/behaviours/behaviours.js`: `Orbit`, `Follow`, `PathLoop`, `PoseCycle`, `Glisten`, `BallRunner`, `DiskLoop`, `Spin`. Each has `reset()`, `advance(dt)`, `copyStateFrom(other, shift)`.
 
@@ -84,22 +86,23 @@ Group channels on a composite shake or flash the set without writing item fields
 
 Blocks: `tracks`, `wait`, `set`, `call`, `sequence`, `parallel`, `stagger`.
 
-Library: `move`, `grow`, `spin`, `fade`, `flash`, `shake`, `gather`, `pose`, `sweep`, `stoneEnter`, `stoneSpread`, `scissorEnter`.
+Library: `move`, `grow`, `spin`, `fade`, `flash`, `shake`, `gather`, `pose`, `sweep`, `arc`, `stoneEnter`, `stoneSpread`, `stoneDrama`, `stoneShard`, `scissorEnter`.
 
 Eases: `linear`, `sine` (in-out), `expOut` (`k = 3`, scaled so `u = 1` lands on 1). Fly-in duration is `3 / speed` seconds. New Paper drama step duration is `100 / speed` seconds. Do not hardcode the rounded 0.11 and 0.63.
 
 | Config | Item | Enter | Exit |
 |---|---|---|---|
-| `stone` | HotBall, even phases | `move` from `$spawn`, then `spread` on slot `layout`, fill `commit` | fade, then detach |
+| `stone` | HotBall, even phases | `move` from `$spawn`, then `spread` on slot `layout`, fill `commit` | fade, then detach. Editor POP stops the ball, snaps scale to 2 and heat to 3, then three shards at 33% size keep some orbit speed in the opposite direction and fall under gravity. The balls that remain spread evenly, the same as on add |
 | `scissor` | shard | `parallel(move from $spawn, grow from ~0, spin from -(360+$turn))` | fade, then detach |
 | `paper` | HeatSheet, stacked by `stackGap` | pair / split / reveal. Waypoint is the previous sheet's spec pose | fade, then detach |
 | `diskStack` | HeatDisk | `gather` 1→0 from `$spawn`, 1 s | instant. POP is still `drama`, then `call detach` |
+| `cross` | two HeatRects and two shards on one center | placed. Highlighters step by `highlightTurn` (90). Shards step by `shardTurn` (90) plus `shardOffset` (45) | fade, then detach |
 
 `reveal(count)` adds on a 0.32 s stagger. `clear()` plays each exit 0.32 s apart (`HEAT_COMPOSITE_CLEAR_GAP`, same as `LOCAL_ADVANCED_REMOVE_PAUSE`). `clear({ instant: true })` drops every item. An empty reveal or clear resolves `finished`. `hit` / `break` are group `shake` / `flash` on slot `react`.
 
 `reset()` cancels runs, clears channels, resets behaviours, and lays out again. `reset({ items: 'spec' })` rebuilds the item count from `specCount`. LocalAdvanced boards use `specCount` 0.
 
-`sweep` parks the rod on the end cell and moves `offset` from the start delta to `{0,0}`. Victory passes `clipFrom` so width lerps from the start width to the end width. Horizontal 3 s, vertical 3 s, victory 1.5 s.
+`sweep` parks the rod on the end cell and moves `offset` from the start delta to `{0,0}`. Victory passes `clipFrom` so width lerps from the start width to the end width. Horizontal 1.5 s, vertical 1.5 s, victory 0.75 s.
 
 Health loss is `pose` 0→1, fill `hold`. `reset()` parks the bar back. Menu hover is `pose` on slot `hover`, policy `replace`, from `'current'`.
 

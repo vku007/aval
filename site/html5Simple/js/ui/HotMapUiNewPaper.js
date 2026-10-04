@@ -227,6 +227,7 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             if (!sheet.drama || !sheet.drama.done) {
                 return;
             }
+            sheet.isVisible = false;
             const done = sheet.drama.onDone;
             sheet.drama = null;
             if (typeof done === 'function') {
@@ -454,11 +455,11 @@ const HOT_MAP_NEW_PAPER_PRESET = {
     heatGain: 25,
     diskGain: 5,
     radiusGain: 5,
-    dramaHeatSpeed: 400,
+    dramaHeatSpeed: 1060,
     dramaBurstSpeed: 900,
-    dramaFallSpeed: 160,
-    dramaJump: 18,
-    dramaDrop: 28,
+    dramaFallSpeed: 100,
+    dramaJump: 23,
+    dramaDrop: 35,
     sheet: {
         isVisible: true,
         loopSpeed: 50,

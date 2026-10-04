@@ -4,8 +4,9 @@
  * The stage stays on the main game canvas.
  */
 class UIEditorToolsScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'UIEditorToolsScene' });
+    constructor(config) {
+        const key = config && config.key ? config.key : 'UIEditorToolsScene';
+        super({ key: key });
     }
 
     get heatMap() {
@@ -46,7 +47,7 @@ class UIEditorToolsScene extends Phaser.Scene {
         const objX = colW + gap;
         const objW = width - objX;
 
-        this.add.text(colX + 12, 18, 'UI Editor', {
+        this.add.text(colX + 12, 18, this.editorTitle(), {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0, 0);
@@ -68,7 +69,7 @@ class UIEditorToolsScene extends Phaser.Scene {
 
         this.effectsPanel = this.createEditorPanel(colX, midTop, colW, effectsH, 'EFFECTS');
         this.propsPanel = this.createEditorPanel(colX, propsY, colW, propsH, 'PROPS');
-        this.objectsPanel = this.createEditorPanel(objX, 0, objW, height, 'OBJECTS');
+        this.layoutObjectsColumn(objX, objW, height);
         this.heatMap.createEffectsEditor(this.effectsPanel, this);
         this.createObjectsList(this.objectsPanel);
         this.createFileBar(this.objectsPanel);
@@ -102,6 +103,18 @@ class UIEditorToolsScene extends Phaser.Scene {
             () => this.onBackClick(),
             backH
         );
+        this.onToolsReady();
+    }
+
+    onToolsReady() {
+    }
+
+    editorTitle() {
+        return 'UI Editor';
+    }
+
+    layoutObjectsColumn(objX, objW, height) {
+        this.objectsPanel = this.createEditorPanel(objX, 0, objW, height, 'OBJECTS');
     }
 
     update() {

@@ -1,5 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createHeatMap, hashGrid, loadHeat } from './harness.js';
+import { createHeatMap, hashGrid, loadHeat, SITE_ROOT } from './harness.js';
 
 const DT = 1000 / 60;
 
@@ -241,5 +243,76 @@ describe('composites', () => {
         expect(copy.spawnSpeed).toBe(source.spawnSpeed);
         expect(copy.ballInit).toEqual(source.ballInit);
         expect(snap(copy).items).toEqual(snap(source).items);
+    });
+
+    it('builds a cross from two highlights and two shards', () => {
+        const ctx = loadHeat();
+        const heatMap = createHeatMap(ctx);
+        const group = ctx.createComposite('cross', heatMap);
+        expect(group.kind).toBe('hot-map-cross');
+        expect(group.items.map((item) => item.kind)).toEqual([
+            'back-highlight',
+            'back-highlight',
+            'shard',
+            'shard'
+        ]);
+        expect(group.items.map((item) => item.emitter.from.angle)).toEqual([0, 90, 45, 135]);
+        expect(group.items.map((item) => item.emitter.to.angle)).toEqual([0, 90, 45, 135]);
+        group.items.forEach((item) => {
+            expect(item.emitter.center).toEqual({ col: group.center.col, row: group.center.row });
+        });
+        group.nudgeParam('hlFromWidth', 1);
+        expect(group.items[0].emitter.from.width).toBe(74);
+        expect(group.items[1].emitter.from.width).toBe(74);
+        expect(group.items[2].emitter.from.width).toBe(64);
+        group.nudgeParam('shFromSkew', 1);
+        expect(group.items[2].emitter.from.skew).toBe(-35);
+        expect(group.items[3].emitter.from.skew).toBe(-35);
+        expect(group.items[0].emitter.from.skew || 0).toBe(0);
+        group.nudgeParam('highlightTurn', -1);
+        expect(group.items[0].emitter.from.angle).toBe(0);
+        expect(group.items[1].emitter.from.angle).toBe(85);
+        expect(group.items[2].emitter.from.angle).toBe(45);
+        const data = group.serialize();
+        const copy = ctx.createComposite('cross', createHeatMap(ctx));
+        copy.applySerialized(data);
+        expect(copy.highlightTurn).toBe(85);
+        expect(copy.items.map((item) => item.emitter.from.angle)).toEqual([0, 85, 45, 135]);
+        expect(copy.items[0].emitter.from.width).toBe(74);
+        expect(copy.items[2].emitter.from.skew).toBe(-35);
+    });
+
+    it('applies cross.json params onto a centered cross', () => {
+        const ctx = loadHeat();
+        const heatMap = createHeatMap(ctx);
+        const field = heatMap.field;
+        const center = {
+            col: (field.cols - 1) / 2,
+            row: (field.rows - 1) / 2
+        };
+        const group = ctx.createComposite('cross', heatMap, {
+            name: 'Cross',
+            center: center
+        });
+        const raw = JSON.parse(fs.readFileSync(path.join(SITE_ROOT, 'resources/cross.json'), 'utf8'));
+        group.applySerialized(Object.assign({}, raw.cross, { center: center }));
+        group.layoutItems();
+        expect(group.center).toEqual(center);
+        expect(group.highlightTurn).toBe(90);
+        expect(group.shardTurn).toBe(90);
+        expect(group.shardOffset).toBe(45);
+        expect(group.highlightInit.from).toMatchObject({ width: 90, height: 10, angle: 45, heat: 0.1 });
+        expect(group.highlightInit.to).toMatchObject({ width: 90, height: 10, heat: 0.1 });
+        expect(group.shardInit.from).toMatchObject({ width: 88, height: 6, angle: 0, skew: 0, heat: 0.8, glisten: 0 });
+        expect(group.shardInit.to.glisten).toBe(100);
+        expect(group.highlightInit.delay).toBe(0.4);
+        expect(group.shardInit.delay).toBe(0.3);
+        expect(group.items.map((item) => item.emitter.from.angle)).toEqual([45, 135, 45, 135]);
+        expect(group.items.map((item) => item.emitter.from.width)).toEqual([90, 90, 88, 88]);
+        expect(group.items[0].emitter.params.delay).toBe(0.4);
+        expect(group.items[2].emitter.params.delay).toBe(0.3);
+        group.items.forEach((item) => {
+            expect(item.emitter.center).toEqual(center);
+        });
     });
 });

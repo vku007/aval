@@ -31,6 +31,8 @@ class TestsScene extends Phaser.Scene {
 
         const buttons = [
             { label: 'UI EDITOR', onClick: () => this.onUiEditorClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'BUTTONS', onClick: () => this.onButtonsClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'SKINNED BUTTON', onClick: () => this.onSkinnedButtonClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'COMPOSITE UI EDITOR', onClick: () => this.onCompositeUiEditorClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'UI PLAZMA BALL', onClick: () => this.onPlasmaClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'HOT MAP BALL', onClick: () => this.onHotMapClick(), height: UI.menuPrimaryH, strong: true },
@@ -77,6 +79,16 @@ class TestsScene extends Phaser.Scene {
     onUiEditorClick() {
         console.log('[TestsScene] UI Editor clicked');
         fxGoTo(this, 'UIEditorScene');
+    }
+
+    onButtonsClick() {
+        console.log('[TestsScene] Buttons clicked');
+        fxGoTo(this, 'ButtonsScene');
+    }
+
+    onSkinnedButtonClick() {
+        console.log('[TestsScene] Skinned button clicked');
+        fxGoTo(this, 'SkinnedButtonScene');
     }
 
     onCompositeUiEditorClick() {

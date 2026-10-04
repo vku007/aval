@@ -172,7 +172,7 @@ class HotMapUiStone extends HotMapUiComposite {
     spreadBallPhases() {
         const balls = this.parts
             .map((part) => part.object)
-            .filter((object) => object && object.kind === 'hot-ball' && object.motion);
+            .filter((object) => object && object.kind === 'hot-ball' && object.motion && !object._stoneShard && !object._stoneLeaving);
         if (balls.length < 2) {
             return;
         }
@@ -185,13 +185,100 @@ class HotMapUiStone extends HotMapUiComposite {
         });
     }
 
+    lastStoneBall() {
+        for (let index = this.parts.length - 1; index >= 0; index -= 1) {
+            const object = this.parts[index].object;
+            if (object && object.kind === 'hot-ball' && !object._stoneShard) {
+                return object;
+            }
+        }
+        return null;
+    }
+
+    prepareStoneExit(ball) {
+        const motion = ball.motion;
+        const shown = this.visualAngle(ball);
+        ball._stoneTangent = stoneTangent(motion, shown);
+        ball.cancelAll();
+        motion.angle = shown;
+        motion.params.phase = wrapPhaseDeg(shown * 180 / Math.PI);
+        this.writeField(ball, 'angleSpeed', 0);
+        ball._stoneLeaving = true;
+        ball.define('exit', stoneDrama());
+        return ball;
+    }
+
+    spawnStoneShards(source) {
+        const motion = source.motion;
+        if (!motion) {
+            return [];
+        }
+        const angle = motion.angle;
+        const flights = stoneShardFlights(source._stoneTangent, this._shardRandom);
+        const radius = motion.params.radius * 0.33;
+        const energy = motion.params.energy;
+        const shards = flights.map((flight) => {
+            const shard = new UiHotBall(this.heatMap, {
+                params: Object.assign({}, motion.params, {
+                    radius: radius,
+                    energy: energy,
+                    angleSpeed: 0,
+                    phase: wrapPhaseDeg(angle * 180 / Math.PI)
+                })
+            });
+            shard.motion.orbitCenter.col = motion.orbitCenter.col;
+            shard.motion.orbitCenter.row = motion.orbitCenter.row;
+            if (shard.motion.orbitTarget) {
+                shard.motion.orbitTarget.col = motion.orbitCenter.col;
+                shard.motion.orbitTarget.row = motion.orbitCenter.row;
+            }
+            shard.motion.angle = angle;
+            shard.motion.centerFollow = null;
+            shard.motion.phaseGoal = null;
+            shard.motion.phaseFollow = null;
+            shard._stoneShard = true;
+            shard._stoneLeaving = true;
+            this.add(shard);
+            shard.define('exit', stoneShard());
+            const fade = flight.duration * 0.35;
+            shard.play('exit', {
+                flight: flight.flight,
+                kick: flight.kick,
+                drop: flight.drop,
+                duration: flight.duration,
+                hold: Math.max(0, flight.duration - fade),
+                fade: fade
+            });
+            return shard;
+        });
+        this.spreadBallPhases();
+        return shards;
+    }
+
     removeItem() {
-        const object = this.lastPart('hot-ball');
+        const object = this.lastStoneBall();
         if (!object) {
             return null;
         }
         this.remove(object, { instant: true });
         return object;
+    }
+
+    removeItemWithDrama() {
+        const ball = this.lastStoneBall();
+        if (!ball || ball._stoneLeaving) {
+            return null;
+        }
+        this.prepareStoneExit(ball);
+        const group = this;
+        HeatComposite.prototype.remove.call(this, ball, {
+            ctx: {
+                hooks: {
+                    shatter: () => group.spawnStoneShards(ball)
+                }
+            }
+        });
+        return ball;
     }
 
     extendSerialized(data) {
@@ -217,6 +304,16 @@ class HotMapUiStone extends HotMapUiComposite {
         }
     }
 }
+
+HotMapUiStone.REMOVE_TABS = [
+    {
+        id: 'remove',
+        rows: [
+            { key: 'removeItemWithDrama', label: 'DRAMA', button: 'POP', type: 'action' },
+            { key: 'removeItem', label: 'BALL', button: 'RMV', type: 'action' }
+        ]
+    }
+];
 
 HotMapUiStone.ADD_TABS = [
     {
