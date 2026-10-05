@@ -43,7 +43,7 @@ Step 1 (slices 1a–1h) is implemented. Do not reintroduce the mechanisms it rem
 | New composite behaviour | Layout function plus `heatRegisterComposite` on the existing editor class. `createComposite(name, heatMap, overrides)`. |
 | Scene sequence | `await node.play(...).finished` or `await heatFieldWait(...).finished`. After every await, return if `!fieldLive(field)`. |
 
-`createItem` names: `hot-ball`, `hot-rod`, `heat-rect` / `back-highlight`, `shard`, `sheet` / `heat-sheet`, `disk` / `new-sheet` / `heat-disk`.
+`createItem` names: `hot-ball`, `hot-rod`, `heat-rect` / `back-highlight`, `shard`, `pointer`, `round`, `sheet` / `heat-sheet`, `disk` / `new-sheet` / `heat-disk`.
 
 `createComposite` names: `stone`, `scissor`, `paper`, `diskStack`, `cross`.
 

@@ -12,8 +12,11 @@ class HmSkinnedStoneButton extends HmSkinnedButton {
                 row: (field.rows - 1) / 2
             }
         });
+        const scale = HM_SKINNED_LENGTH_SCALE;
+        this.stone.ballInit.orbitRadius *= scale;
+        this.stone.ballInit.radius *= scale;
         if (typeof opts.ballRadius === 'number') {
-            this.stone.ballInit.radius = opts.ballRadius;
+            this.stone.ballInit.radius = opts.ballRadius * scale;
         }
         if (typeof opts.ballHeat === 'number') {
             this.stone.ballInit.energy = opts.ballHeat;

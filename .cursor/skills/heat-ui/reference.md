@@ -32,7 +32,7 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
 ├─ HeatItem       behaviours, stamp, translate, copyBehaviourState
 │  ├─ UiHotBall        Orbit, Follow (editor taps)
 │  ├─ UiHotRod         PathLoop
-│  ├─ UiBackHighlighter, UiShard    PoseCycle
+│  ├─ UiBackHighlighter, UiShard, UiPointer, UiRound    PoseCycle
 │  ├─ UiSheet          PoseCycle, Glisten, BallRunner
 │  └─ UiNewSheet       DiskLoop, Spin
 └─ HeatComposite  items, template, layout, transitions
@@ -43,9 +43,9 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
    └─ HotMapUiCross       kind hot-map-cross, config cross
 ```
 
-Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
+Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
 
-Behaviours in `js/heat/behaviours/behaviours.js`: `Orbit`, `Follow`, `PathLoop`, `PoseCycle`, `Glisten`, `BallRunner`, `DiskLoop`, `Spin`. Each has `reset()`, `advance(dt)`, `copyStateFrom(other, shift)`.
+Behaviours in `js/heat/behaviours/behaviours.js`: `Orbit`, `Follow`, `PathLoop`, `PoseCycle`, `Glisten`, `CornerGlisten`, `BallRunner`, `DiskLoop`, `Spin`. Each has `reset()`, `advance(dt)`, `copyStateFrom(other, shift)`.
 
 ## Stamp
 
@@ -68,7 +68,8 @@ Identity leaves the stamp unchanged. Each run stores its own contribution.
 | Channel | Combine | Identity | Used by |
 |---|---|---|---|
 | `offset` `{col,row}` | add | `{0,0}` | all |
-| `rotate` | add | `0` | all |
+| `rotate` | add | `0` | all. In-plane tumble for a shard |
+| `tiltX`, `tiltY` | add | `0` | shard. Screen-axis tumble. `0` leaves the stamp unchanged |
 | `scale` | multiply | `1` | all |
 | `heat` | multiply | `1` | all. `0` hides |
 | `phase` | add | `0` | HotBall |
@@ -86,14 +87,14 @@ Group channels on a composite shake or flash the set without writing item fields
 
 Blocks: `tracks`, `wait`, `set`, `call`, `sequence`, `parallel`, `stagger`.
 
-Library: `move`, `grow`, `spin`, `fade`, `flash`, `shake`, `gather`, `pose`, `sweep`, `arc`, `stoneEnter`, `stoneSpread`, `stoneDrama`, `stoneShard`, `scissorEnter`.
+Library: `move`, `grow`, `spin`, `fade`, `flash`, `shake`, `gather`, `pose`, `sweep`, `arc`, `stoneEnter`, `stoneSpread`, `stoneDrama`, `stoneShard`, `scissorEnter`, `scissorDrama`.
 
 Eases: `linear`, `sine` (in-out), `expOut` (`k = 3`, scaled so `u = 1` lands on 1). Fly-in duration is `3 / speed` seconds. New Paper drama step duration is `100 / speed` seconds. Do not hardcode the rounded 0.11 and 0.63.
 
 | Config | Item | Enter | Exit |
 |---|---|---|---|
 | `stone` | HotBall, even phases | `move` from `$spawn`, then `spread` on slot `layout`, fill `commit` | fade, then detach. Editor POP stops the ball, snaps scale to 2 and heat to 3, then three shards at 33% size keep some orbit speed in the opposite direction and fall under gravity. The balls that remain spread evenly, the same as on add |
-| `scissor` | shard | `parallel(move from $spawn, grow from ~0, spin from -(360+$turn))` | fade, then detach |
+| `scissor` | shard | `parallel(move from $spawn, grow from ~0, spin from -(360+$turn))` | fade, then detach. Editor POP freezes the shown pose, holds heat at 3, then fades it to 0 while the shard falls under gravity (`drop * u²`) and tumbles on X, Y, and Z |
 | `paper` | HeatSheet, stacked by `stackGap` | pair / split / reveal. Waypoint is the previous sheet's spec pose | fade, then detach |
 | `diskStack` | HeatDisk | `gather` 1→0 from `$spawn`, 1 s | instant. POP is still `drama`, then `call detach` |
 | `cross` | two HeatRects and two shards on one center | placed. Highlighters step by `highlightTurn` (90). Shards step by `shardTurn` (90) plus `shardOffset` (45) | fade, then detach |
@@ -114,4 +115,4 @@ Resource JSON that must still load: `resources/stone-1.json`, `scissors-1.json`,
 
 ## Scene waits
 
-LocalAdvanced: `enemy.reveal(count)`, `heatFieldWait` for `LOCAL_ADVANCED_REVEAL_PAUSE` (5 s) and `LOCAL_ADVANCED_CLASH_PAUSE` (2 s), fight pulses in parallel, `loser.clear()`, post-mortem and victory pulses. `playMoveResult` may stay async. It must return without touching objects when the captured field is destroyed. Abort the in-flight `gameClient.updateGame` / `createGame` / `getGame` from scene shutdown (`signal`).
+LocalAdvanced: `enemy.reveal(count)`, `heatFieldWait` for `LOCAL_ADVANCED_REVEAL_PAUSE` (5 s) and `LOCAL_ADVANCED_CLASH_PAUSE` (2 s), fight pulses in parallel, then `removeWithDrama()` on every loser item, each drama starting 0.33 s after the previous. When both moves are the same type, the winner's board also `removeWithDrama(loserCount)` with the same gap. Post-mortem and victory pulses follow. `playMoveResult` may stay async. It must return without touching objects when the captured field is destroyed. Abort the in-flight `gameClient.updateGame` / `createGame` / `getGame` from scene shutdown (`signal`).

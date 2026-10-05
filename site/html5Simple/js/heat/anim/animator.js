@@ -46,6 +46,95 @@ function heatDoneRun() {
 }
 
 /**
+ * Resolves finished when every run has. One cancelled child cancels the join.
+ * `extras` may be filled before `lead` resolves, as a shatter hook does.
+ */
+function heatFollowRuns(lead, extras) {
+    if (!lead || !lead.finished) {
+        return heatDeadRun();
+    }
+    const finished = lead.finished.then((result) => {
+        if (!result || result.status !== 'finished') {
+            return result || { status: 'cancelled' };
+        }
+        const rest = (extras || []).filter((run) => run && run.finished);
+        if (!rest.length) {
+            return result;
+        }
+        return Promise.all(rest.map((run) => run.finished)).then((results) => ({
+            status: results.every((item) => item && item.status === 'finished')
+                ? 'finished'
+                : 'cancelled'
+        }));
+    });
+    return { finished: finished };
+}
+
+function heatJoinRuns(runs) {
+    const list = (runs || []).filter((run) => run && run.finished);
+    if (!list.length) {
+        const empty = heatDoneRun();
+        empty.removed = 0;
+        return empty;
+    }
+    const finished = Promise.all(list.map((run) => run.finished)).then((results) => ({
+        status: results.every((result) => result && result.status === 'finished')
+            ? 'finished'
+            : 'cancelled'
+    }));
+    return { finished: finished, removed: list.length };
+}
+
+function heatDramaGap() {
+    return 0.33;
+}
+
+/**
+ * Starts each function 0.33 s after the previous one, on the field clock.
+ * The returned run finishes when the stagger and every returned drama run finish.
+ */
+function heatStaggerDramas(node, starts) {
+    const list = starts || [];
+    if (!node || node.detached || !node.attached) {
+        const dead = heatDeadRun();
+        dead.removed = 0;
+        return dead;
+    }
+    if (!list.length) {
+        return heatJoinRuns([]);
+    }
+    const dramas = [];
+    const parts = [];
+    list.forEach((_, index) => {
+        if (index) {
+            parts.push(wait(heatDramaGap()));
+        }
+        parts.push(call('drama-one'));
+    });
+    node.define('drama-stagger', sequence(parts, {
+        slot: 'life',
+        policy: 'replace',
+        fill: 'none'
+    }));
+    let cursor = 0;
+    const run = node.play('drama-stagger', {
+        hooks: {
+            'drama-one': () => {
+                const start = list[cursor];
+                cursor += 1;
+                const drama = typeof start === 'function' ? start() : null;
+                if (drama && drama.finished) {
+                    dramas.push(drama);
+                }
+            }
+        }
+    });
+    const followed = heatFollowRuns(run, dramas);
+    followed.removed = list.length;
+    return followed;
+}
+
+/**
  * A wait on the field clock. Scene shutdown destroys the field, which
  * cancels this run. Nothing here uses scene timers.
  */

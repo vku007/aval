@@ -20,7 +20,9 @@ const HEAT_CHANNEL_SPEC = {
     'balls.scale': { combine: 'mul', shape: 'number', identity: 1 },
     'balls.offset': { combine: 'add', shape: 'point' },
     'balls.gather': { combine: 'latest', shape: 'number', identity: 0 },
-    'balls.gatherAt': { combine: 'latest', shape: 'point' }
+    'balls.gatherAt': { combine: 'latest', shape: 'point' },
+    tiltX: { combine: 'add', shape: 'number', identity: 0 },
+    tiltY: { combine: 'add', shape: 'number', identity: 0 }
 };
 
 const HEAT_STANDARD_CHANNELS = ['offset', 'rotate', 'scale', 'heat'];
@@ -31,8 +33,10 @@ function heatChannelNames(kind) {
         names.push('phase');
     } else if (kind === 'hot-rod') {
         names.push('clip');
-    } else if (kind === 'back-highlight' || kind === 'shard') {
+    } else if (kind === 'back-highlight' || kind === 'pointer') {
         names.push('pose');
+    } else if (kind === 'shard') {
+        names.push('pose', 'tiltX', 'tiltY');
     } else if (kind === 'sheet') {
         names.push(
             'shape.heat', 'glisten.gain',
@@ -375,7 +379,9 @@ function heatPresentPose(frame, pose, from, to) {
     const rot = (frame.own.rotate || 0) + (frame.group ? frame.group.rotate || 0 : 0);
     const scale = (frame.own.scale == null ? 1 : frame.own.scale) * (frame.group ? frame.group.scale : 1);
     const heat = (frame.own.heat == null ? 1 : frame.own.heat) * (frame.group ? frame.group.heat : 1);
-    if (!frame.poseHeld && shape === 1 && rot === 0 && scale === 1 && heat === 1) {
+    const tiltX = frame.own.tiltX || 0;
+    const tiltY = frame.own.tiltY || 0;
+    if (!frame.poseHeld && shape === 1 && rot === 0 && scale === 1 && heat === 1 && tiltX === 0 && tiltY === 0) {
         return pose;
     }
     const shown = frame.poseHeld && from && to
@@ -386,6 +392,9 @@ function heatPresentPose(frame, pose, from, to) {
         shown.height = heatMul(shown.height, scale);
         if (typeof shown.bend === 'number') {
             shown.bend = heatMul(shown.bend, scale);
+        }
+        if (typeof shown.radius === 'number') {
+            shown.radius = heatMul(shown.radius, scale);
         }
     }
     if (rot !== 0) {
@@ -399,12 +408,15 @@ function heatPresentPose(frame, pose, from, to) {
             shown.shapeHeat *= heat;
         }
     }
+    if (tiltX !== 0 || tiltY !== 0) {
+        projectBackHighlightTilt(shown, tiltX, tiltY);
+    }
     return shown;
 }
 
 function heatBlendPose(from, to, t) {
     const shown = copyBackHighlightPose(from);
-    ['width', 'height', 'angle', 'skew', 'heat', 'shapeHeat', 'glisten', 'bend', 'cosine'].forEach((key) => {
+    ['width', 'height', 'angle', 'skew', 'heat', 'shapeHeat', 'glisten', 'bend', 'cosine', 'radius'].forEach((key) => {
         const start = from && typeof from[key] === 'number' ? from[key] : null;
         const end = to && typeof to[key] === 'number' ? to[key] : null;
         if (start == null && end == null) {

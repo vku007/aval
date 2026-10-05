@@ -154,16 +154,45 @@ function stampRotatedHotBall(grid, cols, rows, cx, cy, params, depth) {
     }
 }
 
+let rotatedHeatColdRowFlags = new Uint8Array(0);
+
+function rotatedHeatColdRows(src, cols, rows) {
+    if (rotatedHeatColdRowFlags.length < rows) {
+        rotatedHeatColdRowFlags = new Uint8Array(rows);
+    }
+    const cold = rotatedHeatColdRowFlags;
+    for (let y = 0; y < rows; y++) {
+        const start = y * cols;
+        const end = start + cols;
+        let isCold = 1;
+        for (let i = start; i < end; i++) {
+            if (src[i] > 0) {
+                isCold = 0;
+                break;
+            }
+        }
+        cold[y] = isCold;
+    }
+    return cold;
+}
+
 function stepRotatedHeat(src, dst, cols, rows, delta, params) {
     const dt = Math.min(delta / 1000, 0.05);
     const k = Math.min(0.18, params.diffusion * dt);
     const cool = Math.exp(-params.cooling * dt);
     const lastX = cols - 1;
     const lastY = rows - 1;
+    const cold = rotatedHeatColdRows(src, cols, rows);
     for (let y = 0; y < rows; y++) {
         const row = y * cols;
-        const nRow = (y > 0 ? y - 1 : y) * cols;
-        const sRow = (y < lastY ? y + 1 : y) * cols;
+        const n = y > 0 ? y - 1 : y;
+        const s = y < lastY ? y + 1 : y;
+        if (cold[n] && cold[y] && cold[s]) {
+            dst.fill(0, row, row + cols);
+            continue;
+        }
+        const nRow = n * cols;
+        const sRow = s * cols;
         for (let x = 0; x < cols; x++) {
             const west = x > 0 ? x - 1 : x;
             const east = x < lastX ? x + 1 : x;
@@ -181,8 +210,16 @@ function stepRotatedHeat(src, dst, cols, rows, delta, params) {
 function paintRotatedHeat(imageData, grid, cols, rows) {
     const data = imageData.data;
     for (let i = 0, n = cols * rows; i < n; i++) {
-        const rgb = rotatedHeatRgb(grid[i]);
         const p = i * 4;
+        const heat = grid[i];
+        if (heat <= 0) {
+            data[p] = 0;
+            data[p + 1] = 0;
+            data[p + 2] = 0;
+            data[p + 3] = 255;
+            continue;
+        }
+        const rgb = rotatedHeatRgb(heat);
         data[p] = rgb[0];
         data[p + 1] = rgb[1];
         data[p + 2] = rgb[2];

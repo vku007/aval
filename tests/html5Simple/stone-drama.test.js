@@ -175,6 +175,55 @@ describe('stone drama remove', () => {
         expect(third._slots.layout && third._slots.layout.active).toBeFalsy();
     });
 
+    it('pops every ball 0.33 s apart, or only the requested count', async () => {
+        const ctx = loadHeat();
+        const heatMap = createHeatMap(ctx);
+        const group = new ctx.HotMapUiStone(heatMap);
+        group._shardRandom = function random() {
+            return 0.5;
+        };
+        const balls = [0, 1, 2].map(() => group.addItem({ animate: false }));
+        const run = group.removeWithDrama();
+        expect(run.removed).toBe(3);
+        expect(balls[2]._stoneLeaving).toBe(true);
+        expect(balls[1]._stoneLeaving).toBeFalsy();
+        expect(balls[0]._stoneLeaving).toBeFalsy();
+
+        for (let frame = 0; frame < 19; frame += 1) {
+            heatMap.field.update(frame * DT, DT);
+        }
+        expect(balls[1]._stoneLeaving).toBeFalsy();
+        heatMap.field.update(19 * DT, DT);
+        expect(balls[1]._stoneLeaving).toBe(true);
+        expect(balls[0]._stoneLeaving).toBeFalsy();
+        for (let frame = 20; frame < 39; frame += 1) {
+            heatMap.field.update(frame * DT, DT);
+        }
+        expect(balls[0]._stoneLeaving).toBeFalsy();
+        heatMap.field.update(39 * DT, DT);
+        expect(balls[0]._stoneLeaving).toBe(true);
+
+        const partialMap = createHeatMap(ctx);
+        const partial = new ctx.HotMapUiStone(partialMap);
+        partial._shardRandom = function random() {
+            return 0.5;
+        };
+        const kept = partial.addItem({ animate: false });
+        const dropped = partial.addItem({ animate: false });
+        const one = partial.removeWithDrama(1);
+        expect(one.removed).toBe(1);
+        expect(dropped._stoneLeaving).toBe(true);
+        expect(kept._stoneLeaving).toBeFalsy();
+
+        const pending = run.finished;
+        for (let frame = 40; frame < 150; frame += 1) {
+            heatMap.field.update(frame * DT, DT);
+        }
+        await expect(pending).resolves.toEqual({ status: 'finished' });
+        balls.forEach((ball) => expect(ball.attached).toBe(false));
+        expect(group.items).toHaveLength(0);
+    });
+
     it('drops the last real ball at once and ignores a second POP', () => {
         const ctx = loadHeat();
         const heatMap = createHeatMap(ctx);

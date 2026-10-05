@@ -40,7 +40,9 @@ class HeatItem extends HeatNode {
     }
 
     stampNow() {
-        if (this._skipStamp) {
+        // Detach clears the channels before this stamp. Drawing then flashes
+        // the rest pose back at the original position.
+        if (this._skipStamp || this.detached) {
             return;
         }
         const target = this._liveTarget;

@@ -3,9 +3,11 @@
  * A stage button whose face is a heat-map image.
  * A subclass installs the composite. The map paints a canvas,
  * and that canvas is scaled to the button and clipped to the button shape.
- * The field is 100×100 cells. It advances on every scene frame.
+ * The field is 60×60 cells. It advances on every scene frame.
+ * Lengths that were drawn for a 100-cell field scale by HM_SKINNED_LENGTH_SCALE.
  */
-const HM_SKINNED_HEAT_SIZE = 100;
+const HM_SKINNED_HEAT_SIZE = 60;
+const HM_SKINNED_LENGTH_SCALE = HM_SKINNED_HEAT_SIZE / 100;
 
 class HmSkinnedButton extends UiStageButton {
     constructor(scene, options) {
@@ -29,7 +31,9 @@ class HmSkinnedButton extends UiStageButton {
         }, {
             interactive: false,
             cellPx: 1,
-            present: false
+            present: false,
+            minCols: 1,
+            minRows: 1
         });
         applyCompositeHeatMapDefault({
             heatMap: this.heatMap,
@@ -98,10 +102,6 @@ class HmSkinnedButton extends UiStageButton {
             ctx.drawImage(this.pictureImage, 0, 0, px, py);
         }
         ctx.restore();
-        const pixels = ctx.getImageData(0, 0, px, py);
-        this.facePixels = pixels.data;
-        this.facePixelW = px;
-        this.facePixelH = py;
         const texture = this.scene.textures.get(this.faceKey);
         if (texture && typeof texture.refresh === 'function') {
             texture.refresh();
@@ -109,9 +109,14 @@ class HmSkinnedButton extends UiStageButton {
         if (!this.image) {
             this.image = this.scene.add.image(0, 0, this.faceKey);
             this.root.addAt(this.image, 1);
-        } else {
-            this.image.setTexture(this.faceKey);
         }
         this.image.setDisplaySize(w, h);
+    }
+
+    redraw() {
+        super.redraw();
+        if (this.root.input) {
+            this.root.input.hitAreaCallback = uiStageButtonContains;
+        }
     }
 }

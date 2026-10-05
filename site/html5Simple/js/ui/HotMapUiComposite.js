@@ -144,7 +144,7 @@ class HotMapUiComposite extends HeatComposite {
                 target: hotMapStoneDelta(origin, emitter.target)
             };
         }
-        if (object.kind === 'back-highlight' || object.kind === 'shard' || object.kind === 'sheet') {
+        if (object.kind === 'back-highlight' || object.kind === 'shard' || object.kind === 'sheet' || object.kind === 'pointer') {
             const emitter = object.emitter;
             return {
                 center: hotMapStoneDelta(origin, emitter.center),
@@ -181,7 +181,7 @@ class HotMapUiComposite extends HeatComposite {
             hotMapStonePlace(emitter.target, origin, local.target);
             return;
         }
-        if (object.kind === 'back-highlight' || object.kind === 'shard' || object.kind === 'sheet') {
+        if (object.kind === 'back-highlight' || object.kind === 'shard' || object.kind === 'sheet' || object.kind === 'pointer') {
             hotMapStonePlace(object.emitter.center, origin, local.center);
             hotMapStonePlace(object.emitter.target, origin, local.target);
             return;

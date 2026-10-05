@@ -319,7 +319,17 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const enemyWon = exchange.winnerId && !playerWon;
         if (exchange.winnerId) {
             const loser = playerWon ? enemyComposite : playerComposite;
-            if (loser && !(await this.finishRun(loser.clear(), field))) {
+            const winner = playerWon ? playerComposite : enemyComposite;
+            const sameType = exchange.playerType === exchange.enemyType;
+            const loserExit = this.dramaticClear(loser);
+            const winnerExit = sameType
+                ? this.dramaticClear(winner, loserExit.removed)
+                : heatDoneRun();
+            const cleared = await Promise.all([
+                this.finishRun(loserExit, field),
+                this.finishRun(winnerExit, field)
+            ]);
+            if (cleared.some((ok) => !ok)) {
                 return;
             }
         }
@@ -340,6 +350,15 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             }
             await this.finishRun(this.playEnemyVictoryPulse(), field);
         }
+    }
+
+    dramaticClear(composite, count) {
+        if (!composite || typeof composite.removeWithDrama !== 'function') {
+            const run = heatDoneRun();
+            run.removed = 0;
+            return run;
+        }
+        return composite.removeWithDrama(count);
     }
 
     resetEnemyBoards() {
@@ -796,16 +815,9 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const selection = boxes.find((box) => box.label === 'selection');
         if (control) {
             const row = panelButtonRow(control);
-            const goW = 72;
-            const goH = 36;
-            this.goButton = this.createGreenButton(
-                control.x + row.inset + goW / 2,
-                row.y,
-                goW,
-                goH,
-                'go',
-                () => this.onGoPress()
-            );
+            const goSize = LOCAL_ADVANCED_CANCEL_BUTTON;
+            const goX = control.x + row.inset + goSize / 2;
+            this.goButton = this.createGoButton(goX, row.y);
             this.setGreenButtonEnabled(this.goButton, false);
             const size = LOCAL_ADVANCED_CANCEL_BUTTON;
             const cx = control.x + control.width - row.inset - size / 2;
@@ -833,6 +845,26 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         }
     }
 
+    createGoButton(cx, cy) {
+        const size = LOCAL_ADVANCED_CANCEL_BUTTON;
+        const button = new HmSkinnedPointerButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size
+        });
+        button.isEnabled = false;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onGoPress()
+        });
+        this.setGreenButtonEnabled(button, false);
+        this.placeButtonRound(button, 'Go');
+        return button;
+    }
+
     createCancelButton(cx, cy) {
         const size = LOCAL_ADVANCED_CANCEL_BUTTON;
         const button = new HmSkinnedCrossButton(this, {
@@ -849,6 +881,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             onClick: () => this.onCancelPress()
         });
         this.setGreenButtonEnabled(button, false);
+        this.placeButtonRound(button, 'Cancel');
         return button;
     }
 
@@ -873,6 +906,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (button.root.input) {
             button.root.input.cursor = 'pointer';
         }
+        this.placeButtonRound(button, 'Stone');
         return button;
     }
 
@@ -895,6 +929,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (button.root.input) {
             button.root.input.cursor = 'pointer';
         }
+        this.placeButtonRound(button, 'Scissors');
         return button;
     }
 
@@ -917,7 +952,30 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (button.root.input) {
             button.root.input.cursor = 'pointer';
         }
+        this.placeButtonRound(button, 'Paper');
         return button;
+    }
+
+    placeButtonRound(button, name) {
+        const radius = heatMapCellSpan(this.heatMap, button.width / 2, 'col');
+        const cell = heatMapCellAt(this.heatMap, button.root.x, button.root.y);
+        const round = new UiRound(this.heatMap, {
+            name: name,
+            center: cell,
+            target: cell,
+            cycling: false,
+            from: { radius: radius, heat: 0 },
+            to: { radius: radius, heat: 0.1 },
+            params: { speed: 6, delay: 0.5, gap: 0.4 }
+        });
+        round.armHover();
+        button.round = round;
+        button.root.on('pointerover', () => round.setHovered(true));
+        button.root.on('pointerout', () => round.setHovered(false));
+        if (pointerInsideStageButton(this, button)) {
+            round.setHovered(true);
+        }
+        return round;
     }
 
     createGreenButton(x, y, width, height, label, onClick) {
@@ -962,6 +1020,9 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         }
         if (this.cancelButton && typeof this.cancelButton.update === 'function') {
             this.cancelButton.update(time, delta);
+        }
+        if (this.goButton && typeof this.goButton.update === 'function') {
+            this.goButton.update(time, delta);
         }
     }
 
@@ -1145,6 +1206,16 @@ function hotHealthBarPoint(heatMap, bars, edge) {
         }
     });
     return best;
+}
+
+function pointerInsideStageButton(scene, button) {
+    const pointer = scene.input && scene.input.activePointer;
+    const root = button && button.root;
+    if (!pointer || !root || typeof root.getBounds !== 'function') {
+        return false;
+    }
+    const bounds = root.getBounds();
+    return Phaser.Geom.Rectangle.Contains(bounds, pointer.worldX, pointer.worldY);
 }
 
 function heatMapCellAt(heatMap, x, y) {

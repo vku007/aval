@@ -21,6 +21,38 @@ function hmCrossButtonPreset(scene) {
     return raw && raw.cross ? raw.cross : null;
 }
 
+function hmScaleCrossPose(pose, scale) {
+    if (!pose) {
+        return;
+    }
+    if (typeof pose.width === 'number') {
+        pose.width *= scale;
+    }
+    if (typeof pose.height === 'number') {
+        pose.height *= scale;
+    }
+}
+
+function hmScaledCrossPreset(preset) {
+    const copy = JSON.parse(JSON.stringify(preset));
+    const scale = HM_SKINNED_LENGTH_SCALE;
+    (copy.parts || []).forEach((part) => {
+        if (!part || !part.object) {
+            return;
+        }
+        hmScaleCrossPose(part.object.from, scale);
+        hmScaleCrossPose(part.object.to, scale);
+    });
+    [copy.highlightInit, copy.shardInit].forEach((init) => {
+        if (!init) {
+            return;
+        }
+        hmScaleCrossPose(init.from, scale);
+        hmScaleCrossPose(init.to, scale);
+    });
+    return copy;
+}
+
 class HmSkinnedCrossButton extends HmSkinnedButton {
     installComposite() {
         const field = this.heatMap.field;
@@ -37,7 +69,7 @@ class HmSkinnedCrossButton extends HmSkinnedButton {
             console.warn('[HmSkinnedCrossButton] cross.json is not loaded');
             return;
         }
-        this.cross.applySerialized(Object.assign({}, preset, { center: center }));
+        this.cross.applySerialized(Object.assign({}, hmScaledCrossPreset(preset), { center: center }));
         this.cross.layoutItems();
     }
 }

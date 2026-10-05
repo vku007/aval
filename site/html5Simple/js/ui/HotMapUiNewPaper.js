@@ -206,8 +206,7 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         return object;
     }
 
-    removeItemWithDrama() {
-        const sheet = this.lastPart('new-sheet');
+    startSheetDrama(sheet) {
         if (!sheet || sheet.drama) {
             return null;
         }
@@ -220,6 +219,46 @@ class HotMapUiNewPaper extends HotMapUiComposite {
             onDone: () => this.removeItem(sheet)
         });
         return sheet;
+    }
+
+    removeItemWithDrama() {
+        const sheet = this.lastPart('new-sheet');
+        if (!sheet || sheet.drama) {
+            return null;
+        }
+        return this.startSheetDrama(sheet);
+    }
+
+    removeWithDrama(count) {
+        const all = count == null;
+        const limit = all ? Infinity : Math.max(0, count | 0);
+        const sheets = [];
+        if (limit > 0) {
+            for (let index = this.parts.length - 1; index >= 0 && sheets.length < limit; index -= 1) {
+                const sheet = this.parts[index].object;
+                if (sheet && sheet.kind === 'new-sheet' && !sheet.drama) {
+                    sheets.push(sheet);
+                }
+            }
+        }
+        const speeds = [this.dramaHeatSpeed, this.dramaBurstSpeed, this.dramaFallSpeed];
+        const duration = speeds.reduce((sum, speed) => {
+            return sum + 100 / Math.max(1, Number(speed) || 1);
+        }, 0);
+        const stagger = heatStaggerDramas(this, sheets.map((sheet) => () => {
+            this.startSheetDrama(sheet);
+            return null;
+        }));
+        if (!sheets.length || !(duration > 0)) {
+            return stagger;
+        }
+        const cover = heatFieldWait(
+            this.heatMap && this.heatMap.field,
+            (sheets.length - 1) * heatDramaGap() + duration
+        );
+        const joined = heatJoinRuns([stagger, cover]);
+        joined.removed = sheets.length;
+        return joined;
     }
 
     finishDramas() {

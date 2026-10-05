@@ -697,18 +697,9 @@ class UiNewSheet extends HeatItem {
             this.diskSum.fill(0);
         }
         const diskHeat = this.diskTraveling() ? 0 : this.heat;
-        this.stampDisk(this.diskSum, field.cols, field.rows, this.diskCenter(this.depth), this.radius, diskHeat);
+        const bounds = this.stampDisk(this.diskSum, field.cols, field.rows, this.diskCenter(this.depth), this.radius, diskHeat);
         const sum = diskHeatBuffer(field, grid);
-        for (let i = 0; i < grid.length; i++) {
-            const add = this.diskSum[i];
-            if (add <= 0) {
-                continue;
-            }
-            sum[i] = Math.min(1, sum[i] + add);
-            if (sum[i] > grid[i]) {
-                grid[i] = sum[i];
-            }
-        }
+        this.mergeDisk(grid, sum, field.cols, bounds);
         for (let index = 0; index < this.ballCount; index += 1) {
             this.stampBall(grid, field.cols, field.rows, this.ballAt(index));
         }
@@ -741,18 +732,9 @@ class UiNewSheet extends HeatItem {
             const center = heatPlace(frame, rawCenter.col, rawCenter.row);
             const radius = heatMul(heatScale(frame, this.radius), diskScale);
             const heat = this.diskTraveling() ? 0 : heatMul(heatHeat(frame, this.heat), diskHeat);
-            this.stampDisk(this.diskSum, field.cols, field.rows, center, radius, heat);
+            const bounds = this.stampDisk(this.diskSum, field.cols, field.rows, center, radius, heat);
             const sum = diskHeatBuffer(field, grid);
-            for (let i = 0; i < grid.length; i++) {
-                const add = this.diskSum[i];
-                if (add <= 0) {
-                    continue;
-                }
-                sum[i] = Math.min(1, sum[i] + add);
-                if (sum[i] > grid[i]) {
-                    grid[i] = sum[i];
-                }
-            }
+            this.mergeDisk(grid, sum, field.cols, bounds);
             const ballScale = frame.own['balls.scale'] == null ? 1 : frame.own['balls.scale'];
             const ballHeat = frame.own['balls.heat'] == null ? 1 : frame.own['balls.heat'];
             const dot = {
@@ -804,7 +786,7 @@ class UiNewSheet extends HeatItem {
         if (!drama) {
             return 1;
         }
-        const hot = 3;
+        const hot = 5;
         const span = (drama.totalTime || 0) - (drama.peakTime || 0);
         if (span <= 0 || (drama.elapsed || 0) <= drama.peakTime) {
             return hot;
@@ -891,11 +873,32 @@ class UiNewSheet extends HeatItem {
         this.heat = drama.step === 2 ? drama.heat1 * (1 - u) : 0;
     }
 
+    mergeDisk(grid, sum, cols, bounds) {
+        if (!bounds) {
+            return;
+        }
+        const disk = this.diskSum;
+        for (let y = bounds.y0; y <= bounds.y1; y++) {
+            const base = y * cols;
+            for (let x = bounds.x0; x <= bounds.x1; x++) {
+                const i = base + x;
+                const add = disk[i];
+                if (add <= 0) {
+                    continue;
+                }
+                sum[i] = Math.min(1, sum[i] + add);
+                if (sum[i] > grid[i]) {
+                    grid[i] = sum[i];
+                }
+            }
+        }
+    }
+
     stampDisk(grid, cols, rows, center, radius, heat) {
         radius = Math.max(1, radius);
         heat = Math.max(0, heat);
         if (heat <= 0) {
-            return;
+            return null;
         }
         const ex = this.tiltPoint(radius, 0);
         const ey = this.tiltPoint(0, radius);
@@ -906,9 +909,10 @@ class UiNewSheet extends HeatItem {
         const y0 = Math.max(0, Math.floor(center.row - pad));
         const y1 = Math.min(rows - 1, Math.ceil(center.row + pad));
         const edge = 2 / radius;
+        const bounds = { x0: x0, x1: x1, y0: y0, y1: y1 };
         if (Math.abs(det) < 0.08) {
             this.stampDiskEdge(grid, cols, center, ex, ey, heat, x0, x1, y0, y1);
-            return;
+            return bounds;
         }
         const inv = 1 / det;
         const basis = {
@@ -933,6 +937,7 @@ class UiNewSheet extends HeatItem {
                 grid[i] = Math.min(1, grid[i] + heat * w);
             }
         }
+        return bounds;
     }
 
     stampDiskEdge(grid, cols, center, ex, ey, heat, x0, x1, y0, y1) {

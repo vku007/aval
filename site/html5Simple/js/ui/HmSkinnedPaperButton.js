@@ -9,14 +9,15 @@ class HmSkinnedPaperButton extends HmSkinnedButton {
             name: 'New Paper',
             center: {
                 col: (field.cols - 1) / 2,
-                row: (field.rows - 1) / 2 + 20
+                row: (field.rows - 1) / 2 + 20 * HM_SKINNED_LENGTH_SCALE
             }
         });
-        this.paper.distance = 14;
-        this.paper.sheetInit.radFrom = 24;
-        this.paper.sheetInit.radTo = 36;
-        this.paper.sheetInit.ballRadius = 40;
-        this.paper.sheetInit.ballSize = 3.2;
+        const scale = HM_SKINNED_LENGTH_SCALE;
+        this.paper.distance = 14 * scale;
+        this.paper.sheetInit.radFrom = 24 * scale;
+        this.paper.sheetInit.radTo = 36 * scale;
+        this.paper.sheetInit.ballRadius = 40 * scale;
+        this.paper.sheetInit.ballSize = 3.2 * scale;
         const count = opts.sheetCount != null ? opts.sheetCount : 3;
         for (let i = 0; i < count; i += 1) {
             this.paper.addItem({ animate: false });

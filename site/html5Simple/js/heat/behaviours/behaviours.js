@@ -414,3 +414,45 @@ function advanceSpin(state, dt) {
     state.angle = wrapNewSheetAngle(state.angle + state.speed * dt);
     state.ballSpin = wrapNewSheetAngle(state.ballSpin + state.ballSpeed * dt);
 }
+
+/**
+ * Three pointer glistens. Each state is a Glisten clock with its own on flag.
+ * Off clocks stay where they are. The sweep math is advanceGlisten.
+ */
+class CornerGlisten {
+    constructor(states) {
+        this.states = states || [];
+        this.home = this.states.map((state) => state.glisten || 0);
+    }
+
+    advance(delta) {
+        this.states.forEach((state) => {
+            if (state.on) {
+                advanceGlisten(state, delta);
+            }
+        });
+    }
+
+    reset() {
+        this.states.forEach((state, index) => {
+            state.glisten = this.home[index] || 0;
+            state.glistenPhase = 'run';
+            state.glistenWait = 0;
+        });
+    }
+
+    copyStateFrom(other, shift) {
+        const extra = typeof shift === 'number' ? shift : 0;
+        const theirs = other && other.states || [];
+        this.states.forEach((state, index) => {
+            const src = theirs[index];
+            if (!src) {
+                return;
+            }
+            state.on = src.on !== false;
+            state.glistenPhase = src.glistenPhase;
+            state.glistenWait = src.glistenWait;
+            state.glisten = src.glisten + extra;
+        });
+    }
+}

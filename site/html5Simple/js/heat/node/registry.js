@@ -53,6 +53,12 @@ function createItem(name, fieldOrMap, fields) {
     if (name === 'shard') {
         return new UiShard(heatMap, values);
     }
+    if (name === 'pointer') {
+        return new UiPointer(heatMap, values);
+    }
+    if (name === 'round') {
+        return new UiRound(heatMap, values);
+    }
     if (name === 'sheet' || name === 'heat-sheet') {
         return new UiSheet(heatMap, values);
     }

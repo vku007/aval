@@ -69,6 +69,13 @@ class HotMapUiScissor extends HotMapUiComposite {
         });
         this.shardInit = defaultHotMapScissorShardInit();
         this.angleStep = 45;
+        this.dramaHeat = preset.dramaHeat;
+        this.dramaGravity = preset.dramaGravity;
+        this.dramaTime = preset.dramaTime;
+        this.dramaSpinX = preset.dramaSpinX;
+        this.dramaSpinY = preset.dramaSpinY;
+        this.dramaSpinZ = preset.dramaSpinZ;
+        this.dramaFade = preset.dramaFade;
     }
 
     get params() {
@@ -93,7 +100,14 @@ class HotMapUiScissor extends HotMapUiComposite {
             toShapeHeat: to.shapeHeat,
             toHeat: to.heat,
             toGlisten: to.glisten,
-            angleStep: this.angleStep
+            angleStep: this.angleStep,
+            dramaHeat: this.dramaHeat,
+            dramaGravity: this.dramaGravity,
+            dramaTime: this.dramaTime,
+            dramaSpinX: this.dramaSpinX,
+            dramaSpinY: this.dramaSpinY,
+            dramaSpinZ: this.dramaSpinZ,
+            dramaFade: this.dramaFade
         });
     }
 
@@ -113,6 +127,9 @@ class HotMapUiScissor extends HotMapUiComposite {
         if (key === 'shardCycling') {
             this.shardInit.cycling = !this.shardInit.cycling;
             return this.shardInit.cycling;
+        }
+        if (HOT_MAP_SCISSOR_DRAMA_KEYS[key]) {
+            return this.nudgeDrama(key, dir);
         }
         if (HOT_MAP_SCISSOR_SHARD_FIELD_KEYS[key]) {
             return this.nudgeShardField(HOT_MAP_SCISSOR_SHARD_FIELD_KEYS[key], dir);
@@ -242,6 +259,23 @@ class HotMapUiScissor extends HotMapUiComposite {
         });
     }
 
+    nudgeDrama(key, dir) {
+        const spec = HOT_MAP_SCISSOR_DRAMA_KEYS[key];
+        const next = this[key] + dir * spec.step;
+        this[key] = clampHotMapScissorDrama(key, next);
+        return this[key];
+    }
+
+    lastScissorShard() {
+        for (let index = this.parts.length - 1; index >= 0; index -= 1) {
+            const object = this.parts[index].object;
+            if (object && object.kind === 'shard' && !object._scissorLeaving) {
+                return object;
+            }
+        }
+        return null;
+    }
+
     removeItem() {
         const object = this.lastPart('shard');
         if (!object) {
@@ -251,9 +285,61 @@ class HotMapUiScissor extends HotMapUiComposite {
         return object;
     }
 
+    playScissorDrama(shard) {
+        if (!shard || !shard.emitter || shard._scissorLeaving) {
+            return null;
+        }
+        shard._scissorLeaving = true;
+        shard.cancelAll();
+        const shown = copyBackHighlightPose(shard.emitter.current);
+        shard.emitter.from = shown;
+        shard.emitter.to = copyBackHighlightPose(shown);
+        shard.emitter.current = copyBackHighlightPose(shown);
+        const time = Math.max(0.05, this.dramaTime);
+        const fade = Math.max(0, Math.min(this.dramaFade, time));
+        shard.define('exit', scissorDrama());
+        return this.remove(shard, {
+            ctx: {
+                heat: this.dramaHeat,
+                drop: 0.5 * Math.max(0, this.dramaGravity) * time * time,
+                duration: time,
+                hold: time - fade,
+                fade: fade,
+                spinX: this.dramaSpinX * time,
+                spinY: this.dramaSpinY * time,
+                spinZ: this.dramaSpinZ * time
+            }
+        });
+    }
+
+    removeItemWithDrama() {
+        const shard = this.lastScissorShard();
+        if (!shard || !shard.emitter) {
+            return null;
+        }
+        this.playScissorDrama(shard);
+        return shard;
+    }
+
+    removeWithDrama(count) {
+        const all = count == null;
+        const limit = all ? Infinity : Math.max(0, count | 0);
+        const shards = [];
+        for (let index = this.parts.length - 1; index >= 0 && shards.length < limit; index -= 1) {
+            const object = this.parts[index].object;
+            if (object && object.kind === 'shard' && !object._scissorLeaving && object.emitter) {
+                shards.push(object);
+            }
+        }
+        return heatStaggerDramas(this, shards.map((shard) => () => this.playScissorDrama(shard)));
+    }
+
     extendSerialized(data) {
         data.shardInit = copyHotMapScissorShardInit(this.shardInit);
         data.angleStep = this.angleStep;
+        Object.keys(HOT_MAP_SCISSOR_DRAMA_KEYS).forEach((key) => {
+            data[key] = this[key];
+        });
         return data;
     }
 
@@ -264,8 +350,30 @@ class HotMapUiScissor extends HotMapUiComposite {
         if (typeof data.angleStep === 'number') {
             this.angleStep = data.angleStep;
         }
+        Object.keys(HOT_MAP_SCISSOR_DRAMA_KEYS).forEach((key) => {
+            if (typeof data[key] === 'number') {
+                this[key] = clampHotMapScissorDrama(key, data[key]);
+            }
+        });
     }
 }
+
+HotMapUiScissor.REMOVE_TABS = [
+    {
+        id: 'remove',
+        rows: [
+            { key: 'dramaHeat', label: 'HEAT', decimals: 1 },
+            { key: 'dramaGravity', label: 'GRAV', decimals: 0 },
+            { key: 'dramaTime', label: 'TIME', decimals: 2 },
+            { key: 'dramaSpinX', label: 'SPIN X', decimals: 0 },
+            { key: 'dramaSpinY', label: 'SPIN Y', decimals: 0 },
+            { key: 'dramaSpinZ', label: 'SPIN Z', decimals: 0 },
+            { key: 'dramaFade', label: 'FADE', decimals: 2 },
+            { key: 'removeItemWithDrama', label: 'DRAMA', button: 'POP', type: 'action' },
+            { key: 'removeItem', label: 'SHARD', button: 'RMV', type: 'action' }
+        ]
+    }
+];
 
 HotMapUiScissor.ADD_TABS = [
     {
@@ -281,6 +389,16 @@ HotMapUiScissor.ADD_TABS = [
 
 const HOT_MAP_SCISSOR_ANGLE_STEP = { min: 0, max: 180, step: 5 };
 const HOT_MAP_SCISSOR_FLIGHT_SPIN = 360;
+
+const HOT_MAP_SCISSOR_DRAMA_KEYS = {
+    dramaHeat: { min: 0, max: 8, step: 0.1 },
+    dramaGravity: { min: 0, max: 800, step: 10 },
+    dramaTime: { min: 0.1, max: 4, step: 0.05 },
+    dramaSpinX: { min: -720, max: 720, step: 10 },
+    dramaSpinY: { min: -720, max: 720, step: 10 },
+    dramaSpinZ: { min: -720, max: 720, step: 10 },
+    dramaFade: { min: 0, max: 4, step: 0.05 }
+};
 
 const HOT_MAP_SCISSOR_SHARD_FIELD_KEYS = {
     shardSpeed: 'speed',
@@ -305,6 +423,14 @@ const HOT_MAP_SCISSOR_SHARD_POSE_KEYS = {
     toGlisten: ['to', 'glisten']
 };
 
+function clampHotMapScissorDrama(key, value) {
+    const spec = HOT_MAP_SCISSOR_DRAMA_KEYS[key];
+    const stepped = Math.round(value / spec.step) * spec.step;
+    const clamped = Math.max(spec.min, Math.min(spec.max, stepped));
+    const decimals = spec.step < 0.1 ? 2 : spec.step < 1 ? 1 : 0;
+    return Number(clamped.toFixed(decimals));
+}
+
 function wrapHotMapScissorAngle(deg) {
     const turn = 360;
     let value = ((deg + 180) % turn + turn) % turn - 180;
@@ -318,6 +444,13 @@ const HOT_MAP_SCISSOR_PRESET = {
     name: 'Scissor',
     center: { col: 64.5, row: 140 },
     spawn: { col: -30, row: 82 },
+    dramaHeat: 3,
+    dramaGravity: 60,
+    dramaTime: 1.5,
+    dramaSpinX: 40,
+    dramaSpinY: -20,
+    dramaSpinZ: 70,
+    dramaFade: 0.45,
     shardInit: {
         cycling: true,
         speed: 1.2,

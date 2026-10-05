@@ -264,21 +264,52 @@ class HotMapUiStone extends HotMapUiComposite {
         return object;
     }
 
+    playStoneDrama(ball) {
+        this.prepareStoneExit(ball);
+        const shards = [];
+        const group = this;
+        const run = HeatComposite.prototype.remove.call(this, ball, {
+            ctx: {
+                hooks: {
+                    shatter: () => {
+                        group.spawnStoneShards(ball).forEach((shard) => {
+                            const exit = shard._slots.life && shard._slots.life.active;
+                            if (exit) {
+                                shards.push(exit);
+                            }
+                        });
+                    }
+                }
+            }
+        });
+        return heatFollowRuns(run, shards);
+    }
+
     removeItemWithDrama() {
         const ball = this.lastStoneBall();
         if (!ball || ball._stoneLeaving) {
             return null;
         }
-        this.prepareStoneExit(ball);
-        const group = this;
-        HeatComposite.prototype.remove.call(this, ball, {
-            ctx: {
-                hooks: {
-                    shatter: () => group.spawnStoneShards(ball)
-                }
-            }
-        });
+        this.playStoneDrama(ball);
         return ball;
+    }
+
+    stoneBalls() {
+        const balls = [];
+        for (let index = this.parts.length - 1; index >= 0; index -= 1) {
+            const object = this.parts[index].object;
+            if (object && object.kind === 'hot-ball' && !object._stoneShard && !object._stoneLeaving) {
+                balls.push(object);
+            }
+        }
+        return balls;
+    }
+
+    removeWithDrama(count) {
+        const all = count == null;
+        const limit = all ? Infinity : Math.max(0, count | 0);
+        const balls = this.stoneBalls().slice(0, limit);
+        return heatStaggerDramas(this, balls.map((ball) => () => this.playStoneDrama(ball)));
     }
 
     extendSerialized(data) {

@@ -12,8 +12,11 @@ class HmSkinnedScissorsButton extends HmSkinnedButton {
                 row: (field.rows - 1) / 2
             }
         });
-        this.scissor.shardInit.from.height = 12;
-        this.scissor.shardInit.to.height = 8;
+        const scale = HM_SKINNED_LENGTH_SCALE;
+        this.scissor.shardInit.from.width *= scale;
+        this.scissor.shardInit.from.height = 12 * scale;
+        this.scissor.shardInit.to.width *= scale;
+        this.scissor.shardInit.to.height = 8 * scale;
         const count = opts.shardCount != null ? opts.shardCount : 2;
         for (let i = 0; i < count; i += 1) {
             this.scissor.addItem({ animate: false });

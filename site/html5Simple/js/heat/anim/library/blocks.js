@@ -122,6 +122,57 @@ function stoneSpread() {
     });
 }
 
+/**
+ * Scissor POP. The shard is already stopped. Heat sits at `$heat`, then
+ * fades to 0. `$drop` is the downward gravity (cells at the end, grown by
+ * u²). `$spinX` and `$spinY` tumble the plane; `$spinZ` turns it in the plane.
+ */
+function scissorDrama() {
+    return sequence([
+        parallel([
+            arc({
+                dir: { col: 0, row: 1 },
+                distance: 0,
+                drop: '$drop',
+                duration: '$duration',
+                slot: 'life'
+            }),
+            spin({
+                from: 0,
+                to: '$spinZ',
+                duration: '$duration',
+                ease: 'linear',
+                slot: 'life'
+            }),
+            tracks({
+                duration: '$duration',
+                ease: 'linear',
+                channels: {
+                    tiltX: { from: 0, to: '$spinX' },
+                    tiltY: { from: 0, to: '$spinY' }
+                }
+            }),
+            sequence([
+                tracks({
+                    duration: '$hold',
+                    ease: 'linear',
+                    channels: {
+                        heat: { from: '$heat', to: '$heat' }
+                    }
+                }),
+                fade({
+                    from: '$heat',
+                    to: 0,
+                    duration: '$fade',
+                    ease: 'linear',
+                    slot: 'life'
+                })
+            ], { slot: 'life', fill: 'hold' })
+        ], { slot: 'life', policy: 'replace', fill: 'hold' }),
+        call('detach')
+    ], { slot: 'life', policy: 'replace', fill: 'hold' });
+}
+
 function scissorEnter() {
     return parallel([
         move({

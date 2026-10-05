@@ -69,6 +69,9 @@ function copyBackHighlightPose(pose) {
     if (pose.shapeHeat != null) {
         next.shapeHeat = pose.shapeHeat;
     }
+    if (pose.radius != null) {
+        next.radius = pose.radius;
+    }
     if (pose.bend != null) {
         next.bend = pose.bend;
     }
@@ -87,7 +90,8 @@ function posesMatch(a, b) {
         Math.abs((a.shapeHeat || 0) - (b.shapeHeat || 0)) <= 0.05 &&
         Math.abs((a.glisten || 0) - (b.glisten || 0)) <= 1 &&
         Math.abs((a.bend || 0) - (b.bend || 0)) <= 1 &&
-        Math.abs((a.cosine || 0) - (b.cosine || 0)) <= 1;
+        Math.abs((a.cosine || 0) - (b.cosine || 0)) <= 1 &&
+        Math.abs((a.radius || 0) - (b.radius || 0)) <= 1;
 }
 
 function easeBackHighlightPose(current, target, k) {
@@ -108,6 +112,9 @@ function easeBackHighlightPose(current, target, k) {
     if (target.cosine != null || current.cosine != null) {
         current.cosine = (current.cosine || 0) + ((target.cosine || 0) - (current.cosine || 0)) * k;
     }
+    if (target.radius != null || current.radius != null) {
+        current.radius = (current.radius || 0) + ((target.radius || 0) - (current.radius || 0)) * k;
+    }
 }
 
 function backHighlightGlistenBand(along, halfWidth, phase) {
@@ -117,6 +124,51 @@ function backHighlightGlistenBand(along, halfWidth, phase) {
     const center = -halfWidth - pad + phase * (span + pad * 2);
     const ds = along - center;
     return Math.exp(-(ds * ds) / (2 * sigma * sigma));
+}
+
+/**
+ * Orthographic tumble of a flat shard. tiltX and tiltY are degrees about
+ * the screen axes, applied after the pose angle. The projected card is
+ * still a parallelogram, so width, height, angle, and skew can draw it.
+ */
+function projectBackHighlightTilt(pose, tiltX, tiltY) {
+    const hw = Math.max(0, pose.width || 0) * 0.5;
+    const hh = Math.max(0, pose.height || 0) * 0.5;
+    const shear = Math.tan(((pose.skew || 0) * Math.PI) / 180);
+    const ang = ((pose.angle || 0) * Math.PI) / 180;
+    const cos = Math.cos(ang);
+    const sin = Math.sin(ang);
+    const right = eulerRotatePoint(hw * cos, hw * sin, 0, tiltX, tiltY, 0);
+    const up = eulerRotatePoint(
+        hh * (shear * cos - sin),
+        hh * (sin * shear + cos),
+        0,
+        tiltX,
+        tiltY,
+        0
+    );
+    const across = Math.hypot(right.x, right.y);
+    const cosA = across > 1e-3 ? right.x / across : cos;
+    const sinA = across > 1e-3 ? right.y / across : sin;
+    if (across > 1e-3) {
+        pose.width = across * 2;
+        pose.angle = Math.atan2(right.y, right.x) * 180 / Math.PI;
+    } else {
+        pose.width = 1;
+    }
+    const localU = up.x * cosA + up.y * sinA;
+    const localV = -up.x * sinA + up.y * cosA;
+    // The stamp will not draw a half-extent under half a cell. Solving the
+    // skew against the real thickness, then drawing it at that minimum,
+    // stretches a streak longer than the shard. Once the card is thinner
+    // than that, drop the shear so the edge-on blade is its long edge.
+    const thick = Math.abs(localV);
+    const hhStamp = Math.max(0.5, thick);
+    const shearStamp = thick < 0.5 ? 0 : localU / hhStamp;
+    const skew = Math.atan(shearStamp) * 180 / Math.PI;
+    pose.height = hhStamp * 2;
+    pose.skew = Math.max(-89, Math.min(89, skew));
+    return pose;
 }
 
 function stampBackHighlightRect(grid, cols, rows, center, pose) {

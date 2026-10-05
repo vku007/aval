@@ -118,7 +118,7 @@ describe('new paper drama', () => {
             radiusScale: 3
         });
 
-        expect(disk.dramaBallFade()).toBe(3);
+        expect(disk.dramaBallFade()).toBe(5);
         const bucket = disk.drama.ballTo;
         const start = [0, 1].map((index) => disk.ballAt(index));
         expect(Math.abs(start[0].col - start[1].col)).toBeGreaterThan(1);
@@ -155,7 +155,7 @@ describe('new paper drama', () => {
         expect(disk.drama.diskDone).toBe(false);
         expect(disk.heat).toBeCloseTo(0, 6);
         expect(disk.radius).toBeCloseTo(60, 6);
-        expect(disk.dramaBallFade()).toBe(3);
+        expect(disk.dramaBallFade()).toBe(5);
         const crest = [0, 1].map((index) => disk.ballAt(index));
         crest.forEach((ball, index) => {
             expect(ball.row).toBeCloseTo(start[index].row - 18, 4);
@@ -207,5 +207,40 @@ describe('new paper drama', () => {
         };
         heatMap.field.update((finishedAt + 1) * dt, dt);
         expect(stamped).toEqual([]);
+    });
+
+    it('pops every disk 0.33 s apart, or only the requested count', async () => {
+        const ctx = loadHeat();
+        const dt = 1000 / 60;
+        const heatMap = createHeatMap(ctx);
+        const paper = new ctx.HotMapUiNewPaper(heatMap);
+        const first = paper.addItem({ animate: false });
+        const second = paper.addItem({ animate: false });
+        const run = paper.removeWithDrama();
+        expect(run.removed).toBe(2);
+        expect(second.drama).toBeTruthy();
+        expect(first.drama).toBeFalsy();
+        for (let frame = 0; frame < 19; frame += 1) {
+            heatMap.field.update(frame * dt, dt);
+        }
+        expect(first.drama).toBeFalsy();
+        heatMap.field.update(19 * dt, dt);
+        expect(first.drama).toBeTruthy();
+
+        const partialMap = createHeatMap(ctx);
+        const partial = new ctx.HotMapUiNewPaper(partialMap);
+        const kept = partial.addItem({ animate: false });
+        const dropped = partial.addItem({ animate: false });
+        expect(partial.removeWithDrama(1).removed).toBe(1);
+        expect(dropped.drama).toBeTruthy();
+        expect(kept.drama).toBeFalsy();
+
+        const pending = run.finished;
+        for (let frame = 20; frame < 140; frame += 1) {
+            heatMap.field.update(frame * dt, dt);
+        }
+        await expect(pending).resolves.toEqual({ status: 'finished' });
+        expect(paper.items).not.toContain(first);
+        expect(paper.items).not.toContain(second);
     });
 });
