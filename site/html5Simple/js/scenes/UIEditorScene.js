@@ -234,6 +234,12 @@ function uiObjectTypeLabel(object) {
     if (kind === 'round') {
         return 'Round';
     }
+    if (kind === 'circle') {
+        return 'Circle';
+    }
+    if (kind === 'core') {
+        return 'Core';
+    }
     if (kind === 'sheet') {
         return 'Sheet';
     }
@@ -272,7 +278,7 @@ function shiftUiObjectCopy(kind, data, field) {
         }
         return;
     }
-    if (kind === 'back-highlight' || kind === 'shard' || kind === 'sheet' || kind === 'pointer' || kind === 'round') {
+    if (kind === 'back-highlight' || kind === 'shard' || kind === 'sheet' || kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core') {
         data.center = shiftUiObjectPoint(field, data.center);
         data.target = shiftUiObjectPoint(field, data.target || data.center);
         return;

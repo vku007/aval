@@ -72,6 +72,12 @@ function copyBackHighlightPose(pose) {
     if (pose.radius != null) {
         next.radius = pose.radius;
     }
+    if (pose.outer != null) {
+        next.outer = pose.outer;
+    }
+    if (pose.inner != null) {
+        next.inner = pose.inner;
+    }
     if (pose.bend != null) {
         next.bend = pose.bend;
     }
@@ -91,7 +97,9 @@ function posesMatch(a, b) {
         Math.abs((a.glisten || 0) - (b.glisten || 0)) <= 1 &&
         Math.abs((a.bend || 0) - (b.bend || 0)) <= 1 &&
         Math.abs((a.cosine || 0) - (b.cosine || 0)) <= 1 &&
-        Math.abs((a.radius || 0) - (b.radius || 0)) <= 1;
+        Math.abs((a.radius || 0) - (b.radius || 0)) <= 1 &&
+        Math.abs((a.outer || 0) - (b.outer || 0)) <= 1 &&
+        Math.abs((a.inner || 0) - (b.inner || 0)) <= 1;
 }
 
 function easeBackHighlightPose(current, target, k) {
@@ -114,6 +122,12 @@ function easeBackHighlightPose(current, target, k) {
     }
     if (target.radius != null || current.radius != null) {
         current.radius = (current.radius || 0) + ((target.radius || 0) - (current.radius || 0)) * k;
+    }
+    if (target.outer != null || current.outer != null) {
+        current.outer = (current.outer || 0) + ((target.outer || 0) - (current.outer || 0)) * k;
+    }
+    if (target.inner != null || current.inner != null) {
+        current.inner = (current.inner || 0) + ((target.inner || 0) - (current.inner || 0)) * k;
     }
 }
 

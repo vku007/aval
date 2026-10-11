@@ -47,6 +47,8 @@ function heatChannelNames(kind) {
             'disk.heat', 'disk.scale',
             'balls.heat', 'balls.scale', 'balls.offset', 'balls.gather', 'balls.gatherAt'
         );
+    } else if (kind === 'circle') {
+        names.push('glisten.gain');
     }
     return names;
 }
@@ -396,6 +398,12 @@ function heatPresentPose(frame, pose, from, to) {
         if (typeof shown.radius === 'number') {
             shown.radius = heatMul(shown.radius, scale);
         }
+        if (typeof shown.outer === 'number') {
+            shown.outer = heatMul(shown.outer, scale);
+        }
+        if (typeof shown.inner === 'number') {
+            shown.inner = heatMul(shown.inner, scale);
+        }
     }
     if (rot !== 0) {
         shown.angle = (shown.angle || 0) + rot;
@@ -416,7 +424,7 @@ function heatPresentPose(frame, pose, from, to) {
 
 function heatBlendPose(from, to, t) {
     const shown = copyBackHighlightPose(from);
-    ['width', 'height', 'angle', 'skew', 'heat', 'shapeHeat', 'glisten', 'bend', 'cosine', 'radius'].forEach((key) => {
+    ['width', 'height', 'angle', 'skew', 'heat', 'shapeHeat', 'glisten', 'bend', 'cosine', 'radius', 'outer', 'inner'].forEach((key) => {
         const start = from && typeof from[key] === 'number' ? from[key] : null;
         const end = to && typeof to[key] === 'number' ? to[key] : null;
         if (start == null && end == null) {

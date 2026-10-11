@@ -175,7 +175,7 @@ describe('stone drama remove', () => {
         expect(third._slots.layout && third._slots.layout.active).toBeFalsy();
     });
 
-    it('pops every ball 0.33 s apart, or only the requested count', async () => {
+    it('pops every ball 0.66 s apart, or only the requested count', async () => {
         const ctx = loadHeat();
         const heatMap = createHeatMap(ctx);
         const group = new ctx.HotMapUiStone(heatMap);
@@ -189,18 +189,18 @@ describe('stone drama remove', () => {
         expect(balls[1]._stoneLeaving).toBeFalsy();
         expect(balls[0]._stoneLeaving).toBeFalsy();
 
-        for (let frame = 0; frame < 19; frame += 1) {
+        for (let frame = 0; frame < 39; frame += 1) {
             heatMap.field.update(frame * DT, DT);
         }
         expect(balls[1]._stoneLeaving).toBeFalsy();
-        heatMap.field.update(19 * DT, DT);
+        heatMap.field.update(39 * DT, DT);
         expect(balls[1]._stoneLeaving).toBe(true);
         expect(balls[0]._stoneLeaving).toBeFalsy();
-        for (let frame = 20; frame < 39; frame += 1) {
+        for (let frame = 40; frame < 79; frame += 1) {
             heatMap.field.update(frame * DT, DT);
         }
         expect(balls[0]._stoneLeaving).toBeFalsy();
-        heatMap.field.update(39 * DT, DT);
+        heatMap.field.update(79 * DT, DT);
         expect(balls[0]._stoneLeaving).toBe(true);
 
         const partialMap = createHeatMap(ctx);
@@ -216,7 +216,7 @@ describe('stone drama remove', () => {
         expect(kept._stoneLeaving).toBeFalsy();
 
         const pending = run.finished;
-        for (let frame = 40; frame < 150; frame += 1) {
+        for (let frame = 80; frame < 220; frame += 1) {
             heatMap.field.update(frame * DT, DT);
         }
         await expect(pending).resolves.toEqual({ status: 'finished' });

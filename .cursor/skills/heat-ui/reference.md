@@ -32,7 +32,7 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
 ├─ HeatItem       behaviours, stamp, translate, copyBehaviourState
 │  ├─ UiHotBall        Orbit, Follow (editor taps)
 │  ├─ UiHotRod         PathLoop
-│  ├─ UiBackHighlighter, UiShard, UiPointer, UiRound    PoseCycle
+│  ├─ UiBackHighlighter, UiShard, UiPointer, UiRound, UiCircle    PoseCycle
 │  ├─ UiSheet          PoseCycle, Glisten, BallRunner
 │  └─ UiNewSheet       DiskLoop, Spin
 └─ HeatComposite  items, template, layout, transitions
@@ -40,10 +40,11 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
    ├─ HotMapUiScissor     kind hot-map-scissor, config scissor
    ├─ HotMapUiPaper       kind hot-map-paper, config paper
    ├─ HotMapUiNewPaper    kind hot-map-new-paper, config diskStack
-   └─ HotMapUiCross       kind hot-map-cross, config cross
+   ├─ HotMapUiCross       kind hot-map-cross, config cross
+   └─ UiCore              kind core. Round, circle, and hot balls on one center
 ```
 
-Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
+Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiCircle`, `UiCore`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
 
 Behaviours in `js/heat/behaviours/behaviours.js`: `Orbit`, `Follow`, `PathLoop`, `PoseCycle`, `Glisten`, `CornerGlisten`, `BallRunner`, `DiskLoop`, `Spin`. Each has `reset()`, `advance(dt)`, `copyStateFrom(other, shift)`.
 
@@ -75,7 +76,7 @@ Identity leaves the stamp unchanged. Each run stores its own contribution.
 | `phase` | add | `0` | HotBall |
 | `clip` | multiply | `1` | HotRod. Scales a clip rect around its midpoint |
 | `pose` | latest started | `0` | HeatRect. Overrides the pose cycle while held |
-| `shape.heat`, `glisten.gain` | multiply | `1` | HeatSheet |
+| `shape.heat`, `glisten.gain` | multiply | `1` | HeatSheet. `glisten.gain` also scales a circle's glisten |
 | `disk.heat`, `disk.scale` | multiply | `1` | HeatDisk |
 | `balls.heat`, `balls.scale` | multiply | `1` | sheet and disk balls |
 | `balls.offset` | add | `{0,0}` | sheet and disk balls |
@@ -115,4 +116,4 @@ Resource JSON that must still load: `resources/stone-1.json`, `scissors-1.json`,
 
 ## Scene waits
 
-LocalAdvanced: `enemy.reveal(count)`, `heatFieldWait` for `LOCAL_ADVANCED_REVEAL_PAUSE` (5 s) and `LOCAL_ADVANCED_CLASH_PAUSE` (2 s), fight pulses in parallel, then `removeWithDrama()` on every loser item, each drama starting 0.33 s after the previous. When both moves are the same type, the winner's board also `removeWithDrama(loserCount)` with the same gap. Post-mortem and victory pulses follow. `playMoveResult` may stay async. It must return without touching objects when the captured field is destroyed. Abort the in-flight `gameClient.updateGame` / `createGame` / `getGame` from scene shutdown (`signal`).
+LocalAdvanced: `enemy.reveal(count)`, `heatFieldWait` for `LOCAL_ADVANCED_REVEAL_PAUSE` (5 s) and `LOCAL_ADVANCED_CLASH_PAUSE` (2 s), fight pulses in parallel, then `removeWithDrama()` on every loser item, each drama starting 0.66 s after the previous. When both moves are the same type, the winner's board also `removeWithDrama(loserCount)` with the same gap. Post-mortem and victory pulses follow. `playMoveResult` may stay async. It must return without touching objects when the captured field is destroyed. Abort the in-flight `gameClient.updateGame` / `createGame` / `getGame` from scene shutdown (`signal`).

@@ -86,11 +86,11 @@ function heatJoinRuns(runs) {
 }
 
 function heatDramaGap() {
-    return 0.33;
+    return 0.66;
 }
 
 /**
- * Starts each function 0.33 s after the previous one, on the field clock.
+ * Starts each function 0.66 s after the previous one, on the field clock.
  * The returned run finishes when the stagger and every returned drama run finish.
  */
 function heatStaggerDramas(node, starts) {

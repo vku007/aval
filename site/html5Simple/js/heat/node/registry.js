@@ -59,6 +59,12 @@ function createItem(name, fieldOrMap, fields) {
     if (name === 'round') {
         return new UiRound(heatMap, values);
     }
+    if (name === 'circle') {
+        return new UiCircle(heatMap, values);
+    }
+    if (name === 'core') {
+        return new UiCore(heatMap, values);
+    }
     if (name === 'sheet' || name === 'heat-sheet') {
         return new UiSheet(heatMap, values);
     }

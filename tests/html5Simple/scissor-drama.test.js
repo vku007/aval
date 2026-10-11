@@ -207,7 +207,7 @@ describe('scissor drama remove', () => {
         expect(peak).toBeLessThan(0.05);
     });
 
-    it('pops every shard 0.33 s apart, or only the requested count', async () => {
+    it('pops every shard 0.66 s apart, or only the requested count', async () => {
         const ctx = loadHeat();
         const heatMap = createHeatMap(ctx);
         const group = new ctx.HotMapUiScissor(heatMap);
@@ -217,11 +217,11 @@ describe('scissor drama remove', () => {
         expect(run.removed).toBe(2);
         expect(second._scissorLeaving).toBe(true);
         expect(first._scissorLeaving).toBeFalsy();
-        for (let frame = 0; frame < 19; frame += 1) {
+        for (let frame = 0; frame < 39; frame += 1) {
             heatMap.field.update(frame * DT, DT);
         }
         expect(first._scissorLeaving).toBeFalsy();
-        heatMap.field.update(19 * DT, DT);
+        heatMap.field.update(39 * DT, DT);
         expect(first._scissorLeaving).toBe(true);
 
         const partialMap = createHeatMap(ctx);
@@ -233,7 +233,7 @@ describe('scissor drama remove', () => {
         expect(kept._scissorLeaving).toBeFalsy();
 
         const pending = run.finished;
-        for (let frame = 20; frame < 140; frame += 1) {
+        for (let frame = 40; frame < 180; frame += 1) {
             heatMap.field.update(frame * DT, DT);
         }
         await expect(pending).resolves.toEqual({ status: 'finished' });

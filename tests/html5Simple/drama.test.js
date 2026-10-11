@@ -209,7 +209,7 @@ describe('new paper drama', () => {
         expect(stamped).toEqual([]);
     });
 
-    it('pops every disk 0.33 s apart, or only the requested count', async () => {
+    it('pops every disk 0.66 s apart, or only the requested count', async () => {
         const ctx = loadHeat();
         const dt = 1000 / 60;
         const heatMap = createHeatMap(ctx);
@@ -220,11 +220,11 @@ describe('new paper drama', () => {
         expect(run.removed).toBe(2);
         expect(second.drama).toBeTruthy();
         expect(first.drama).toBeFalsy();
-        for (let frame = 0; frame < 19; frame += 1) {
+        for (let frame = 0; frame < 39; frame += 1) {
             heatMap.field.update(frame * dt, dt);
         }
         expect(first.drama).toBeFalsy();
-        heatMap.field.update(19 * dt, dt);
+        heatMap.field.update(39 * dt, dt);
         expect(first.drama).toBeTruthy();
 
         const partialMap = createHeatMap(ctx);
@@ -236,7 +236,7 @@ describe('new paper drama', () => {
         expect(kept.drama).toBeFalsy();
 
         const pending = run.finished;
-        for (let frame = 20; frame < 140; frame += 1) {
+        for (let frame = 40; frame < 180; frame += 1) {
             heatMap.field.update(frame * dt, dt);
         }
         await expect(pending).resolves.toEqual({ status: 'finished' });

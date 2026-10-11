@@ -40,6 +40,14 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         return this.host.rounds;
     }
 
+    get circles() {
+        return this.host.circles;
+    }
+
+    get cores() {
+        return this.host.cores;
+    }
+
     get objects() {
         return this.host.objects;
     }
@@ -206,6 +214,22 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             rowH: 24,
             active: false
         });
+        this.circleProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'circle'
+                ? this.selectedObject
+                : null,
+            tabs: UiCircle.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
+        this.coreProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'core'
+                ? this.selectedObject
+                : null,
+            tabs: UiCore.PROP_TABS,
+            rowH: 18,
+            active: false
+        });
         if (this.host.stone) {
             this.host.stone.onPartAdded = (object) => this.noteStonePart(object, true);
             this.host.stone.onPartRemoved = (object) => this.noteStonePart(object, false);
@@ -226,6 +250,8 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.ensureCrossListed();
         this.ensurePointerListed();
         this.ensureRoundListed();
+        this.ensureCircleListed();
+        this.ensureCoreListed();
         this.rebuildObjectRows();
         this.syncPropEditors();
         this.createMenuButton(
@@ -246,7 +272,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (editor) {
             editor.refreshValues();
         }
-        [this.stoneAddProps, this.stoneRemoveProps, this.scissorAddProps, this.scissorRemoveProps, this.paperAddProps, this.newPaperAddProps, this.newPaperRemoveProps].forEach((addEditor) => {
+        [this.stoneAddProps, this.stoneRemoveProps, this.scissorAddProps, this.scissorRemoveProps, this.paperAddProps, this.newPaperAddProps, this.newPaperRemoveProps, this.coreAddProps, this.coreRemoveProps].forEach((addEditor) => {
             if (addEditor && addEditor.active) {
                 addEditor.refreshValues();
             }
@@ -291,6 +317,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (kind === 'round') {
             return this.roundProps;
         }
+        if (kind === 'circle') {
+            return this.circleProps;
+        }
+        if (kind === 'core') {
+            return this.coreProps;
+        }
         if (kind === 'sheet') {
             return this.sheetProps;
         }
@@ -334,6 +366,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.roundProps) {
             this.roundProps.setActive(kind === 'round');
+        }
+        if (this.circleProps) {
+            this.circleProps.setActive(kind === 'circle');
+        }
+        if (this.coreProps) {
+            this.coreProps.setActive(kind === 'core');
         }
         if (this.sheetProps) {
             this.sheetProps.setActive(kind === 'sheet');
@@ -391,6 +429,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.newPaperRemoveProps) {
             this.newPaperRemoveProps.setActive(removeKind === 'hot-map-new-paper');
+        }
+        if (this.coreAddProps) {
+            this.coreAddProps.setActive(addKind === 'core');
+        }
+        if (this.coreRemoveProps) {
+            this.coreRemoveProps.setActive(removeKind === 'core');
         }
     }
 
@@ -504,6 +548,18 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.newPaperAddProps = new UiPropEditor(this, panel, {
             getTarget: () => this.addItemTarget('hot-map-new-paper'),
             tabs: HotMapUiNewPaper.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.coreAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('core'),
+            tabs: UiCore.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.coreRemoveProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('core'),
+            tabs: UiCore.REMOVE_TABS,
             rowH: rowH,
             active: false
         });
@@ -822,6 +878,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else if (kind === 'round') {
             created = new UiRound(this.heatMap, data || {});
             this.rounds.push(created);
+        } else if (kind === 'circle') {
+            created = new UiCircle(this.heatMap, data || {});
+            this.circles.push(created);
+        } else if (kind === 'core') {
+            created = new UiCore(this.heatMap, data || {});
+            this.cores.push(created);
         } else if (kind === 'sheet') {
             created = new UiSheet(this.heatMap, { name: data.name });
             this.sheets.push(created);
@@ -837,7 +899,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.bindCross(created);
             return created;
         }
-        if (created && (kind === 'pointer' || kind === 'round')) {
+        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core')) {
             return created;
         }
         if (created && kind === 'new-sheet' && this.host.newPaper && typeof this.host.newPaper.add === 'function') {
@@ -905,6 +967,23 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.dropFrom(this.rounds, object);
             if (this.host && this.host.round === object) {
                 this.host.round = this.rounds[0] || null;
+            }
+        } else if (object.kind === 'circle') {
+            this.heatMap.removeHighlighter(object.emitter);
+            this.dropFrom(this.circles, object);
+            if (this.host && this.host.circle === object) {
+                this.host.circle = this.circles[0] || null;
+            }
+        } else if (object.kind === 'core') {
+            if (typeof object.releaseContents === 'function') {
+                object.releaseContents();
+            }
+            if (typeof object.detach === 'function') {
+                object.detach();
+            }
+            this.dropFrom(this.cores, object);
+            if (this.host && this.host.core === object) {
+                this.host.core = this.cores[0] || null;
             }
         } else if (object.kind === 'sheet') {
             this.heatMap.removeHighlighter(object.emitter);
@@ -1276,11 +1355,27 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
     }
 
-    restoreCross(data) {
-        const cross = this.host && this.host.cross;
-        if (!cross) {
+    ensurePaperHost() {
+        if (!this.host || this.host.paper) {
             return;
         }
+        const paper = new HotMapUiPaper(this.heatMap, { name: 'Paper' });
+        this.host.paper = paper;
+        paper.onPartAdded = (object) => this.notePaperPart(object, true);
+        paper.onPartRemoved = (object) => this.notePaperPart(object, false);
+    }
+
+    restoreCross(data) {
+        if (!this.host) {
+            return;
+        }
+        if (!this.host.cross && !(data && data.cross)) {
+            return;
+        }
+        if (!this.host.cross) {
+            this.host.cross = new HotMapUiCross(this.heatMap, { name: 'Cross' });
+        }
+        const cross = this.host.cross;
         const added = cross.onPartAdded;
         const removed = cross.onPartRemoved;
         cross.onPartAdded = null;
@@ -1320,6 +1415,56 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         });
         if (this.host) {
             this.host.pointer = (this.pointers && this.pointers[0]) || null;
+        }
+    }
+
+    ensureCoreListed() {
+        const core = this.host && this.host.core;
+        if (!core) {
+            return;
+        }
+        if (this.cores && this.cores.indexOf(core) < 0) {
+            this.cores.push(core);
+        }
+        if (this.objects.indexOf(core) < 0) {
+            this.objects.push(core);
+        }
+    }
+
+    restoreCores(entries) {
+        (entries || []).forEach((entry) => {
+            const created = this.spawnObject('core', entry || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        });
+        if (this.host) {
+            this.host.core = (this.cores && this.cores[0]) || null;
+        }
+    }
+
+    ensureCircleListed() {
+        const circle = this.host && this.host.circle;
+        if (!circle) {
+            return;
+        }
+        if (this.circles && this.circles.indexOf(circle) < 0) {
+            this.circles.push(circle);
+        }
+        if (this.objects.indexOf(circle) < 0) {
+            this.objects.push(circle);
+        }
+    }
+
+    restoreCircles(entries) {
+        (entries || []).forEach((entry) => {
+            const created = this.spawnObject('circle', entry || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        });
+        if (this.host) {
+            this.host.circle = (this.circles && this.circles[0]) || null;
         }
     }
 
@@ -1416,7 +1561,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.clearGroup(this.host && this.host.paper);
         this.clearGroup(this.host && this.host.newPaper);
         this.clearGroup(this.host && this.host.cross);
-        ['balls', 'rods', 'highlighters', 'shards', 'sheets', 'pointers', 'rounds'].forEach((key) => {
+        ['balls', 'rods', 'highlighters', 'shards', 'sheets', 'pointers', 'rounds', 'circles', 'cores'].forEach((key) => {
             const list = this.host && this.host[key];
             if (!list) {
                 return;
@@ -1476,7 +1621,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             newPaper: newPaper && typeof newPaper.serialize === 'function' ? newPaper.serialize() : null,
             cross: cross && typeof cross.serialize === 'function' ? cross.serialize() : null,
             pointers: (this.pointers || []).map((item) => item.serialize()),
-            rounds: (this.rounds || []).map((item) => item.serialize())
+            rounds: (this.rounds || []).map((item) => item.serialize()),
+            circles: (this.circles || []).map((item) => item.serialize()),
+            cores: (this.cores || []).map((item) => item.serialize())
         };
     }
 
@@ -1543,11 +1690,14 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
                 this.host.scissor.applySerialized(data.scissor);
                 this.ensureScissorListed();
             }
-            if (data.paper && this.host && this.host.paper) {
-                this.clearGroup(this.host.paper);
-                this.loadGroupParts(this.host.paper, data.paper.parts);
-                this.host.paper.applySerialized(data.paper);
-                this.ensurePaperListed();
+            if (data.paper && this.host) {
+                this.ensurePaperHost();
+                if (this.host.paper) {
+                    this.clearGroup(this.host.paper);
+                    this.loadGroupParts(this.host.paper, data.paper.parts);
+                    this.host.paper.applySerialized(data.paper);
+                    this.ensurePaperListed();
+                }
             }
             if (data.newPaper && this.host && this.host.newPaper) {
                 this.clearGroup(this.host.newPaper);
@@ -1573,13 +1723,17 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.ensureNewPaperListed();
         if (data && Array.isArray(data.pointers)) {
             this.restorePointers(data.pointers);
-        } else {
-            this.restorePointers([{ name: 'Pointer', centerY: 72 }]);
         }
         if (data && Array.isArray(data.rounds)) {
             this.restoreRounds(data.rounds);
+        }
+        if (data && Array.isArray(data.circles)) {
+            this.restoreCircles(data.circles);
+        }
+        if (data && Array.isArray(data.cores)) {
+            this.restoreCores(data.cores);
         } else {
-            this.restoreRounds([{ name: 'Round', centerX: 22, centerY: 18 }]);
+            this.restoreCores([{ name: 'Core', centerX: 50, centerY: 48 }]);
         }
         if (this.objects.indexOf(this.selectedObject) < 0) {
             this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;
