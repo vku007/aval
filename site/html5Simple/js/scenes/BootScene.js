@@ -14,6 +14,7 @@ class BootScene extends Phaser.Scene {
         preloadCompositeHeatMap(this);
         preloadHmCrossButton(this);
         preloadHmPointerButton(this);
+        preloadPrimePreset(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 

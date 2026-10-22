@@ -55,6 +55,7 @@ const HEAT_SCRIPTS = [
     'js/ui/UiNewSheet.js',
     'js/ui/HotMapUiComposite.js',
     'js/ui/UiCore.js',
+    'js/ui/UiPrime.js',
     'js/ui/HotMapUiStone.js',
     'js/ui/HotMapUiScissor.js',
     'js/ui/HotMapUiPaper.js',
@@ -123,6 +124,7 @@ const EXPORTED = [
     'UiRound',
     'UiCircle',
     'UiCore',
+    'UiPrime',
     'UiSheet',
     'UiNewSheet',
     'HotMapUiStone',
@@ -138,6 +140,10 @@ const EXPORTED = [
     'setSheetGlistenOn'
 ];
 
+const PRIME_PRESET_FILE = JSON.parse(
+    fs.readFileSync(path.join(SITE_ROOT, 'resources/prime-1.json'), 'utf8')
+);
+
 function createSceneStub() {
     const image = {
         setDisplaySize() { return this; },
@@ -152,6 +158,16 @@ function createSceneStub() {
         destroy() {}
     };
     return {
+        cache: {
+            json: {
+                exists(key) {
+                    return key === 'primePreset';
+                },
+                get(key) {
+                    return key === 'primePreset' ? PRIME_PRESET_FILE : null;
+                }
+            }
+        },
         textures: {
             exists() { return false; },
             remove() {},

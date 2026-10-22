@@ -240,6 +240,9 @@ function uiObjectTypeLabel(object) {
     if (kind === 'core') {
         return 'Core';
     }
+    if (kind === 'prime') {
+        return 'Prime';
+    }
     if (kind === 'sheet') {
         return 'Sheet';
     }
@@ -278,7 +281,7 @@ function shiftUiObjectCopy(kind, data, field) {
         }
         return;
     }
-    if (kind === 'back-highlight' || kind === 'shard' || kind === 'sheet' || kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core') {
+    if (kind === 'back-highlight' || kind === 'shard' || kind === 'sheet' || kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core' || kind === 'prime') {
         data.center = shiftUiObjectPoint(field, data.center);
         data.target = shiftUiObjectPoint(field, data.target || data.center);
         return;

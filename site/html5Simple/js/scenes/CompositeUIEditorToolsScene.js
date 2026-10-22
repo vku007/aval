@@ -48,6 +48,10 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         return this.host.cores;
     }
 
+    get primes() {
+        return this.host.primes;
+    }
+
     get objects() {
         return this.host.objects;
     }
@@ -230,6 +234,14 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             rowH: 18,
             active: false
         });
+        this.primeProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'prime'
+                ? this.selectedObject
+                : null,
+            tabs: UiPrime.PROP_TABS,
+            rowH: 18,
+            active: false
+        });
         if (this.host.stone) {
             this.host.stone.onPartAdded = (object) => this.noteStonePart(object, true);
             this.host.stone.onPartRemoved = (object) => this.noteStonePart(object, false);
@@ -252,6 +264,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.ensureRoundListed();
         this.ensureCircleListed();
         this.ensureCoreListed();
+        this.ensurePrimeListed();
         this.rebuildObjectRows();
         this.syncPropEditors();
         this.createMenuButton(
@@ -272,7 +285,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (editor) {
             editor.refreshValues();
         }
-        [this.stoneAddProps, this.stoneRemoveProps, this.scissorAddProps, this.scissorRemoveProps, this.paperAddProps, this.newPaperAddProps, this.newPaperRemoveProps, this.coreAddProps, this.coreRemoveProps].forEach((addEditor) => {
+        [this.stoneAddProps, this.stoneRemoveProps, this.scissorAddProps, this.scissorRemoveProps, this.paperAddProps, this.newPaperAddProps, this.newPaperRemoveProps, this.coreAddProps, this.coreRemoveProps, this.primeAddProps, this.primeRemoveProps].forEach((addEditor) => {
             if (addEditor && addEditor.active) {
                 addEditor.refreshValues();
             }
@@ -323,6 +336,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (kind === 'core') {
             return this.coreProps;
         }
+        if (kind === 'prime') {
+            return this.primeProps;
+        }
         if (kind === 'sheet') {
             return this.sheetProps;
         }
@@ -372,6 +388,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.coreProps) {
             this.coreProps.setActive(kind === 'core');
+        }
+        if (this.primeProps) {
+            this.primeProps.setActive(kind === 'prime');
         }
         if (this.sheetProps) {
             this.sheetProps.setActive(kind === 'sheet');
@@ -435,6 +454,12 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.coreRemoveProps) {
             this.coreRemoveProps.setActive(removeKind === 'core');
+        }
+        if (this.primeAddProps) {
+            this.primeAddProps.setActive(addKind === 'prime');
+        }
+        if (this.primeRemoveProps) {
+            this.primeRemoveProps.setActive(removeKind === 'prime');
         }
     }
 
@@ -560,6 +585,18 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.coreRemoveProps = new UiPropEditor(this, panel, {
             getTarget: () => this.addItemTarget('core'),
             tabs: UiCore.REMOVE_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.primeAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('prime'),
+            tabs: UiPrime.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.primeRemoveProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('prime'),
+            tabs: UiPrime.REMOVE_TABS,
             rowH: rowH,
             active: false
         });
@@ -884,6 +921,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else if (kind === 'core') {
             created = new UiCore(this.heatMap, data || {});
             this.cores.push(created);
+        } else if (kind === 'prime') {
+            created = new UiPrime(this.heatMap, data || {});
+            this.primes.push(created);
         } else if (kind === 'sheet') {
             created = new UiSheet(this.heatMap, { name: data.name });
             this.sheets.push(created);
@@ -899,7 +939,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.bindCross(created);
             return created;
         }
-        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core')) {
+        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core' || kind === 'prime')) {
             return created;
         }
         if (created && kind === 'new-sheet' && this.host.newPaper && typeof this.host.newPaper.add === 'function') {
@@ -984,6 +1024,17 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.dropFrom(this.cores, object);
             if (this.host && this.host.core === object) {
                 this.host.core = this.cores[0] || null;
+            }
+        } else if (object.kind === 'prime') {
+            if (typeof object.releaseContents === 'function') {
+                object.releaseContents();
+            }
+            if (typeof object.detach === 'function') {
+                object.detach();
+            }
+            this.dropFrom(this.primes, object);
+            if (this.host && this.host.prime === object) {
+                this.host.prime = this.primes[0] || null;
             }
         } else if (object.kind === 'sheet') {
             this.heatMap.removeHighlighter(object.emitter);
@@ -1443,6 +1494,31 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
     }
 
+    ensurePrimeListed() {
+        const prime = this.host && this.host.prime;
+        if (!prime) {
+            return;
+        }
+        if (this.primes && this.primes.indexOf(prime) < 0) {
+            this.primes.push(prime);
+        }
+        if (this.objects.indexOf(prime) < 0) {
+            this.objects.push(prime);
+        }
+    }
+
+    restorePrimes(entries) {
+        (entries || []).forEach((entry) => {
+            const created = this.spawnObject('prime', entry || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        });
+        if (this.host) {
+            this.host.prime = (this.primes && this.primes[0]) || null;
+        }
+    }
+
     ensureCircleListed() {
         const circle = this.host && this.host.circle;
         if (!circle) {
@@ -1561,7 +1637,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.clearGroup(this.host && this.host.paper);
         this.clearGroup(this.host && this.host.newPaper);
         this.clearGroup(this.host && this.host.cross);
-        ['balls', 'rods', 'highlighters', 'shards', 'sheets', 'pointers', 'rounds', 'circles', 'cores'].forEach((key) => {
+        ['balls', 'rods', 'highlighters', 'shards', 'sheets', 'pointers', 'rounds', 'circles', 'cores', 'primes'].forEach((key) => {
             const list = this.host && this.host[key];
             if (!list) {
                 return;
@@ -1623,7 +1699,8 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             pointers: (this.pointers || []).map((item) => item.serialize()),
             rounds: (this.rounds || []).map((item) => item.serialize()),
             circles: (this.circles || []).map((item) => item.serialize()),
-            cores: (this.cores || []).map((item) => item.serialize())
+            cores: (this.cores || []).map((item) => item.serialize()),
+            primes: (this.primes || []).map((item) => item.serialize())
         };
     }
 
@@ -1734,6 +1811,11 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.restoreCores(data.cores);
         } else {
             this.restoreCores([{ name: 'Core', centerX: 50, centerY: 48 }]);
+        }
+        if (data && Array.isArray(data.primes)) {
+            this.restorePrimes(data.primes);
+        } else {
+            this.restorePrimes([{ name: 'Prime', centerX: 78, centerY: 22, animate: false }]);
         }
         if (this.objects.indexOf(this.selectedObject) < 0) {
             this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;

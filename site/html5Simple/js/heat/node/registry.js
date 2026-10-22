@@ -65,6 +65,9 @@ function createItem(name, fieldOrMap, fields) {
     if (name === 'core') {
         return new UiCore(heatMap, values);
     }
+    if (name === 'prime') {
+        return new UiPrime(heatMap, values);
+    }
     if (name === 'sheet' || name === 'heat-sheet') {
         return new UiSheet(heatMap, values);
     }

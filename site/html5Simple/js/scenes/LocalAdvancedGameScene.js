@@ -2,7 +2,7 @@
  * LocalAdvancedGameScene
  * Full-scene heat map with four stacked green frames.
  * Starts an extended best-of-5 match and sends the current stack as the move.
- * Item count is the extended size. Paper is a New Paper stack. Effect toggles match ExtendedGameScene.
+ * Item count is the extended size. Paper is a New Paper stack. NEG and SIZE are one toggle.
  */
 class LocalAdvancedGameScene extends Phaser.Scene {
     constructor() {
@@ -90,10 +90,8 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     effectDefs() {
         return [
-            { kind: 'NegateSize', label: 'NEG', category: 'size' },
-            { kind: 'Overpower', label: 'OVER', category: 'size' },
-            { kind: 'Protection', label: 'PROT', category: 'type' },
-            { kind: 'SizeOnly', label: 'SIZE', category: 'type' }
+            { kind: 'NegateSize', label: 'NEG', category: 'effect' },
+            { kind: 'SizeOnly', label: 'SIZE', category: 'effect' }
         ];
     }
 
@@ -684,26 +682,6 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         }).setOrigin(0, 0);
         this.statusText.setDepth(1100);
 
-        const defs = this.effectDefs();
-        const gap = 8;
-        const inset = 8;
-        const btnH = 28;
-        const btnW = Math.floor((score.width - inset * 2 - gap * (defs.length - 1)) / defs.length);
-        const btnY = score.y + score.height - inset - btnH / 2;
-        this.effectButtons = defs.map((def, index) => {
-            const btn = this.createGreenButton(
-                score.x + inset + btnW / 2 + index * (btnW + gap),
-                btnY,
-                btnW,
-                btnH,
-                def.label,
-                () => this.onSelectEffect(def.kind, def.category)
-            );
-            btn.effectKind = def.kind;
-            btn.effectCategory = def.category;
-            return btn;
-        });
-
         this.enemyReadout = this.add.text(enemy.x + 8, enemy.y + 22, 'you  —\nenemy  —\nWAIT', {
             font: `${UI.body}px monospace`,
             fill: '#00ff66',
@@ -793,6 +771,12 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
         btn.isSelected = selected;
+        if (btn instanceof HmSkinnedButton) {
+            if (btn.round) {
+                btn.round.setHovered(!!selected || pointerInsideStageButton(this, btn));
+            }
+            return;
+        }
         this.paintGreenButton(btn);
         if (btn.isEnabled) {
             btn.buttonText.setColor(selected ? '#ffffff' : '#00ff66');
@@ -812,6 +796,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     createLocalAdvancedButtons(boxes) {
         const control = boxes.find((box) => box.label === 'control');
+        const effects = boxes.find((box) => box.label === 'effects');
         const selection = boxes.find((box) => box.label === 'selection');
         if (control) {
             const row = panelButtonRow(control);
@@ -822,6 +807,20 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             const size = LOCAL_ADVANCED_CANCEL_BUTTON;
             const cx = control.x + control.width - row.inset - size / 2;
             this.cancelButton = this.createCancelButton(cx, row.y);
+        }
+        if (effects) {
+            const row = panelButtonRow(effects);
+            const size = row.height;
+            const leftX = effects.x + row.inset + size / 2;
+            const rightX = effects.x + effects.width - row.inset - size / 2;
+            this.effectButtons = this.effectDefs().map((def) => {
+                const cx = def.kind === 'SizeOnly' ? rightX : leftX;
+                if (def.kind === 'NegateSize') {
+                    return this.createPrimeEffectButton(cx, row.y, size, def);
+                }
+                return this.createCoreEffectButton(cx, row.y, size, def);
+            });
+            this.refreshEffectButtons();
         }
         if (selection) {
             const row = panelButtonRow(selection);
@@ -843,6 +842,58 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             });
             this.refreshMoveButtons();
         }
+    }
+
+    createCoreEffectButton(cx, cy, size, def) {
+        const button = new HmSkinnedCoreButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size
+        });
+        button.effectKind = def.kind;
+        button.effectCategory = def.category;
+        button.isEnabled = true;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onSelectEffect(def.kind, def.category)
+        });
+        if (button.root.input) {
+            button.root.input.cursor = 'pointer';
+        }
+        const round = this.placeButtonRound(button, def.kind === 'NegateSize' ? 'Negate' : 'Size');
+        if (round.emitter && typeof round.emitter.setParam === 'function') {
+            round.emitter.setParam('toHeat', 1.2);
+        }
+        return button;
+    }
+
+    createPrimeEffectButton(cx, cy, size, def) {
+        const button = new HmSkinnedPrimeButton(this, {
+            x: cx - size / 2,
+            y: cy - size / 2,
+            size: size,
+            minSize: size,
+            maxSize: size
+        });
+        button.effectKind = def.kind;
+        button.effectCategory = def.category;
+        button.isEnabled = true;
+        bindPress(this, button.root, {
+            tapFx: 'none',
+            isEnabled: () => button.isEnabled,
+            onClick: () => this.onSelectEffect(def.kind, def.category)
+        });
+        if (button.root.input) {
+            button.root.input.cursor = 'pointer';
+        }
+        const round = this.placeButtonRound(button, def.kind === 'NegateSize' ? 'Negate' : 'Size');
+        if (round.emitter && typeof round.emitter.setParam === 'function') {
+            round.emitter.setParam('toHeat', 1.2);
+        }
+        return button;
     }
 
     createGoButton(cx, cy) {
@@ -971,38 +1022,11 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         round.armHover();
         button.round = round;
         button.root.on('pointerover', () => round.setHovered(true));
-        button.root.on('pointerout', () => round.setHovered(false));
+        button.root.on('pointerout', () => round.setHovered(!!button.isSelected));
         if (pointerInsideStageButton(this, button)) {
             round.setHovered(true);
         }
         return round;
-    }
-
-    createGreenButton(x, y, width, height, label, onClick) {
-        const btn = this.add.container(x, y);
-        btn.setDepth(1100);
-        const bg = this.add.graphics();
-        bg.lineStyle(2, 0x00ff66, 1);
-        bg.strokeRect(-width / 2, -height / 2, width, height);
-        const text = this.add.text(0, 0, label, {
-            font: `${UI.body}px monospace`,
-            fill: '#00ff66'
-        }).setOrigin(0.5);
-        btn.add([bg, text]);
-        btn.buttonText = text;
-        btn.buttonBg = bg;
-        btn.buttonWidth = width;
-        btn.buttonHeight = height;
-        btn.isEnabled = true;
-
-        const hitArea = new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height);
-        btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
-        bindPress(this, btn, {
-            tapFx: 'none',
-            isEnabled: () => btn.isEnabled,
-            onClick: onClick
-        });
-        return btn;
     }
 
     update(time, delta) {
@@ -1024,6 +1048,11 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (this.goButton && typeof this.goButton.update === 'function') {
             this.goButton.update(time, delta);
         }
+        (this.effectButtons || []).forEach((btn) => {
+            if (btn instanceof HmSkinnedButton && typeof btn.update === 'function') {
+                btn.update(time, delta);
+            }
+        });
     }
 
     createBackButton(x, y) {
@@ -1052,9 +1081,9 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
 function localAdvancedPanelBoxes(width, height) {
     const panels = [
-        { label: 'score', share: 0.25 },
+        { label: 'score', share: 0.215 },
         { label: 'enemy_data', share: 0.25 },
-        { label: 'current turn', share: 0.35 },
+        { label: 'current turn', share: 0.385 },
         { label: 'inventory', share: 0.15 }
     ];
     const boxes = [];
@@ -1074,12 +1103,20 @@ function localAdvancedPanelBoxes(width, height) {
             const pad = 8;
             const selectionH = Math.max(innerH, panelButtonRowHeight(LOCAL_ADVANCED_STONE_BUTTON));
             const controlH = Math.max(innerH, panelButtonRowHeight(LOCAL_ADVANCED_CANCEL_BUTTON));
+            const effectsH = panelButtonRowHeight(LOCAL_ADVANCED_EFFECT_BUTTON);
             boxes.push({
                 x: pad,
                 y: y + pad,
                 width: width - pad * 2,
                 height: controlH,
                 label: 'control'
+            });
+            boxes.push({
+                x: pad,
+                y: y + pad + controlH + pad,
+                width: width - pad * 2,
+                height: effectsH,
+                label: 'effects'
             });
             boxes.push({
                 x: pad,
@@ -1096,6 +1133,7 @@ function localAdvancedPanelBoxes(width, height) {
 
 const LOCAL_ADVANCED_STONE_BUTTON = 80;
 const LOCAL_ADVANCED_CANCEL_BUTTON = 60;
+const LOCAL_ADVANCED_EFFECT_BUTTON = 60;
 const LOCAL_ADVANCED_STONE_BALL_RADIUS = 6.4;
 const LOCAL_ADVANCED_STONE_BALL_HEAT = 2;
 const LOCAL_ADVANCED_STONE_MAX = 9;

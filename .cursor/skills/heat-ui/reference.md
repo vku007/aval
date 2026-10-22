@@ -41,10 +41,11 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
    ├─ HotMapUiPaper       kind hot-map-paper, config paper
    ├─ HotMapUiNewPaper    kind hot-map-new-paper, config diskStack
    ├─ HotMapUiCross       kind hot-map-cross, config cross
-   └─ UiCore              kind core. Round, circle, and hot balls on one center
+   ├─ UiCore              kind core. Round, circle, and hot balls on one center
+   └─ UiPrime             kind prime, config prime. Circle, cycling round, and one cycling round item
 ```
 
-Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiCircle`, `UiCore`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
+Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiCircle`, `UiCore`, `UiPrime`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
 
 Behaviours in `js/heat/behaviours/behaviours.js`: `Orbit`, `Follow`, `PathLoop`, `PoseCycle`, `Glisten`, `CornerGlisten`, `BallRunner`, `DiskLoop`, `Spin`. Each has `reset()`, `advance(dt)`, `copyStateFrom(other, shift)`.
 

@@ -1,0 +1,243 @@
+{
+  "kind": "ui-editor-preset",
+  "version": 6,
+  "heatMap": {
+    "diffusion": 9,
+    "cooling": 3.04,
+    "viewX": 0,
+    "viewY": 0,
+    "viewZ": 0,
+    "showFrames": true,
+    "showMenuFrames": false
+  },
+  "stone": {
+    "name": "Stone",
+    "center": {
+      "col": 54.5,
+      "row": 178
+    },
+    "spawn": {
+      "col": 36,
+      "row": 0
+    },
+    "parts": [],
+    "spawnSpeed": 1.2,
+    "ballInit": {
+      "radius": 3.4,
+      "energy": 1.5,
+      "angleSpeed": 1.6,
+      "phase": 0,
+      "orbitRadius": 40,
+      "tiltX": 40,
+      "tiltY": 0,
+      "tiltZ": 0
+    }
+  },
+  "scissor": {
+    "name": "Scissor",
+    "center": {
+      "col": 64.5,
+      "row": 140
+    },
+    "spawn": {
+      "col": -30,
+      "row": 82
+    },
+    "parts": [],
+    "shardInit": {
+      "cycling": true,
+      "speed": 1.2,
+      "delay": 0.5,
+      "gap": 0.4,
+      "from": {
+        "width": 56,
+        "height": 8,
+        "angle": 0,
+        "skew": -60,
+        "heat": 0.45,
+        "shapeHeat": 0.1,
+        "glisten": 0
+      },
+      "to": {
+        "width": 70,
+        "height": 4,
+        "angle": 0,
+        "skew": 60,
+        "heat": 1.8,
+        "shapeHeat": 0.2,
+        "glisten": 100
+      }
+    },
+    "angleStep": 45,
+    "dramaHeat": 3,
+    "dramaGravity": 60,
+    "dramaTime": 1.5,
+    "dramaSpinX": 40,
+    "dramaSpinY": -20,
+    "dramaSpinZ": 70,
+    "dramaFade": 0.45
+  },
+  "paper": null,
+  "newPaper": {
+    "name": "New Paper",
+    "center": {
+      "col": 64.5,
+      "row": 72
+    },
+    "spawn": {
+      "col": 0,
+      "row": 128
+    },
+    "parts": [],
+    "distance": 6,
+    "heatGain": 25,
+    "diskGain": 5,
+    "radiusGain": 5,
+    "dramaHeatSpeed": 1060,
+    "dramaBurstSpeed": 900,
+    "dramaFallSpeed": 100,
+    "dramaJump": 23,
+    "dramaDrop": 35,
+    "ballSpin": 0,
+    "sheetInit": {
+      "isVisible": true,
+      "loopSpeed": 50,
+      "radFrom": 20,
+      "radTo": 30,
+      "heatFrom": 0.08,
+      "heatTo": 0.02,
+      "tiltX": 75,
+      "tiltY": 0,
+      "tiltZ": 0,
+      "ballCount": 2,
+      "ballPhase": 0,
+      "ballSpeed": 100,
+      "ballRadius": 32,
+      "ballSize": 2.6,
+      "ballHeat": 0.5
+    }
+  },
+  "cross": null,
+  "pointers": [],
+  "rounds": [],
+  "circles": [],
+  "cores": [],
+  "primes": [
+    {
+      "name": "Prime",
+      "isVisible": true,
+      "center": {
+        "col": 64.5,
+        "row": 140
+      },
+      "target": {
+        "col": 64.5,
+        "row": 140
+      },
+      "round": {
+        "name": "Prime Round",
+        "isVisible": true,
+        "cycling": true,
+        "params": {
+          "speed": 0.8,
+          "delay": 2,
+          "gap": 2
+        },
+        "from": {
+          "radius": 56,
+          "heat": 0.01
+        },
+        "to": {
+          "radius": 60,
+          "heat": 0.2
+        },
+        "center": {
+          "col": 64.5,
+          "row": 140
+        },
+        "target": {
+          "col": 64.5,
+          "row": 140
+        }
+      },
+      "circle": {
+        "name": "Prime Circle",
+        "isVisible": true,
+        "cycling": true,
+        "glistenOn": true,
+        "params": {
+          "speed": 1.2,
+          "delay": 0.5,
+          "gap": 0.4,
+          "glistenSpeed": 0.6,
+          "glistenDelay": 0.4,
+          "glistenPower": 0.1
+        },
+        "from": {
+          "outer": 60,
+          "inner": 56,
+          "heat": 0
+        },
+        "to": {
+          "outer": 60,
+          "inner": 60,
+          "heat": 0.6
+        },
+        "center": {
+          "col": 64.5,
+          "row": 140
+        },
+        "target": {
+          "col": 64.5,
+          "row": 140
+        },
+        "glisten": 80.19799999997889,
+        "glistenPhase": "run",
+        "glistenWait": 0
+      },
+      "item": {
+        "name": "Prime Item",
+        "isVisible": true,
+        "cycling": true,
+        "params": {
+          "speed": 1.2,
+          "delay": 0.5,
+          "gap": 0.4
+        },
+        "from": {
+          "radius": 4,
+          "heat": 0.8
+        },
+        "to": {
+          "radius": 24,
+          "heat": 0.8
+        },
+        "center": {
+          "col": 64.5,
+          "row": 140
+        },
+        "target": {
+          "col": 64.5,
+          "row": 140
+        }
+      },
+      "itemSpec": {
+        "isVisible": true,
+        "cycling": true,
+        "params": {
+          "speed": 1.2,
+          "delay": 0.5,
+          "gap": 0.4
+        },
+        "from": {
+          "radius": 4,
+          "heat": 0.8
+        },
+        "to": {
+          "radius": 24,
+          "heat": 0.8
+        }
+      }
+    }
+  ]
+}
