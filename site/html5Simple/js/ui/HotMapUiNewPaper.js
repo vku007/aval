@@ -210,6 +210,9 @@ class HotMapUiNewPaper extends HotMapUiComposite {
         if (!sheet || sheet.drama) {
             return null;
         }
+        // The disk hides when drama ends and drops out of the stack on the next
+        // pump. Until that drop it is not a selected item.
+        sheet._paperLeaving = true;
         sheet.beginRemoveDrama({
             heatScale: HOT_MAP_NEW_PAPER_DRAMA_SCALE,
             radiusScale: HOT_MAP_NEW_PAPER_DRAMA_SCALE,
@@ -556,6 +559,29 @@ heatRegisterComposite('diskStack', {
         return new HotMapUiNewPaper(heatMap, overrides);
     }
 });
+
+/**
+ * Parts still in the play-scene stack. An exit that has started does not count:
+ * paper hides on the tick drama ends and leaves the list on the next pump, which
+ * is after the move-result run settles.
+ */
+function hotMapActivePartCount(composite) {
+    if (!composite || !composite.parts) {
+        return 0;
+    }
+    let count = 0;
+    composite.parts.forEach((part) => {
+        const object = part && part.object;
+        if (!object) {
+            return;
+        }
+        if (object._stoneLeaving || object._scissorLeaving || object._paperLeaving || object.drama) {
+            return;
+        }
+        count += 1;
+    });
+    return count;
+}
 
 function defaultHotMapNewPaperSheetInit() {
     return copyHotMapNewPaperSheetInit(HOT_MAP_NEW_PAPER_PRESET.sheet);

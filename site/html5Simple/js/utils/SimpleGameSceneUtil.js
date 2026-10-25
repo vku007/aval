@@ -202,4 +202,28 @@ class SimpleGameSceneUtil {
         }
         return null;
     }
+
+    /**
+     * Largest throw of this type for the loaded extended game.
+     * Falls back to the server defaults until gameContext is present.
+     * @param {object} gameData
+     * @param {string} moveType Stone | Paper | Scissors
+     * @returns {number}
+     */
+    static turnCap(gameData, moveType) {
+        const defaults = { Stone: 9, Scissors: 4, Paper: 7 };
+        const fields = {
+            Stone: 'max_stone_per_turn',
+            Scissors: 'max_scissors_per_turn',
+            Paper: 'max_paper_per_turn'
+        };
+        const field = fields[moveType];
+        const raw = field && gameData && gameData.payload && gameData.payload.gameContext
+            ? gameData.payload.gameContext[field]
+            : undefined;
+        if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 1) {
+            return raw;
+        }
+        return defaults[moveType] || 9;
+    }
 }

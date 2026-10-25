@@ -6,6 +6,7 @@ import { SubRound } from '../value-object/SubRound.js';
 import { Move, MoveContext, MoveType } from '../value-object/Move.js';
 import { ValidationError } from '../../shared/errors/index.js';
 import { GameStatus } from '../value-object/GameStatus.js';
+import { GamePlayerInventory } from '../value-object/GamePlayerInventory.js';
 
 describe('GameEntity', () => {
   describe('constructor', () => {
@@ -293,6 +294,10 @@ describe('GameEntity', () => {
       expect(json).toEqual({
         id: 'game-1',
         usersIds: ['user-1', 'user-2'],
+        inventories: [
+          GamePlayerInventory.defaultFor('user-1', 0).toJSON(),
+          GamePlayerInventory.defaultFor('user-2', 0).toJSON()
+        ],
         rounds: [{
           id: 'round-1',
           subRounds: [{
@@ -363,6 +368,30 @@ describe('GameEntity', () => {
       expect(gameEntity.rounds[0].id).toBe('round-1');
       expect(gameEntity.rounds[0].status).toBe(RoundStatus.Finished);
       expect(gameEntity.isFinished).toBe(true);
+      expect(gameEntity.inventories.map(inventory => inventory.time)).toEqual([0, 0]);
+      expect(gameEntity.inventories[0].items.stones).toBe(1000);
+    });
+
+    it('should keep stored inventory times', () => {
+      const player = new GamePlayerInventory(
+        'user-1',
+        GamePlayerInventory.defaultFor('user-1', 9).items,
+        GamePlayerInventory.defaultFor('user-1', 9).currencies,
+        9
+      );
+      const gameEntity = GameEntity.fromJSON({
+        id: 'game-1',
+        usersIds: ['user-1'],
+        rounds: [],
+        status: GameStatus.Created,
+        inventories: [{ ...player.toJSON(), items: { ...player.items, scissors: 3 } }]
+      });
+
+      expect(gameEntity.inventories[0].items.scissors).toBe(3);
+      expect(gameEntity.inventories[0].time).toBe(9);
+      const restored = GameEntity.fromJSON(gameEntity.toJSON());
+      expect(restored.inventories[0].items.scissors).toBe(3);
+      expect(restored.toGame().inventories[0].time).toBe(9);
     });
 
     it('should ignore leftover type from stored JSON', () => {

@@ -154,6 +154,7 @@ classDiagram
         +status: GameStatus
         +rounds: Round[]
         +outcome: GameOutcome
+        +inventories: GamePlayerInventory[]
         +createContext?: GameCreateContext
         +endTime?: number
         +addRound(round) void
@@ -192,7 +193,7 @@ classDiagram
 
 ## Game aggregate
 
-Stored shape: `Game` → `Round[]` → `SubRound[]` → `Move[]`. Moves are not children of `Round`. `Game.addMoveToRound` throws; add moves on a `SubRound`.
+Stored shape: `Game` → `Round[]` → `SubRound[]` → `Move[]`, plus one `GamePlayerInventory` per player. Moves are not children of `Round`. `Game.addMoveToRound` throws; add moves on a `SubRound`. An extended move spends that player's inventory; classic play does not.
 
 ```mermaid
 classDiagram
@@ -202,8 +203,16 @@ classDiagram
         +status: GameStatus
         +rounds: Round[]
         +outcome: GameOutcome
+        +inventories: GamePlayerInventory[]
         +createContext?: GameCreateContext
         +endTime?: number
+    }
+
+    class GamePlayerInventory {
+        +userId: string
+        +items: InventoryItems
+        +currencies: InventoryCurrencies
+        +time: number
     }
 
     class Round {
@@ -350,6 +359,7 @@ classDiagram
     }
 
     Game "1" *-- "*" Round
+    Game "1" *-- "*" GamePlayerInventory
     Game "1" *-- "1" GameOutcome
     Game --> GameStatus
     Game --> GameCreateContext

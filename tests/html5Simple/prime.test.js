@@ -27,8 +27,8 @@ describe('UiPrime', () => {
         expect(prime.item.kind).toBe('round');
         expect(prime.item).not.toBe(prime.round);
         expect(prime.circle.emitter.cycling).toBe(true);
-        expect(prime.circle.emitter.from.outer).toBe(60);
-        expect(prime.circle.emitter.from.inner).toBe(56);
+        expect(prime.circle.emitter.from.outer).toBe(48);
+        expect(prime.circle.emitter.from.inner).toBe(44);
         expect(prime.round.emitter.cycling).toBe(true);
         expect(prime.round.emitter.from.radius).toBe(prime.circle.emitter.from.inner);
         expect(prime.item.emitter.cycling).toBe(true);

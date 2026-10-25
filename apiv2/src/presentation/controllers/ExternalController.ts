@@ -7,6 +7,7 @@ import type { GameProcessorService } from '../../application/services/GameProces
 import { CreateGameRequest } from '../../application/dto/processor/CreateGameRequest.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
 import { Action } from '../../domain/value-object/Action.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 import { CreateUserDto } from '../../application/dto/CreateUserDto.js';
 import type { AuthenticatedRequest } from '../../presentation/middleware/auth.js';
 
@@ -129,9 +130,10 @@ export class ExternalController {
 
       // Parse request body to create GameCreateContext
       const gameCreateContext = GameCreateContext.fromJSON(request.body);
+      const inventories = this.parseCreateInventories(request.body, userId);
       
       // Create CreateGameRequest
-      const createGameRequest = new CreateGameRequest(userId, gameCreateContext);
+      const createGameRequest = new CreateGameRequest(userId, gameCreateContext, inventories);
       
       // Call service
       const response = await this.gameProcessorService.createGame(createGameRequest);
@@ -189,12 +191,10 @@ export class ExternalController {
 
       // Serialize response payload
       const payload = {
-        gameContext: {
-          status: response.payload.gameContext.status,
-          initGameContext: response.payload.gameContext.initGameContext?.toJSON()
-        },
+        gameContext: response.payload.gameContext.toJSON(),
         playerContext: {
-          roundStates: response.payload.playerContext.roundStates.map(rs => rs.toJSON())
+          roundStates: response.payload.playerContext.roundStates.map(rs => rs.toJSON()),
+          inventory: response.payload.playerContext.inventory.toJSON()
         },
         enemyContext: {}
       };
@@ -257,12 +257,10 @@ export class ExternalController {
 
       // Serialize response payload
       const payload = {
-        gameContext: {
-          status: response.payload.gameContext.status,
-          initGameContext: response.payload.gameContext.initGameContext?.toJSON()
-        },
+        gameContext: response.payload.gameContext.toJSON(),
         playerContext: {
-          roundStates: response.payload.playerContext.roundStates.map(rs => rs.toJSON())
+          roundStates: response.payload.playerContext.roundStates.map(rs => rs.toJSON()),
+          inventory: response.payload.playerContext.inventory.toJSON()
         },
         enemyContext: {}
       };
@@ -283,6 +281,23 @@ export class ExternalController {
       });
       throw error;
     }
+  }
+
+  /**
+   * Optional inventories on create. Omitted means the service fills both players.
+   * A provided row must name the caller or NPC_1.
+   */
+  private parseCreateInventories(body: object, userId: string): GamePlayerInventory[] | undefined {
+    const raw = (body as { inventories?: unknown }).inventories;
+    if (raw === undefined) {
+      return undefined;
+    }
+    if (!Array.isArray(raw)) {
+      throw new ValidationError('inventories must be an array');
+    }
+    const parsed = raw.map(item => GamePlayerInventory.fromJSON(item));
+    GamePlayerInventory.ensureForUsers([userId, 'NPC_1'], parsed, Date.now());
+    return parsed;
   }
 }
 

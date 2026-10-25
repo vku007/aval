@@ -5,6 +5,7 @@ import { ValidationError } from "../../shared/errors/index.js";
 import { GameCreateContext } from "../../application/dto/processor/GameCreateContext.js";
 import { GameStatus } from "../value-object/GameStatus.js";
 import { GameOutcome } from "../value-object/GameOutcome.js";
+import { GamePlayerInventory } from "../value-object/GamePlayerInventory.js";
 
 /** Best-of length used by Medal.gameLength, not stored on Game. */
 export enum GameTypeLength {
@@ -20,6 +21,8 @@ export enum GameTypeLength {
 export class Game {
     public rounds: Round[];
     public endTime?: number;
+    /** One inventory per participant. Filled with defaults (time 0) until create replaces them. */
+    public inventories: GamePlayerInventory[];
     /** Outcome (rewards, etc.) created when the game is created; not passed to constructor. */
     public outcome: GameOutcome;
 
@@ -39,6 +42,7 @@ export class Game {
         this.validateId(id);
         this.validateUsersIds(usersIds);
         this.validateStatus(status);
+        this.inventories = GamePlayerInventory.ensureForUsers(usersIds, undefined, 0);
         if (createContext !== undefined) {
             this.validateCreateContext(createContext);
         }
@@ -106,6 +110,7 @@ export class Game {
 
         const updatedGame = new Game(this.id, this.usersIds, this.status, this.createContext);
         updatedGame.rounds = updatedRounds;
+        updatedGame.inventories = [...this.inventories];
         updatedGame.outcome = GameOutcome.fromJSON(this.outcome.toJSON());
         return updatedGame;
     }
@@ -165,6 +170,7 @@ export class Game {
         return {
             id: this.id,
             usersIds: [...this.usersIds],
+            inventories: this.inventories.map(inventory => inventory.toJSON()),
             rounds: this.rounds.map(round => round.toJSON()),
             status: this.status,
             isFinished: this.status === GameStatus.Finished, // Backward compatibility
@@ -212,6 +218,11 @@ export class Game {
         const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
         const game = new Game(data.id, data.usersIds, status, createContext);
         game.rounds = rounds;
+        game.inventories = GamePlayerInventory.ensureForUsers(
+            data.usersIds,
+            Game.parseInventories(data.inventories),
+            0
+        );
         if (data.outcome) {
             game.outcome = GameOutcome.fromJSON(data.outcome);
         }
@@ -303,5 +314,15 @@ export class Game {
         if (!createContext || !(createContext instanceof GameCreateContext)) {
             throw new ValidationError('createContext must be an instance of GameCreateContext');
         }
+    }
+
+    private static parseInventories(data: unknown): GamePlayerInventory[] | undefined {
+        if (data === undefined || data === null) {
+            return undefined;
+        }
+        if (!Array.isArray(data)) {
+            throw new ValidationError('Game inventories must be an array');
+        }
+        return data.map(item => GamePlayerInventory.fromJSON(item));
     }
 }

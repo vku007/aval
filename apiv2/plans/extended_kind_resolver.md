@@ -39,7 +39,7 @@ flowchart TD
 - `GameResolver` interface; shared RPS helpers in `rps.ts`
 - `ClassicGameResolver` and `ExtendedGameResolver`
 - `GameProcessorService.resolverFor` / `processorFor` on each `updateGame`
-- Extended NPC random size `0..10` (`NPC_EXTENDED_MAX_SIZE`); Classic NPC stays `size: 0`
+- Extended NPC random size `1..min(turn cap, stock)`. Caps default to stone 9, scissors 4, paper 7. Empty gesture inventory surrenders. Classic NPC stays `size: 0`
 
 ## Out of scope
 

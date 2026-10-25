@@ -8,6 +8,11 @@ import { fileURLToPath } from 'node:url';
 export const PLAYER_ID = 'test-admin';
 export const NPC_ID = 'NPC_1';
 export const MOVE_TYPES = ['Stone', 'Paper', 'Scissors'] as const;
+const TURN_CAPS: Record<(typeof MOVE_TYPES)[number], number> = {
+  Stone: 9,
+  Scissors: 4,
+  Paper: 7
+};
 export const MAX_PLAYER_MOVES = 40;
 
 const localEntry = path.resolve(fileURLToPath(new URL('../local.ts', import.meta.url)));
@@ -82,30 +87,44 @@ export async function playExtendedBo3(baseUrl: string): Promise<{ gameId: string
   }
 
   const gameId = created.json.gameId as string;
-  let gameStatus = 'created';
-  let payload: any;
+  const opened = await api(baseUrl, 'GET', `/apiv2/external/games/${gameId}`);
+  if (opened.status !== 200) {
+    throw new Error(`Failed to load game: ${JSON.stringify(opened)}`);
+  }
+
+  let gameStatus = opened.json.payload?.gameContext?.status ?? 'created';
+  let payload = opened.json.payload;
+  let items = payload?.playerContext?.inventory?.items ?? {};
 
   for (let i = 0; i < MAX_PLAYER_MOVES && gameStatus !== 'finished'; i++) {
-    const updated = await api(baseUrl, 'PUT', `/apiv2/external/games/${gameId}`, {
-      type: 'Move',
-      context: {
-        move: {
-          userId: PLAYER_ID,
+    const affordable = MOVE_TYPES.filter(moveType => (items[gestureKey(moveType)] ?? 0) >= 1);
+    const moveType = affordable[i % Math.max(affordable.length, 1)];
+    const stock = moveType ? items[gestureKey(moveType)] : 0;
+    const size = moveType ? Math.min(1 + (i % TURN_CAPS[moveType]), stock) : 0;
+    const body = moveType
+      ? {
+          type: 'Move',
           context: {
-            moveType: MOVE_TYPES[i % MOVE_TYPES.length],
-            size: 5 + (i % 6),
-            decorId: 1
-          },
-          time: Date.now()
+            move: {
+              userId: PLAYER_ID,
+              context: {
+                moveType,
+                size,
+                decorId: 1
+              },
+              time: Date.now()
+            }
+          }
         }
-      }
-    });
+      : { type: 'Surrender', context: {} };
+    const updated = await api(baseUrl, 'PUT', `/apiv2/external/games/${gameId}`, body);
 
     if (updated.status !== 200) {
       throw new Error(`Move failed: ${JSON.stringify(updated.json)}`);
     }
 
     payload = updated.json.payload;
+    items = payload?.playerContext?.inventory?.items ?? items;
     gameStatus = payload?.gameContext?.status;
   }
 
@@ -121,6 +140,16 @@ export async function deleteGame(baseUrl: string, gameId: string): Promise<void>
   if (result.status !== 204 && result.status !== 200) {
     throw new Error(`Failed to delete game ${gameId}: ${JSON.stringify(result)}`);
   }
+}
+
+function gestureKey(moveType: (typeof MOVE_TYPES)[number]): 'stones' | 'scissors' | 'papers' {
+  if (moveType === 'Stone') {
+    return 'stones';
+  }
+  if (moveType === 'Scissors') {
+    return 'scissors';
+  }
+  return 'papers';
 }
 
 function getFreePort(): Promise<number> {

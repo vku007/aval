@@ -10,10 +10,12 @@ import { Move } from '../value-object/Move.js';
 import { GameStatus } from '../value-object/GameStatus.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
 import { GameOutcome } from '../value-object/GameOutcome.js';
+import { GamePlayerInventory } from '../value-object/GamePlayerInventory.js';
 
 // Define the data structure for better type safety
 interface GameData {
   usersIds: string[];
+  inventories?: object[];
   rounds: RoundData[];
   status: GameStatus;
   isFinished?: boolean; // Backward compatibility
@@ -64,14 +66,17 @@ export class GameEntity {
     metadata?: EntityMetadata,
     createContext?: GameCreateContext,
     endTime?: number,
-    outcome?: any // Serialized GameOutcome (game.outcome.toJSON()) for persistence
+    outcome?: any, // Serialized GameOutcome (game.outcome.toJSON()) for persistence
+    inventories?: GamePlayerInventory[]
   ) {
     this.validateId(id);
     this.validateGameData(usersIds, rounds, status);
+    const resolvedInventories = GamePlayerInventory.ensureForUsers(usersIds, inventories, 0);
     
     // Convert Game objects to data structure
     const gameData: GameData = {
       usersIds: [...usersIds], // Create copy to avoid mutation
+      inventories: resolvedInventories.map(inventory => inventory.toJSON()),
       rounds: rounds.map(round => this.roundToData(round)),
       status,
       isFinished: status === GameStatus.Finished, // Backward compatibility
@@ -123,6 +128,18 @@ export class GameEntity {
     return this.getGameData().endTime;
   }
 
+  get inventories(): GamePlayerInventory[] {
+    const stored = this.getGameData().inventories;
+    if (!Array.isArray(stored)) {
+      return GamePlayerInventory.ensureForUsers(this.usersIds, undefined, 0);
+    }
+    return GamePlayerInventory.ensureForUsers(
+      this.usersIds,
+      stored.map(item => GamePlayerInventory.fromJSON(item)),
+      0
+    );
+  }
+
   /** Serialized outcome (rewards) for persistence; undefined if not set. */
   get outcome(): any {
     return this.getGameData().outcome;
@@ -149,6 +166,9 @@ export class GameEntity {
     // Support both status (new) and isFinished (old) for backward compatibility
     const status = gameData.status || (gameData.isFinished ? GameStatus.Finished : GameStatus.Created);
     const createContext = gameData.createContext ? GameCreateContext.fromJSON(gameData.createContext) : undefined;
+    const inventories = Array.isArray(gameData.inventories)
+      ? gameData.inventories.map(item => GamePlayerInventory.fromJSON(item))
+      : undefined;
     return new GameEntity(
       backed.id, 
       gameData.usersIds, 
@@ -158,7 +178,8 @@ export class GameEntity {
       backed.metadata,
       createContext,
       gameData.endTime,
-      gameData.outcome
+      gameData.outcome,
+      inventories
     );
   }
 
@@ -255,6 +276,7 @@ export class GameEntity {
     if (gameData.outcome) {
       game.outcome = GameOutcome.fromJSON(gameData.outcome);
     }
+    game.inventories = this.inventories;
     return game;
   }
 
@@ -268,7 +290,8 @@ export class GameEntity {
       this._backed.metadata,
       game.createContext,
       game.endTime,
-      game.outcome.toJSON()
+      game.outcome.toJSON(),
+      game.inventories
     );
   }
 
@@ -351,6 +374,7 @@ export class GameEntity {
     return {
       id: this.id,
       usersIds: this.usersIds,
+      inventories: this.inventories.map(inventory => inventory.toJSON()),
       rounds: this.rounds.map(round => round.toJSON()),
       status: this.status,
       isFinished: this.isFinished, // Backward compatibility
@@ -395,7 +419,29 @@ export class GameEntity {
     const createContext = data.createContext ? GameCreateContext.fromJSON(data.createContext) : undefined;
     const endTime = data.endTime !== undefined && data.endTime !== null ? data.endTime : undefined;
     const outcome = data.outcome;
-    return new GameEntity(data.id, data.usersIds, rounds, status, undefined, undefined, createContext, endTime, outcome);
+    const inventories = GameEntity.parseInventories(data.inventories);
+    return new GameEntity(
+      data.id,
+      data.usersIds,
+      rounds,
+      status,
+      undefined,
+      undefined,
+      createContext,
+      endTime,
+      outcome,
+      inventories
+    );
+  }
+
+  private static parseInventories(data: unknown): GamePlayerInventory[] | undefined {
+    if (data === undefined || data === null) {
+      return undefined;
+    }
+    if (!Array.isArray(data)) {
+      throw new ValidationError('Game inventories must be an array');
+    }
+    return data.map(item => GamePlayerInventory.fromJSON(item));
   }
 
   // Validation methods

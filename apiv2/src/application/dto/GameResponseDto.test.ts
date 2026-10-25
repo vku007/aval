@@ -6,6 +6,7 @@ import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 describe('GameResponseDto', () => {
   describe('fromGameEntity', () => {
@@ -83,6 +84,10 @@ describe('GameResponseDto', () => {
           isFinished: true
         }],
         isFinished: true,
+        inventories: [
+          GamePlayerInventory.defaultFor('user-1', 0).toJSON(),
+          GamePlayerInventory.defaultFor('user-2', 0).toJSON()
+        ],
         etag: undefined,
         metadata: undefined
       });

@@ -160,6 +160,11 @@ class GamePlayScene extends Phaser.Scene {
         this.setCurrentAction(null);
     }
 
+    clearSelectedEffects() {
+        this.sceneState.selectedEffects = [];
+        this.updateEffectSelection();
+    }
+
     formatReadyStatus(action) {
         const moveType = action?.context?.move?.context?.moveType || 'Unknown';
         return `${moveType} ready — tap GO`;
@@ -1182,6 +1187,7 @@ class GamePlayScene extends Phaser.Scene {
                 return;
             }
 
+            this.clearSelectedEffects();
             this.clearCurrentAction();
             if (!this.applyGamePayload(response)) {
                 await this.loadGame(this.currentGameId);

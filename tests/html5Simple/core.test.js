@@ -1,5 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { createHeatMap, loadHeat } from './harness.js';
+import { createHeatMap, loadHeat, SITE_ROOT } from './harness.js';
 
 function samePoint(a, b) {
     expect(a.col).toBeCloseTo(b.col, 5);
@@ -23,6 +26,49 @@ describe('UiCore', () => {
         samePoint(core.ball.motion.orbitCenter, core.center);
         samePoint(core.ball.motion.orbitTarget, core.center);
         expect(ctx.createItem('core', heatMap).kind).toBe('core');
+    });
+
+    it('starts the round bright and fades it once', () => {
+        const ctx = loadHeat();
+        const heatMap = createHeatMap(ctx);
+        const core = new ctx.UiCore(heatMap, { name: 'Core' });
+        const emitter = core.round.emitter;
+        expect(emitter.current.heat).toBeCloseTo(emitter.to.heat, 5);
+        expect(emitter.current.radius).toBeCloseTo(emitter.to.radius, 5);
+        expect(core.round.channels.combined().heat).toBeCloseTo(1, 5);
+
+        for (let frame = 0; frame < 90; frame += 1) {
+            heatMap.field.update(frame, 1000 / 60);
+        }
+        expect(emitter.current.heat).toBeCloseTo(emitter.to.heat, 5);
+        expect(emitter.current.radius).toBeCloseTo(emitter.to.radius, 5);
+        expect(core.round.channels.combined().heat).toBeCloseTo(0, 5);
+
+        for (let frame = 0; frame < 90; frame += 1) {
+            heatMap.field.update(90 + frame, 1000 / 60);
+        }
+        expect(emitter.current.heat).toBeCloseTo(emitter.to.heat, 5);
+        expect(emitter.phase).toBe('wait');
+        expect(core.round.channels.combined().heat).toBeCloseTo(0, 5);
+    });
+
+    it('holds a fitted core round at heat 0 and leaves a fitted prime round cycling', () => {
+        const ctx = loadHeat();
+        ctx.HmSkinnedButton = class HmSkinnedButton {};
+        ['js/ui/HmSkinnedCoreButton.js', 'js/ui/HmSkinnedPrimeButton.js'].forEach((file) => {
+            vm.runInContext(fs.readFileSync(path.join(SITE_ROOT, file), 'utf8'), ctx, { filename: file });
+        });
+        const heatMap = createHeatMap(ctx);
+        const core = new ctx.UiCore(heatMap, { name: 'Core', animate: false });
+        ctx.hmFitCoreLengths(core, 0.5);
+        expect(core.round.channels.combined().heat).toBeCloseTo(0, 5);
+        expect(core.round.emitter.phase).toBe('toEnd');
+
+        const prime = new ctx.UiPrime(heatMap, { name: 'Prime', animate: false });
+        expect(() => ctx.hmFitPrimeLengths(prime, 0.5)).not.toThrow();
+        expect(prime.round.emitter.cycling).toBe(true);
+        expect(prime.round.channels.combined().heat).toBeCloseTo(1, 5);
+        expect(typeof prime.fadeRound).toBe('undefined');
     });
 
     it('keeps that center while the parts advance', () => {
@@ -307,8 +353,8 @@ describe('UiCore', () => {
         const core = new ctx.UiCore(heatMap, { name: 'Core' });
         expect(core.round.emitter.from.radius).toBe(core.circle.emitter.from.inner);
         expect(core.round.emitter.to.radius).toBe(core.circle.emitter.to.inner);
-        expect(core.circle.emitter.from.outer).toBe(60);
-        expect(core.circle.emitter.from.inner).toBe(56);
+        expect(core.circle.emitter.from.outer).toBe(48);
+        expect(core.circle.emitter.from.inner).toBe(44);
         expect(core.ball.motion.params.orbitRadius).toBe(3);
         expect(core.ball.motion.params.angleSpeed).toBe(8);
         expect(core.ball.motion.params.radius).toBe(4);

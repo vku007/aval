@@ -3,37 +3,103 @@ import { RoundsLength } from '../../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../../domain/value-object/KindOfGame.js';
 import { GameLevel } from '../../../domain/value-object/GameLevel.js';
 import { EpisodeContext } from '../../../domain/value-object/EpisodeContext.js';
+import { MoveType } from '../../../domain/value-object/Move.js';
 import { ValidationError } from '../../../shared/errors/index.js';
+
+export const DEFAULT_MAX_STONE_PER_TURN = 9;
+export const DEFAULT_MAX_SCISSORS_PER_TURN = 4;
+export const DEFAULT_MAX_PAPER_PER_TURN = 7;
 
 /**
  * GameCreateContext represents the game creation context with game settings.
  */
 export class GameCreateContext {
+  /** Extended only. Largest Stone size allowed in one throw. */
+  public readonly maxStonePerTurn?: number;
+  /** Extended only. Largest Scissors size allowed in one throw. */
+  public readonly maxScissorsPerTurn?: number;
+  /** Extended only. Largest Paper size allowed in one throw. */
+  public readonly maxPaperPerTurn?: number;
+
   constructor(
     public readonly gameType: GameType,
     public readonly rounds: RoundsLength,
     public readonly kind: KindOfGame,
     public readonly level: GameLevel,
-    public readonly episode: EpisodeContext
+    public readonly episode: EpisodeContext,
+    maxStonePerTurn?: number,
+    maxScissorsPerTurn?: number,
+    maxPaperPerTurn?: number
   ) {
     this.validateGameType(gameType);
     this.validateRounds(rounds);
     this.validateKind(kind);
     this.validateLevel(level);
     this.validateEpisode(episode);
+    if (kind === KindOfGame.Extended) {
+      this.maxStonePerTurn = GameCreateContext.readCap(
+        maxStonePerTurn,
+        DEFAULT_MAX_STONE_PER_TURN,
+        'max_stone_per_turn'
+      );
+      this.maxScissorsPerTurn = GameCreateContext.readCap(
+        maxScissorsPerTurn,
+        DEFAULT_MAX_SCISSORS_PER_TURN,
+        'max_scissors_per_turn'
+      );
+      this.maxPaperPerTurn = GameCreateContext.readCap(
+        maxPaperPerTurn,
+        DEFAULT_MAX_PAPER_PER_TURN,
+        'max_paper_per_turn'
+      );
+    }
+  }
+
+  /** Largest legal size for this throw. Extended games only. */
+  capFor(moveType: MoveType): number {
+    if (moveType === MoveType.Stone) {
+      return this.maxStonePerTurn ?? DEFAULT_MAX_STONE_PER_TURN;
+    }
+    if (moveType === MoveType.Scissors) {
+      return this.maxScissorsPerTurn ?? DEFAULT_MAX_SCISSORS_PER_TURN;
+    }
+    if (moveType === MoveType.Paper) {
+      return this.maxPaperPerTurn ?? DEFAULT_MAX_PAPER_PER_TURN;
+    }
+    throw new ValidationError(`Invalid moveType: ${moveType}`);
+  }
+
+  /** JSON field that carries `capFor(moveType)`. */
+  capField(moveType: MoveType): string {
+    if (moveType === MoveType.Stone) {
+      return 'max_stone_per_turn';
+    }
+    if (moveType === MoveType.Scissors) {
+      return 'max_scissors_per_turn';
+    }
+    if (moveType === MoveType.Paper) {
+      return 'max_paper_per_turn';
+    }
+    throw new ValidationError(`Invalid moveType: ${moveType}`);
   }
 
   /**
    * Convert to JSON representation
    */
   toJSON(): object {
-    return {
+    const json: Record<string, unknown> = {
       gameType: this.gameType,
       rounds: this.rounds,
       kind: this.kind,
       level: this.level.toJSON(),
       episode: this.episode.toJSON()
     };
+    if (this.kind === KindOfGame.Extended) {
+      json.max_stone_per_turn = this.maxStonePerTurn;
+      json.max_scissors_per_turn = this.maxScissorsPerTurn;
+      json.max_paper_per_turn = this.maxPaperPerTurn;
+    }
+    return json;
   }
 
   /**
@@ -75,12 +141,16 @@ export class GameCreateContext {
     }
     const episode = EpisodeContext.fromJSON(data.episode);
 
+    const kind = data.kind as KindOfGame;
     return new GameCreateContext(
       data.gameType as GameType,
       data.rounds as RoundsLength,
-      data.kind as KindOfGame,
+      kind,
       level,
-      episode
+      episode,
+      kind === KindOfGame.Extended ? data.max_stone_per_turn : undefined,
+      kind === KindOfGame.Extended ? data.max_scissors_per_turn : undefined,
+      kind === KindOfGame.Extended ? data.max_paper_per_turn : undefined
     );
   }
 
@@ -112,6 +182,17 @@ export class GameCreateContext {
     if (!episode || !(episode instanceof EpisodeContext)) {
       throw new ValidationError('episode is required and must be an instance of EpisodeContext');
     }
+  }
+
+  /** Omitted uses `fallback`. A provided value is an integer >= 1. */
+  private static readCap(value: unknown, fallback: number, label: string): number {
+    if (value === undefined) {
+      return fallback;
+    }
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+      throw new ValidationError(`${label} must be an integer >= 1`);
+    }
+    return value;
   }
 }
 

@@ -10,6 +10,7 @@ import { CreateGameDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { NotFoundError } from '../../shared/errors/NotFoundError.js';
 import { ValidationError } from '../../shared/errors/ValidationError.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 // Mock repository
 const mockRepository = {
@@ -131,6 +132,24 @@ describe('GameService', () => {
       expect(result.rounds).toHaveLength(1);
       expect(result.rounds[0].id).toBe('round-1');
     });
+
+    it('should store default inventories for every user when none are sent', async () => {
+      const before = Date.now();
+      mockRepository.save.mockImplementation(async (game: GameEntity) => game);
+      const dto = new CreateGameDto('game-defaults', ['user-1', 'user-2'], [], false);
+
+      const result = await gameService.createGame(dto);
+
+      const saved = mockRepository.save.mock.calls[0][0] as GameEntity;
+      expect(saved.inventories.map(inventory => inventory.userId)).toEqual(['user-1', 'user-2']);
+      expect(saved.inventories[0].items.stones).toBe(1000);
+      expect(saved.inventories[0].currencies.gold).toBe(1000);
+      expect(saved.inventories[1].items.NT_effect).toBe(1000);
+      expect(saved.inventories[0].time).toBeGreaterThanOrEqual(before);
+      expect(result.inventories.map(inventory => inventory.toJSON())).toEqual(
+        saved.inventories.map(inventory => inventory.toJSON())
+      );
+    });
   });
 
   describe('updateGame', () => {
@@ -201,6 +220,44 @@ describe('GameService', () => {
         expect.any(GameEntity),
         { ifMatch: 'old-etag' }
       );
+    });
+
+    it('should keep a stored inventory and default a newly added user', async () => {
+      const kept = new GamePlayerInventory(
+        'user-1',
+        { ...GamePlayerInventory.defaultFor('user-1', 5).items, stones: 8 },
+        GamePlayerInventory.defaultFor('user-1', 5).currencies,
+        5
+      );
+      const existingGame = new GameEntity(
+        'game-1',
+        ['user-1'],
+        [],
+        GameStatus.Created,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        [kept]
+      );
+      const dto: UpdateGameDto = {
+        usersIds: ['user-1', 'user-2'],
+        rounds: [],
+        isFinished: false
+      };
+      const before = Date.now();
+      mockRepository.findById.mockResolvedValueOnce(existingGame);
+      mockRepository.save.mockImplementation(async (game: GameEntity) => game);
+
+      await gameService.updateGame('game-1', dto, false);
+
+      const saved = mockRepository.save.mock.calls[0][0] as GameEntity;
+      expect(saved.inventories[0].items.stones).toBe(8);
+      expect(saved.inventories[0].time).toBe(5);
+      expect(saved.inventories[1].userId).toBe('user-2');
+      expect(saved.inventories[1].items.papers).toBe(1000);
+      expect(saved.inventories[1].time).toBeGreaterThanOrEqual(before);
     });
   });
 

@@ -173,13 +173,13 @@
           "glistenPower": 0.1
         },
         "from": {
-          "outer": 60,
-          "inner": 56,
+          "outer": 48,
+          "inner": 44,
           "heat": 0
         },
         "to": {
-          "outer": 60,
-          "inner": 60,
+          "outer": 48,
+          "inner": 48,
           "heat": 0.6
         },
         "center": {

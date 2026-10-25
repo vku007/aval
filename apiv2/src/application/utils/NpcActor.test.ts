@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { NPC_EXTENDED_MAX_SIZE, NpcActor } from './NpcActor.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { NpcActor } from './NpcActor.js';
 import { Game } from '../../domain/entity/Game.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { Round } from '../../domain/value-object/Round.js';
@@ -8,12 +8,18 @@ import { SubRound } from '../../domain/value-object/SubRound.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
-import { GameCreateContext } from '../dto/processor/GameCreateContext.js';
+import {
+  DEFAULT_MAX_PAPER_PER_TURN,
+  DEFAULT_MAX_SCISSORS_PER_TURN,
+  DEFAULT_MAX_STONE_PER_TURN,
+  GameCreateContext
+} from '../dto/processor/GameCreateContext.js';
 import { GameType } from '../../domain/value-object/GameType.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { GameLevel } from '../../domain/value-object/GameLevel.js';
 import { EpisodeContext } from '../../domain/value-object/EpisodeContext.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 describe('NpcActor.nextAction', () => {
   const actor = new NpcActor();
@@ -23,14 +29,18 @@ describe('NpcActor.nextAction', () => {
   function createGame(
     usersIds: string[],
     kind: KindOfGame = KindOfGame.Classic,
-    status: GameStatus = GameStatus.Created
+    status: GameStatus = GameStatus.Created,
+    caps?: { stone?: number; scissors?: number; paper?: number }
   ): Game {
     const createContext = new GameCreateContext(
       GameType.PVE,
       RoundsLength.BO3,
       kind,
       new GameLevel('Level1'),
-      new EpisodeContext('Episode1')
+      new EpisodeContext('Episode1'),
+      caps?.stone,
+      caps?.scissors,
+      caps?.paper
     );
     return new Game('game-1', usersIds, status, createContext);
   }
@@ -138,15 +148,105 @@ describe('NpcActor.nextAction', () => {
     expect(action!.context.move!.context.size).toBe(0);
   });
 
-  it('Extended NPC uses size in 0..NPC_EXTENDED_MAX_SIZE', () => {
+  it('Extended NPC uses size from 1 through the turn cap', () => {
     const game = createGame([USER_1, NPC_1], KindOfGame.Extended);
     addOpenSubRound(game, [playerMove()]);
 
     const action = actor.nextAction(game);
-    const size = action!.context.move!.context.size;
+    const move = action!.context.move!;
+    const caps = {
+      [MoveType.Stone]: DEFAULT_MAX_STONE_PER_TURN,
+      [MoveType.Scissors]: DEFAULT_MAX_SCISSORS_PER_TURN,
+      [MoveType.Paper]: DEFAULT_MAX_PAPER_PER_TURN
+    };
 
-    expect(size).toBeGreaterThanOrEqual(0);
-    expect(size).toBeLessThanOrEqual(NPC_EXTENDED_MAX_SIZE);
+    expect(action!.type).toBe(ActionType.Move);
+    expect(move.context.size).toBeGreaterThanOrEqual(1);
+    expect(move.context.size).toBeLessThanOrEqual(caps[move.context.moveType]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function setGestureCounts(game: Game, userId: string, stones: number, scissors: number, papers: number): void {
+    game.inventories = game.inventories.map(inventory => {
+      if (inventory.userId !== userId) {
+        return inventory;
+      }
+      return new GamePlayerInventory(
+        userId,
+        { ...inventory.items, stones, scissors, papers },
+        inventory.currencies,
+        inventory.time
+      );
+    });
+  }
+
+  it('Extended NPC size stays within the chosen type inventory', () => {
+    const game = createGame([USER_1, NPC_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_1, 0, 2, 0);
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    const action = actor.nextAction(game);
+    const move = action!.context.move!;
+
+    expect(move.context.moveType).toBe(MoveType.Scissors);
+    expect(move.context.size).toBe(2);
+    expect(move.context.effects).toEqual([]);
+  });
+
+  it('Extended NPC skips an empty type and throws at least size 1', () => {
+    const game = createGame([USER_1, NPC_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_1, 4, 0, 4);
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.type).toBe(ActionType.Move);
+    expect(action!.context.move!.context.moveType).toBe(MoveType.Paper);
+    expect(action!.context.move!.context.size).toBe(4);
+  });
+
+  it('Extended NPC surrenders when every gesture stack is empty', () => {
+    const game = createGame([USER_1, NPC_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_1, 0, 0, 0);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.type).toBe(ActionType.Surrender);
+    expect(action!.context.move).toBeUndefined();
+  });
+
+  it('Extended NPC size stops at the scissors turn cap', () => {
+    const game = createGame([USER_1, NPC_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_1, 0, 10, 0);
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.999);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.context.move!.context.moveType).toBe(MoveType.Scissors);
+    expect(action!.context.move!.context.size).toBe(DEFAULT_MAX_SCISSORS_PER_TURN);
+  });
+
+  it('Extended NPC can use a custom turn cap when stock allows it', () => {
+    const game = createGame([USER_1, NPC_1], KindOfGame.Extended, GameStatus.Created, { scissors: 10 });
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_1, 0, 10, 0);
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.999);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.context.move!.context.moveType).toBe(MoveType.Scissors);
+    expect(action!.context.move!.context.size).toBe(10);
   });
 
   it('can throw first when the sub-round is init', () => {

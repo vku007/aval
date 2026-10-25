@@ -8,6 +8,7 @@ import { SubRound } from '../../domain/value-object/SubRound.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
 import { Move } from '../../domain/value-object/Move.js';
+import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { ValidationError } from '../../shared/errors/index.js';
 import { Logger } from '../../shared/logging/Logger.js';
 import type { GameResolver } from './GameResolver.js';
@@ -102,6 +103,9 @@ export class GameProcessor {
         if (action.context.move.userId !== userId) {
           throw new Error(`Move userId (${action.context.move.userId}) does not match action userId (${userId})`);
         }
+
+        // Reject an unaffordable extended move before any round is opened.
+        this.chargeInventoryIfExtended(game, action.context.move, false);
         
         // Find the current active round (last round that is not finished)
         let currentRound = game.getLastRound();
@@ -309,27 +313,33 @@ export class GameProcessor {
   }
 
   /**
-   * Applies the NPC throw if NpcActor says it is their turn.
+   * Applies the NPC action if NpcActor says it is their turn.
+   * A Move spends inventory. A Surrender finishes the game for the opponent.
    * Modifies the game in place.
    */
   doNpcAction(game: Game): void {
     const action = this.npcActor.nextAction(game);
-    const move = action?.context.move;
-    if (!action || !move) {
+    if (!action) {
+      return;
+    }
+
+    const npcId = action.context.move?.userId ?? game.usersIds.find(id => id.startsWith('NPC_'));
+    if (!npcId) {
       return;
     }
 
     try {
-      this.processAction(game, action, move.userId);
+      this.processAction(game, action, npcId);
 
       const currentRound = game.getLastRound();
       const updatedSubRound = currentRound?.getLastSubRound();
       this.logger.info('NPC action completed successfully', {
         gameId: game.id,
-        npcId: move.userId,
+        npcId,
+        actionType: action.type,
         roundId: currentRound?.id,
         subRoundIdNum: updatedSubRound?.idNum,
-        moveType: move.context.moveType,
+        moveType: action.context.move?.context.moveType,
         subRoundStatus: updatedSubRound?.status,
         subRoundMoves: updatedSubRound?.moves.length,
         roundStatus: currentRound?.status,
@@ -338,8 +348,9 @@ export class GameProcessor {
     } catch (error: any) {
       this.logger.error('Failed to process NPC action', {
         gameId: game.id,
-        npcId: move.userId,
-        moveType: move.context.moveType,
+        npcId,
+        actionType: action.type,
+        moveType: action.context.move?.context.moveType,
         error: error.message
       });
       throw error;
@@ -366,6 +377,8 @@ export class GameProcessor {
     if (existingMove) {
       throw new ValidationError('Second turn in sub round');
     }
+
+    this.chargeInventoryIfExtended(game, move, true);
     
     const currentTime = Date.now();
     
@@ -388,5 +401,34 @@ export class GameProcessor {
       subRound.finishedAt = currentTime;
     }
 
+  }
+
+  /**
+   * Extended moves spend inventory. Classic and surrender do not.
+   * `apply` false only checks that the spend is possible.
+   */
+  private chargeInventoryIfExtended(game: Game, move: Move, apply: boolean): void {
+    if (game.createContext?.kind !== KindOfGame.Extended) {
+      return;
+    }
+
+    const cap = game.createContext!.capFor(move.context.moveType);
+    if (move.context.size > cap) {
+      const field = game.createContext!.capField(move.context.moveType);
+      throw new ValidationError(
+        `${move.context.moveType} size ${move.context.size} exceeds ${field} ${cap}`,
+        field
+      );
+    }
+
+    const index = game.inventories.findIndex(item => item.userId === move.userId);
+    if (index < 0) {
+      throw new ValidationError(`Inventory for user '${move.userId}' not found`);
+    }
+
+    const next = game.inventories[index].spendForMove(move, Date.now());
+    if (apply) {
+      game.inventories[index] = next;
+    }
   }
 }

@@ -110,9 +110,92 @@ function hotRodValueNoise(x, y) {
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 
+// Distance past the clip and the core. The weight follows the heat color
+// curve (heat^0.48) so each cell along the rim is an even color step.
+function hotRodFeatherWeight(dist, feather, energy) {
+    if (dist <= 0) {
+        return 1;
+    }
+    if (dist >= feather) {
+        return 0;
+    }
+    const shown = Math.pow(1 - dist / feather, 1 / 0.48);
+    const gain = energy > 1e-4 ? energy : 1;
+    return Math.min(1, shown / gain);
+}
+
+function hotRodEdgeDir(angleDeg) {
+    const a = (angleDeg || 0) * Math.PI / 180;
+    return { x: Math.sin(a), y: -Math.cos(a) };
+}
+
+function hotRodEdgeInset(x, y, px, py, dir, inwardX) {
+    let nx = -dir.y;
+    let ny = dir.x;
+    if (nx * inwardX < 0) {
+        nx = -nx;
+        ny = -ny;
+    }
+    return (x - px) * nx + (y - py) * ny;
+}
+
+function hotRodEndInset(x, y, clip) {
+    if (clip.leftAngle != null || clip.rightAngle != null) {
+        const row = clip.row != null ? clip.row : y;
+        let inset = Infinity;
+        if (clip.leftAngle != null && clip.colMin != null) {
+            inset = Math.min(inset, hotRodEdgeInset(x, y, clip.colMin, row, hotRodEdgeDir(clip.leftAngle), 1));
+        }
+        if (clip.rightAngle != null && clip.colMax != null) {
+            inset = Math.min(inset, hotRodEdgeInset(x, y, clip.colMax, row, hotRodEdgeDir(clip.rightAngle), -1));
+        }
+        return inset;
+    }
+    if (clip.colMin != null && clip.colMax != null) {
+        return Math.min(x - clip.colMin, clip.colMax - x);
+    }
+    return Infinity;
+}
+
+function hotRodSlantBleed(clip, reach) {
+    if (!clip) {
+        return 0;
+    }
+    const span = reach + (clip.feather > 0 ? clip.feather : 0);
+    let extra = 0;
+    [clip.leftAngle, clip.rightAngle].forEach((angle) => {
+        if (angle == null) {
+            return;
+        }
+        extra = Math.max(extra, Math.abs(Math.tan(angle * Math.PI / 180)) * span);
+    });
+    return extra;
+}
+
+function hotRodFeatherDist(x, y, localV, halfT, clip) {
+    let ax = 0;
+    const endInset = hotRodEndInset(x, y, clip);
+    if (endInset < 0) {
+        ax = -endInset;
+    }
+    let ay = 0;
+    if (clip.rowMin != null && clip.rowMax != null) {
+        const inset = Math.min(y - clip.rowMin, clip.rowMax - y);
+        if (inset < 0) {
+            ay = -inset;
+        }
+    }
+    const outside = Math.max(0, Math.abs(localV) - halfT);
+    return Math.hypot(ax, ay, outside);
+}
+
 function stampHotRodLine(grid, cols, rows, center, params, time, clip) {
     const halfT = Math.max(0.5, params.thickness * 0.5);
-    const edge = Math.max(0.7, halfT * 0.35);
+    const feather = clip && clip.feather > 0 ? clip.feather : 0;
+    let edge = Math.max(0.7, halfT * 0.35);
+    if (feather > edge) {
+        edge = feather;
+    }
     const centerCol = center.col;
     const centerRow = center.row;
     const ang = ((params.angle || 0) * Math.PI) / 180;
@@ -124,10 +207,12 @@ function stampHotRodLine(grid, cols, rows, center, params, time, clip) {
     const flicker = params.noiseFlicker || 0;
     const t = time || 0;
     const lastX = cols - 1;
-    const yStart = clip && clip.rowMin != null ? Math.max(0, Math.floor(clip.rowMin)) : 0;
-    const yEnd = clip && clip.rowMax != null ? Math.min(rows, Math.ceil(clip.rowMax) + 1) : rows;
-    const xStart = clip && clip.colMin != null ? Math.max(0, Math.floor(clip.colMin)) : 0;
-    const xEnd = clip && clip.colMax != null ? Math.min(cols, Math.ceil(clip.colMax) + 1) : cols;
+    const bleed = feather;
+    const xBleed = bleed + hotRodSlantBleed(clip, reachT);
+    const yStart = clip && clip.rowMin != null ? Math.max(0, Math.floor(clip.rowMin - bleed)) : 0;
+    const yEnd = clip && clip.rowMax != null ? Math.min(rows, Math.ceil(clip.rowMax + bleed) + 1) : rows;
+    const xStart = clip && clip.colMin != null ? Math.max(0, Math.floor(clip.colMin - xBleed)) : 0;
+    const xEnd = clip && clip.colMax != null ? Math.min(cols, Math.ceil(clip.colMax + xBleed) + 1) : cols;
     for (let y = yStart; y < yEnd; y++) {
         const dy = y - centerRow;
         const vLeft = centerCol * sinA + dy * cosA;
@@ -147,7 +232,13 @@ function stampHotRodLine(grid, cols, rows, center, params, time, clip) {
                 continue;
             }
             let w = 1;
-            if (av > halfT) {
+            if (feather > 0) {
+                const dist = hotRodFeatherDist(x, y, localV, halfT, clip);
+                if (dist >= feather) {
+                    continue;
+                }
+                w = hotRodFeatherWeight(dist, feather, params.energy);
+            } else if (av > halfT) {
                 const fall = (av - halfT) / edge;
                 w = Math.exp(-fall * fall * 3);
             }

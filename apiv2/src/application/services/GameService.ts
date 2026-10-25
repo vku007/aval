@@ -4,6 +4,7 @@ import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
 import { Move } from '../../domain/value-object/Move.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 import { CreateGameDto, type MoveDto } from '../dto/CreateGameDto.js';
 import { UpdateGameDto } from '../dto/UpdateGameDto.js';
 import { GameResponseDto } from '../dto/GameResponseDto.js';
@@ -81,11 +82,18 @@ export class GameService {
     // Create domain entity (will validate)
     // Convert isFinished (old) to status (new) for backward compatibility
     const status = dto.isFinished ? GameStatus.Finished : GameStatus.Created;
+    const inventories = this.resolveInventories(dto.usersIds, dto.inventories);
     const gameEntity = new GameEntity(
       dto.id, 
       dto.usersIds, 
       rounds, 
-      status
+      status,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      inventories
     );
 
     // Save with If-None-Match: * (create only)
@@ -294,16 +302,18 @@ export class GameService {
     const status = dto.isFinished !== undefined 
       ? (dto.isFinished ? GameStatus.Finished : GameStatus.Created) 
       : existingGame.status;
+    const usersIds = dto.usersIds ?? existingGame.usersIds;
     return new GameEntity(
       existingGame.id,
-      dto.usersIds ?? existingGame.usersIds,
+      usersIds,
       rounds,
       status,
       existingGame.internalGetBackingStore().etag,
       existingGame.metadata,
       existingGame.createContext,
       existingGame.endTime,
-      existingGame.outcome
+      existingGame.outcome,
+      this.resolveInventories(usersIds, dto.inventories, existingGame.inventories)
     );
   }
 
@@ -349,8 +359,22 @@ export class GameService {
       existingGame.metadata,
       existingGame.createContext,
       existingGame.endTime,
-      existingGame.outcome
+      existingGame.outcome,
+      this.resolveInventories(dto.usersIds, dto.inventories, existingGame.inventories)
     );
+  }
+
+  /**
+   * Provided rows replace the collection. Omitted rows keep stored inventories
+   * for users who remain, and new participants get defaults at `Date.now()`.
+   */
+  private resolveInventories(
+    usersIds: string[],
+    provided: GamePlayerInventory[] | undefined,
+    existing?: GamePlayerInventory[]
+  ): GamePlayerInventory[] {
+    const source = provided ?? existing?.filter(inventory => usersIds.includes(inventory.userId));
+    return GamePlayerInventory.ensureForUsers(usersIds, source, Date.now());
   }
 
   async findGamesByUserId(

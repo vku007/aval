@@ -2,7 +2,8 @@
  * HmSkinnedCoreButton
  * A skinned button whose heat map holds a core.
  * The round and the circle share the center. Four balls sit on the square's corners.
- * The preset ring is 60 cells. Scaled, it matches the stone's 24-cell orbit on this face.
+ * The round stays at heat 0, so it does not flash when the button appears.
+ * The preset ring is 48 cells. Scaled to half this face, it matches Go and Cancel.
  */
 function hmScaleCorePose(pose, keys, scale) {
     if (!pose) {
@@ -27,12 +28,30 @@ function hmFitCoreLengths(core, scale) {
         hmScaleCorePose(round.from, ['radius'], scale);
         hmScaleCorePose(round.to, ['radius'], scale);
         core.round.applySerialized(round);
+        if (typeof core.fadeRound === 'function') {
+            hmHoldRoundHeat(core.round, 0);
+        }
     }
     const ball = core.ball ? core.ball.serialize() : null;
     if (ball) {
         hmScaleCorePose(ball.params, ['radius', 'orbitRadius'], scale);
         core.ball.applySerialized(ball);
     }
+}
+
+function hmHoldRoundHeat(round, heat) {
+    if (!round || typeof round.play !== 'function') {
+        return null;
+    }
+    round.define('quiet', set({ heat: heat }, {
+        slot: 'life',
+        fill: 'hold'
+    }));
+    const run = round.play('quiet');
+    if (run && typeof run.finish === 'function') {
+        run.finish();
+    }
+    return run;
 }
 
 function hmSeatCoreBalls(core) {
@@ -50,12 +69,13 @@ class HmSkinnedCoreButton extends HmSkinnedButton {
         const field = this.heatMap.field;
         this.core = new UiCore(this.heatMap, {
             name: 'Core',
+            animate: false,
             center: {
                 col: (field.cols - 1) / 2,
                 row: (field.rows - 1) / 2
             }
         });
-        hmFitCoreLengths(this.core, 40 * HM_SKINNED_LENGTH_SCALE / 60);
+        hmFitCoreLengths(this.core, (HM_SKINNED_HEAT_SIZE / 2) / 48);
         while (this.core.balls().length < 4) {
             if (!this.core.addItem({ animate: false })) {
                 break;

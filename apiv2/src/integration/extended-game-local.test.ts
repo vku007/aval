@@ -31,6 +31,11 @@ describe('extended game on local host', () => {
     expect(payload.gameContext.status).toBe('finished');
     expect(dump.status).toBe('finished');
     expect(dump.createContext?.kind).toBe('extended');
+    expect(dump.createContext?.max_stone_per_turn).toBe(9);
+    expect(dump.createContext?.max_scissors_per_turn).toBe(4);
+    expect(dump.createContext?.max_paper_per_turn).toBe(7);
+    expect(payload.gameContext.max_stone_per_turn).toBe(9);
+    expect(payload.gameContext.max_paper_per_turn).toBe(7);
     expect(dump.usersIds).toContain(PLAYER_ID);
     expect(dump.usersIds).toContain('NPC_1');
     expect(dump.rounds.length).toBeGreaterThan(0);

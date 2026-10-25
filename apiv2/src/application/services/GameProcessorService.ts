@@ -4,7 +4,6 @@ import { GameResponse } from '../dto/processor/response/GameResponse.js';
 import { UpdateGameResponse } from '../dto/processor/UpdateGameResponse.js';
 import { GameResponsePayload } from '../dto/processor/response/payload/GameResponsePayload.js';
 import { GameContext } from '../dto/processor/response/context/GameContext.js';
-import { InitGameContext } from '../dto/processor/response/context/InitGameContext.js';
 import { PlayerContext } from '../dto/processor/response/context/PlayerContext.js';
 import { EnemyContext } from '../dto/processor/response/context/EnemyContext.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
@@ -19,9 +18,10 @@ import type { GameResolver } from '../utils/GameResolver.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import type { IGameRepository } from './GameService.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { NotFoundError } from '../../shared/errors/index.js';
+import { NotFoundError, ValidationError } from '../../shared/errors/index.js';
 import { RoundState } from '../dto/processor/RoundState.js';
 import { SubRoundState } from '../dto/processor/SubRoundState.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 /**
  * Service for processing game creation operations.
@@ -63,12 +63,20 @@ export class GameProcessorService {
       episode: request.gameCreateContext.episode.name
     });
 
+    const usersIds = [request.userId, 'NPC_1'];
+    const fill = request.gameCreateContext.kind === KindOfGame.Extended
+      ? GamePlayerInventory.advancedFor
+      : GamePlayerInventory.defaultFor;
+    const inventories = GamePlayerInventory.ensureForUsers(
+      usersIds,
+      request.inventories,
+      Date.now(),
+      fill
+    );
+
     try {
       // Generate a unique game ID using timestamp
       const gameId = `game-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      
-      // Create usersIds array with the request userId and NPC_1
-      const usersIds = [request.userId, 'NPC_1'];
       
       // Create a new Game instance with empty rounds and Created status
       const game = new Game(
@@ -77,6 +85,7 @@ export class GameProcessorService {
         GameStatus.Created, // status = Created
         request.gameCreateContext // Pass the createContext from the request
       );
+      game.inventories = inventories;
       // rounds is initialized as empty array in constructor
 
       // Store game in repository if available
@@ -92,7 +101,8 @@ export class GameProcessorService {
             undefined, // metadata
             game.createContext, // createContext
             game.endTime, // endTime
-            game.outcome.toJSON() // outcome
+            game.outcome.toJSON(), // outcome
+            game.inventories
           );
           await this.gameRepository.save(gameEntity, { ifNoneMatch: '*' });
           this.logger.info('Game saved to repository', { gameId, userId: request.userId });
@@ -129,10 +139,7 @@ export class GameProcessorService {
     // If testGame is provided, use it for testing purposes
     if (testGame !== undefined) {
       // Use the game's status from testGame
-      const initGameContext = testGame.createContext 
-        ? InitGameContext.fromGameCreateContext(testGame.createContext)
-        : undefined;
-      const gameContext = new GameContext(testGame.status, initGameContext);
+      const gameContext = GameContext.fromCreateContext(testGame.status, testGame.createContext);
       const playerContext = this.buildPlayerContext(userId, testGame);
       const enemyContext = new EnemyContext();
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
@@ -144,7 +151,7 @@ export class GameProcessorService {
     if (!this.gameRepository) {
       this.logger.warn('Repository not available, returning placeholder response', { gameId, userId });
       const gameContext = new GameContext(GameStatus.Created);
-      const playerContext = new PlayerContext([]);
+      const playerContext = new PlayerContext([], GamePlayerInventory.defaultFor(userId, 0));
       const enemyContext = new EnemyContext();
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
       
@@ -169,10 +176,7 @@ export class GameProcessorService {
 
       // Create response using game entity status
       const game = gameEntity.toGame();
-      const initGameContext = game.createContext 
-        ? InitGameContext.fromGameCreateContext(game.createContext)
-        : undefined;
-      const gameContext = new GameContext(gameEntity.status, initGameContext);
+      const gameContext = GameContext.fromCreateContext(gameEntity.status, game.createContext);
       const playerContext = this.buildPlayerContext(userId, game);
       const enemyContext = new EnemyContext();
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
@@ -203,22 +207,16 @@ export class GameProcessorService {
     if (testGame !== undefined) {
       // Check if game is finished or broken
       if (testGame.status === GameStatus.Finished) {
-        const initGameContext = testGame.createContext 
-          ? InitGameContext.fromGameCreateContext(testGame.createContext)
-          : undefined;
-        const gameContext = new GameContext(testGame.status, initGameContext);
-        const playerContext = new PlayerContext([]);
+        const gameContext = GameContext.fromCreateContext(testGame.status, testGame.createContext);
+        const playerContext = this.buildPlayerContext(userId, testGame);
         const enemyContext = new EnemyContext();
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
         return new UpdateGameResponse('failed', gameId, payload, 'Error: game is finished');
       }
       
       if (testGame.status === GameStatus.Broken) {
-        const initGameContext = testGame.createContext 
-          ? InitGameContext.fromGameCreateContext(testGame.createContext)
-          : undefined;
-        const gameContext = new GameContext(testGame.status, initGameContext);
-        const playerContext = new PlayerContext([]);
+        const gameContext = GameContext.fromCreateContext(testGame.status, testGame.createContext);
+        const playerContext = this.buildPlayerContext(userId, testGame);
         const enemyContext = new EnemyContext();
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
         return new UpdateGameResponse('failed', gameId, payload, 'Error: game is broken');
@@ -228,10 +226,7 @@ export class GameProcessorService {
       const processor = this.processorFor(testGame);
       const updatedGame = processor.processAction(testGame, action, userId);
 
-      const initGameContext = updatedGame.createContext 
-        ? InitGameContext.fromGameCreateContext(updatedGame.createContext)
-        : undefined;
-      const gameContext = new GameContext(updatedGame.status, initGameContext);
+      const gameContext = GameContext.fromCreateContext(updatedGame.status, updatedGame.createContext);
       const playerContext = this.buildPlayerContext(userId, updatedGame);
       const enemyContext = new EnemyContext();
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
@@ -243,7 +238,7 @@ export class GameProcessorService {
     if (!this.gameRepository) {
       this.logger.warn('Repository not available, returning placeholder response', { gameId, userId });
       const gameContext = new GameContext(GameStatus.Created);
-      const playerContext = new PlayerContext([]);
+      const playerContext = new PlayerContext([], GamePlayerInventory.defaultFor(userId, 0));
       const enemyContext = new EnemyContext();
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
       
@@ -267,10 +262,7 @@ export class GameProcessorService {
       // Check if game is finished or broken
       if (gameEntity.status === GameStatus.Finished) {
         const game = gameEntity.toGame();
-        const initGameContext = game.createContext 
-          ? InitGameContext.fromGameCreateContext(game.createContext)
-          : undefined;
-        const gameContext = new GameContext(gameEntity.status, initGameContext);
+        const gameContext = GameContext.fromCreateContext(gameEntity.status, game.createContext);
         const playerContext = this.buildPlayerContext(userId, game);
         const enemyContext = new EnemyContext();
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
@@ -279,10 +271,7 @@ export class GameProcessorService {
       
       if (gameEntity.status === GameStatus.Broken) {
         const game = gameEntity.toGame();
-        const initGameContext = game.createContext 
-          ? InitGameContext.fromGameCreateContext(game.createContext)
-          : undefined;
-        const gameContext = new GameContext(gameEntity.status, initGameContext);
+        const gameContext = GameContext.fromCreateContext(gameEntity.status, game.createContext);
         const playerContext = this.buildPlayerContext(userId, game);
         const enemyContext = new EnemyContext();
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
@@ -315,7 +304,8 @@ export class GameProcessorService {
         gameEntity.metadata,
         updatedGame.createContext,
         updatedGame.endTime,
-        updatedGame.outcome.toJSON() // outcome
+        updatedGame.outcome.toJSON(), // outcome
+        updatedGame.inventories
       );
 
       // Save updated game to repository
@@ -324,10 +314,7 @@ export class GameProcessorService {
       this.logger.info('Game updated in repository', { gameId, userId, status: updatedGame.status });
 
       // Build response with updated game state
-      const initGameContext = updatedGame.createContext 
-        ? InitGameContext.fromGameCreateContext(updatedGame.createContext)
-        : undefined;
-      const gameContext = new GameContext(updatedGame.status, initGameContext);
+      const gameContext = GameContext.fromCreateContext(updatedGame.status, updatedGame.createContext);
       const playerContext = this.buildPlayerContext(userId, updatedGame);
       const enemyContext = new EnemyContext();
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
@@ -386,7 +373,11 @@ export class GameProcessorService {
       );
     });
 
-    return new PlayerContext(roundStates);
+    const inventory = game.inventories.find(item => item.userId === userId);
+    if (!inventory) {
+      throw new ValidationError(`Inventory for user '${userId}' not found`);
+    }
+    return new PlayerContext(roundStates, inventory);
   }
 }
 

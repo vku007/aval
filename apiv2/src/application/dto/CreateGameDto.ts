@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { ValidationError } from '../../shared/errors/index.js';
+import { GamePlayerInventoriesSchema } from './GamePlayerInventorySchema.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 // Schema for creating a new game
 const CreateGameSchema = z.object({
@@ -75,6 +77,8 @@ const CreateGameSchema = z.object({
       .optional()
   }))
     .default([]),
+
+  inventories: GamePlayerInventoriesSchema.optional(),
   
   isFinished: z.boolean()
     .default(false)
@@ -87,7 +91,8 @@ export class CreateGameDto {
     public readonly id: string,
     public readonly usersIds: string[],
     public readonly rounds: RoundDto[],
-    public readonly isFinished: boolean
+    public readonly isFinished: boolean,
+    public readonly inventories?: GamePlayerInventory[]
   ) {}
 
   static fromRequest(body: unknown): CreateGameDto {
@@ -97,7 +102,8 @@ export class CreateGameDto {
         validated.id,
         validated.usersIds,
         validated.rounds,
-        validated.isFinished
+        validated.isFinished,
+        validated.inventories?.map(item => GamePlayerInventory.fromJSON(item))
       );
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -132,7 +138,7 @@ export interface MoveDto {
 }
 
 export class CreateGameDtoValidator {
-  static validate(data: unknown): CreateGameDto {
+  static validate(data: unknown): CreateGameDtoType {
     try {
       return CreateGameSchema.parse(data);
     } catch (error) {
@@ -146,7 +152,7 @@ export class CreateGameDtoValidator {
     }
   }
 
-  static validatePartial(data: unknown): Partial<CreateGameDto> {
+  static validatePartial(data: unknown): Partial<CreateGameDtoType> {
     try {
       return CreateGameSchema.partial().parse(data);
     } catch (error) {

@@ -3,7 +3,7 @@
  * A skinned button whose heat map holds a prime.
  * The circle matches the core button. A cycling round fills that circle.
  * One cycling round item shares that center.
- * The preset ring is 60 cells. Scaled, it matches the stone's 24-cell orbit on this face.
+ * The preset ring is 48 cells. Scaled to half this face, it matches Go and Cancel.
  */
 function hmFitPrimeLengths(prime, scale) {
     hmFitCoreLengths(prime, scale);
@@ -27,6 +27,6 @@ class HmSkinnedPrimeButton extends HmSkinnedButton {
                 row: (field.rows - 1) / 2
             }
         });
-        hmFitPrimeLengths(this.prime, 40 * HM_SKINNED_LENGTH_SCALE / 60);
+        hmFitPrimeLengths(this.prime, (HM_SKINNED_HEAT_SIZE / 2) / 48);
     }
 }

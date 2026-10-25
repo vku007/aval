@@ -1,10 +1,9 @@
 /**
  * ExtendedGameScene
- * Tap a move for size 1; tap again to increment (max 10).
+ * Tap a move for size 1; tap again to increment up to that type's turn cap.
  * Cancel is inactive until a type is selected. At size 1 it clears the type;
  * at size 2+ it shows MINUS and decrements size.
  */
-const EXTENDED_MOVE_MAX_SIZE = 10;
 
 class ExtendedGameScene extends GamePlayScene {
     constructor() {
@@ -56,10 +55,18 @@ class ExtendedGameScene extends GamePlayScene {
         const user = this.requirePlayContext();
         if (!user) return;
 
+        const cap = SimpleGameSceneUtil.turnCap(this.gameData, moveType);
+        if (cap < 1) {
+            this.showErrorModal('Move not allowed', `${moveType} is not available this match.`);
+            return;
+        }
         const currentMove = this.sceneState.currentAction?.context?.move?.context;
         const sameType = currentMove?.moveType === moveType;
+        if (sameType && (currentMove.size || 1) >= cap) {
+            return;
+        }
         const size = sameType
-            ? Math.min((currentMove.size || 1) + 1, EXTENDED_MOVE_MAX_SIZE)
+            ? Math.min((currentMove.size || 1) + 1, cap)
             : 1;
 
         this.setCurrentAction(this.buildMoveAction(user.id, moveType, size));

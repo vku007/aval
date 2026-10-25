@@ -7,14 +7,15 @@ import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
+import { gestureItemKey } from '../../domain/value-object/GamePlayerInventory.js';
 import { Logger } from '../../shared/logging/Logger.js';
-
-export const NPC_EXTENDED_MAX_SIZE = 10;
 
 const MOVE_TYPES = [MoveType.Stone, MoveType.Paper, MoveType.Scissors];
 
 /**
- * Decides whether the NPC should throw and builds that Move action.
+ * Decides the NPC's next action.
+ * Extended throws use size 1 or more and only a type the inventory can pay for.
+ * An empty extended inventory is a Surrender. Classic still throws size 0.
  * Does not apply the action — GameProcessor.processAction does.
  */
 export class NpcActor {
@@ -25,7 +26,7 @@ export class NpcActor {
   }
 
   /**
-   * Next NPC Move, or null if they should not throw.
+   * Next NPC Move or Surrender, or null if they should not act.
    */
   nextAction(game: Game): Action | null {
     this.logger.debug('Attempting NPC action', { gameId: game.id, gameStatus: game.status });
@@ -107,9 +108,11 @@ export class NpcActor {
       return null;
     }
 
-    const randomMoveType = MOVE_TYPES[Math.floor(Math.random() * MOVE_TYPES.length)];
-    const npcSize = this.moveSize(game);
+    if (game.createContext?.kind === KindOfGame.Extended) {
+      return this.extendedAction(game, npcId, currentRound.id, lastSubRound.idNum);
+    }
 
+    const randomMoveType = MOVE_TYPES[Math.floor(Math.random() * MOVE_TYPES.length)];
     this.logger.info('Generating NPC move', {
       gameId: game.id,
       npcId,
@@ -118,17 +121,59 @@ export class NpcActor {
       moveType: randomMoveType
     });
 
-    const npcMove = new Move(npcId, new MoveContext(randomMoveType, npcSize, 0), Date.now());
+    const npcMove = new Move(npcId, new MoveContext(randomMoveType, 0, 0), Date.now());
     return new Action(ActionType.Move, new ActionContext(npcMove));
   }
 
   /**
-   * Classic NPC throws size 0. Extended NPC picks 0..NPC_EXTENDED_MAX_SIZE so same-type size can decide.
+   * Size is 1..min(turn cap, stock) on a type that has at least one item and a cap of at least 1.
+   * No such type means Surrender.
    */
-  private moveSize(game: Game): number {
-    if (game.createContext?.kind === KindOfGame.Extended) {
-      return Math.floor(Math.random() * (NPC_EXTENDED_MAX_SIZE + 1));
+  private extendedAction(game: Game, npcId: string, roundId: string, subRoundIdNum: number): Action {
+    const playable = MOVE_TYPES.filter(moveType =>
+      this.gestureCount(game, npcId, moveType) >= 1 && this.turnCap(game, moveType) >= 1
+    );
+    if (playable.length === 0) {
+      this.logger.info('NPC surrenders because no move can be paid', {
+        gameId: game.id,
+        npcId,
+        roundId,
+        subRoundIdNum
+      });
+      return new Action(ActionType.Surrender, new ActionContext());
     }
-    return 0;
+
+    const moveType = playable[Math.floor(Math.random() * playable.length)];
+    const npcSize = this.moveSize(game, npcId, moveType);
+    this.logger.info('Generating NPC move', {
+      gameId: game.id,
+      npcId,
+      roundId,
+      subRoundIdNum,
+      moveType,
+      size: npcSize
+    });
+
+    const npcMove = new Move(npcId, new MoveContext(moveType, npcSize, 0), Date.now());
+    return new Action(ActionType.Move, new ActionContext(npcMove));
+  }
+
+  /** `available` and the turn cap are at least 1. Result is 1..min(cap, available). */
+  private moveSize(game: Game, npcId: string, moveType: MoveType): number {
+    const available = this.gestureCount(game, npcId, moveType);
+    const maxSize = Math.min(this.turnCap(game, moveType), available);
+    return 1 + Math.floor(Math.random() * maxSize);
+  }
+
+  private turnCap(game: Game, moveType: MoveType): number {
+    return game.createContext?.capFor(moveType) ?? 0;
+  }
+
+  private gestureCount(game: Game, userId: string, moveType: MoveType): number {
+    const inventory = game.inventories.find(item => item.userId === userId);
+    if (!inventory) {
+      return 0;
+    }
+    return inventory.items[gestureItemKey(moveType)];
   }
 }

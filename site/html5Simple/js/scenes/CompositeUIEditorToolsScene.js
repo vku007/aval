@@ -242,6 +242,30 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             rowH: 18,
             active: false
         });
+        this.stonePrimeProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'hot-map-stone-prime'
+                ? this.selectedObject
+                : null,
+            tabs: HotMapUiStonePrime.PROP_TABS,
+            rowH: 18,
+            active: false
+        });
+        this.scissorsPrimeProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'hot-map-scissors-prime'
+                ? this.selectedObject
+                : null,
+            tabs: HotMapUiScissorsPrime.PROP_TABS,
+            rowH: 18,
+            active: false
+        });
+        this.paperPrimeProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'hot-map-paper-prime'
+                ? this.selectedObject
+                : null,
+            tabs: HotMapUiPaperPrime.PROP_TABS,
+            rowH: 18,
+            active: false
+        });
         if (this.host.stone) {
             this.host.stone.onPartAdded = (object) => this.noteStonePart(object, true);
             this.host.stone.onPartRemoved = (object) => this.noteStonePart(object, false);
@@ -265,6 +289,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.ensureCircleListed();
         this.ensureCoreListed();
         this.ensurePrimeListed();
+        this.ensureStonePrimeListed();
+        this.ensureScissorsPrimeListed();
+        this.ensurePaperPrimeListed();
         this.rebuildObjectRows();
         this.syncPropEditors();
         this.createMenuButton(
@@ -285,7 +312,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (editor) {
             editor.refreshValues();
         }
-        [this.stoneAddProps, this.stoneRemoveProps, this.scissorAddProps, this.scissorRemoveProps, this.paperAddProps, this.newPaperAddProps, this.newPaperRemoveProps, this.coreAddProps, this.coreRemoveProps, this.primeAddProps, this.primeRemoveProps].forEach((addEditor) => {
+        [this.stoneAddProps, this.stoneRemoveProps, this.scissorAddProps, this.scissorRemoveProps, this.paperAddProps, this.newPaperAddProps, this.newPaperRemoveProps, this.coreAddProps, this.coreRemoveProps, this.primeAddProps, this.primeRemoveProps, this.stonePrimeAddProps, this.stonePrimeRemoveProps, this.scissorsPrimeAddProps, this.scissorsPrimeRemoveProps, this.paperPrimeAddProps, this.paperPrimeRemoveProps].forEach((addEditor) => {
             if (addEditor && addEditor.active) {
                 addEditor.refreshValues();
             }
@@ -338,6 +365,15 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (kind === 'prime') {
             return this.primeProps;
+        }
+        if (kind === 'hot-map-stone-prime') {
+            return this.stonePrimeProps;
+        }
+        if (kind === 'hot-map-scissors-prime') {
+            return this.scissorsPrimeProps;
+        }
+        if (kind === 'hot-map-paper-prime') {
+            return this.paperPrimeProps;
         }
         if (kind === 'sheet') {
             return this.sheetProps;
@@ -392,6 +428,15 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (this.primeProps) {
             this.primeProps.setActive(kind === 'prime');
         }
+        if (this.stonePrimeProps) {
+            this.stonePrimeProps.setActive(kind === 'hot-map-stone-prime');
+        }
+        if (this.scissorsPrimeProps) {
+            this.scissorsPrimeProps.setActive(kind === 'hot-map-scissors-prime');
+        }
+        if (this.paperPrimeProps) {
+            this.paperPrimeProps.setActive(kind === 'hot-map-paper-prime');
+        }
         if (this.sheetProps) {
             this.sheetProps.setActive(kind === 'sheet');
         }
@@ -409,6 +454,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else {
             const groups = [
                 this.host && this.host.stone,
+                this.host && this.host.stonePrime,
+                this.host && this.host.scissorsPrime,
+                this.host && this.host.paperPrime,
                 this.host && this.host.scissor,
                 this.host && this.host.paper,
                 this.host && this.host.newPaper,
@@ -460,6 +508,24 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.primeRemoveProps) {
             this.primeRemoveProps.setActive(removeKind === 'prime');
+        }
+        if (this.stonePrimeAddProps) {
+            this.stonePrimeAddProps.setActive(addKind === 'hot-map-stone-prime');
+        }
+        if (this.stonePrimeRemoveProps) {
+            this.stonePrimeRemoveProps.setActive(removeKind === 'hot-map-stone-prime');
+        }
+        if (this.scissorsPrimeAddProps) {
+            this.scissorsPrimeAddProps.setActive(addKind === 'hot-map-scissors-prime');
+        }
+        if (this.scissorsPrimeRemoveProps) {
+            this.scissorsPrimeRemoveProps.setActive(removeKind === 'hot-map-scissors-prime');
+        }
+        if (this.paperPrimeAddProps) {
+            this.paperPrimeAddProps.setActive(addKind === 'hot-map-paper-prime');
+        }
+        if (this.paperPrimeRemoveProps) {
+            this.paperPrimeRemoveProps.setActive(removeKind === 'hot-map-paper-prime');
         }
     }
 
@@ -591,6 +657,42 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.primeAddProps = new UiPropEditor(this, panel, {
             getTarget: () => this.addItemTarget('prime'),
             tabs: UiPrime.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.stonePrimeAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-stone-prime'),
+            tabs: HotMapUiStonePrime.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.stonePrimeRemoveProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-stone-prime'),
+            tabs: HotMapUiStonePrime.REMOVE_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.scissorsPrimeAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-scissors-prime'),
+            tabs: HotMapUiScissorsPrime.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.scissorsPrimeRemoveProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-scissors-prime'),
+            tabs: HotMapUiScissorsPrime.REMOVE_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.paperPrimeAddProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-paper-prime'),
+            tabs: HotMapUiPaperPrime.ADD_TABS,
+            rowH: rowH,
+            active: false
+        });
+        this.paperPrimeRemoveProps = new UiPropEditor(this, panel, {
+            getTarget: () => this.addItemTarget('hot-map-paper-prime'),
+            tabs: HotMapUiPaperPrime.REMOVE_TABS,
             rowH: rowH,
             active: false
         });
@@ -924,6 +1026,24 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else if (kind === 'prime') {
             created = new UiPrime(this.heatMap, data || {});
             this.primes.push(created);
+        } else if (kind === 'hot-map-stone-prime') {
+            created = new HotMapUiStonePrime(this.heatMap, {
+                name: data && data.name,
+                center: data && data.center,
+                animate: false
+            });
+        } else if (kind === 'hot-map-scissors-prime') {
+            created = new HotMapUiScissorsPrime(this.heatMap, {
+                name: data && data.name,
+                center: data && data.center,
+                animate: false
+            });
+        } else if (kind === 'hot-map-paper-prime') {
+            created = new HotMapUiPaperPrime(this.heatMap, {
+                name: data && data.name,
+                center: data && data.center,
+                animate: false
+            });
         } else if (kind === 'sheet') {
             created = new UiSheet(this.heatMap, { name: data.name });
             this.sheets.push(created);
@@ -939,7 +1059,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.bindCross(created);
             return created;
         }
-        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core' || kind === 'prime')) {
+        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core' || kind === 'prime' || kind === 'hot-map-stone-prime' || kind === 'hot-map-scissors-prime' || kind === 'hot-map-paper-prime')) {
             return created;
         }
         if (created && kind === 'new-sheet' && this.host.newPaper && typeof this.host.newPaper.add === 'function') {
@@ -1035,6 +1155,36 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.dropFrom(this.primes, object);
             if (this.host && this.host.prime === object) {
                 this.host.prime = this.primes[0] || null;
+            }
+        } else if (object.kind === 'hot-map-stone-prime') {
+            if (typeof object.releaseContents === 'function') {
+                object.releaseContents();
+            }
+            if (typeof object.detach === 'function') {
+                object.detach();
+            }
+            if (this.host && this.host.stonePrime === object) {
+                this.host.stonePrime = null;
+            }
+        } else if (object.kind === 'hot-map-scissors-prime') {
+            if (typeof object.releaseContents === 'function') {
+                object.releaseContents();
+            }
+            if (typeof object.detach === 'function') {
+                object.detach();
+            }
+            if (this.host && this.host.scissorsPrime === object) {
+                this.host.scissorsPrime = null;
+            }
+        } else if (object.kind === 'hot-map-paper-prime') {
+            if (typeof object.releaseContents === 'function') {
+                object.releaseContents();
+            }
+            if (typeof object.detach === 'function') {
+                object.detach();
+            }
+            if (this.host && this.host.paperPrime === object) {
+                this.host.paperPrime = null;
             }
         } else if (object.kind === 'sheet') {
             this.heatMap.removeHighlighter(object.emitter);
@@ -1507,6 +1657,36 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
     }
 
+    ensureStonePrimeListed() {
+        const stonePrime = this.host && this.host.stonePrime;
+        if (!stonePrime) {
+            return;
+        }
+        if (this.objects.indexOf(stonePrime) < 0) {
+            this.objects.push(stonePrime);
+        }
+    }
+
+    ensureScissorsPrimeListed() {
+        const scissorsPrime = this.host && this.host.scissorsPrime;
+        if (!scissorsPrime) {
+            return;
+        }
+        if (this.objects.indexOf(scissorsPrime) < 0) {
+            this.objects.push(scissorsPrime);
+        }
+    }
+
+    ensurePaperPrimeListed() {
+        const paperPrime = this.host && this.host.paperPrime;
+        if (!paperPrime) {
+            return;
+        }
+        if (this.objects.indexOf(paperPrime) < 0) {
+            this.objects.push(paperPrime);
+        }
+    }
+
     restorePrimes(entries) {
         (entries || []).forEach((entry) => {
             const created = this.spawnObject('prime', entry || {});
@@ -1625,7 +1805,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
 
     clearSceneObjects() {
         const keep = new Set(
-            [this.host && this.host.stone, this.host && this.host.scissor, this.host && this.host.paper, this.host && this.host.newPaper, this.host && this.host.cross].filter(Boolean)
+            [this.host && this.host.stone, this.host && this.host.stonePrime, this.host && this.host.scissor, this.host && this.host.scissorsPrime, this.host && this.host.paper, this.host && this.host.newPaper, this.host && this.host.paperPrime, this.host && this.host.cross].filter(Boolean)
         );
         const listed = this.objects.filter((object) => !keep.has(object));
         listed.forEach((object) => {
@@ -1817,6 +1997,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         } else {
             this.restorePrimes([{ name: 'Prime', centerX: 78, centerY: 22, animate: false }]);
         }
+        this.ensureStonePrimeListed();
+        this.ensureScissorsPrimeListed();
+        this.ensurePaperPrimeListed();
         if (this.objects.indexOf(this.selectedObject) < 0) {
             this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;
         }

@@ -8,14 +8,15 @@
  */
 let UI_PRIME_SEQ = 0;
 const PRIME_ITEM_FADE = 0.6;
+const PRIME_BODY_SCALE = 0.8;
 const PRIME_PRESET_JSON_KEY = 'primePreset';
-const PRIME_PRESET_JSON_PATH = 'resources/prime-1.json?v=1';
+const PRIME_PRESET_JSON_PATH = 'resources/prime-1.json?v=4';
 const PRIME_ITEM_PRESET = {
     isVisible: true,
     cycling: true,
     params: { speed: 1.2, delay: 0.5, gap: 0.4 },
-    from: { radius: 22, heat: 0.8 },
-    to: { radius: 32, heat: 2.4 }
+    from: { radius: 18, heat: 0.8 },
+    to: { radius: 26, heat: 2.4 }
 };
 
 class UiPrime extends HeatComposite {
@@ -270,7 +271,7 @@ class UiPrime extends HeatComposite {
     paintShell() {
         const defaults = primeDefaults(this.scene);
         if (this.circle) {
-            const circle = coreCopyPreset((defaults && defaults.circle) || CORE_PRESET.circle);
+            const circle = applyCoreCircleSize(coreCopyPreset((defaults && defaults.circle) || CORE_PRESET.circle));
             circle.name = this.circle.name;
             this.circle.applySerialized(circle);
             this.circle.isVisible = this._visible && circle.isVisible !== false;
@@ -279,11 +280,8 @@ class UiPrime extends HeatComposite {
             const round = coreCopyPreset((defaults && defaults.round) || CORE_PRESET.round);
             if (!defaults) {
                 round.cycling = true;
-                if (this.circle && this.circle.emitter) {
-                    round.from.radius = this.circle.emitter.from.inner;
-                    round.to.radius = this.circle.emitter.to.inner;
-                }
             }
+            applyCoreRoundRadius(round, this.circle && this.circle.emitter);
             round.name = this.round.name;
             this.round.applySerialized(round);
             this.round.isVisible = this._visible;
@@ -467,6 +465,36 @@ function primeDefaults(scene) {
         round: primePartPreset(entry.round),
         item: primePartPreset(entry.item || entry.itemSpec)
     };
+}
+
+function scalePrimeBall(ball) {
+    const motion = ball && ball.motion;
+    if (!motion || typeof motion.setParam !== 'function' || !motion.params) {
+        return;
+    }
+    motion.setParam('radius', motion.params.radius * PRIME_BODY_SCALE);
+    motion.setParam('orbitRadius', motion.params.orbitRadius * PRIME_BODY_SCALE);
+}
+
+function scalePrimeShard(shard) {
+    const emitter = shard && shard.emitter;
+    if (!emitter || typeof emitter.setParam !== 'function' || !emitter.from || !emitter.to) {
+        return;
+    }
+    emitter.setParam('fromWidth', emitter.from.width * PRIME_BODY_SCALE);
+    emitter.setParam('fromHeight', emitter.from.height * PRIME_BODY_SCALE);
+    emitter.setParam('toWidth', emitter.to.width * PRIME_BODY_SCALE);
+    emitter.setParam('toHeight', emitter.to.height * PRIME_BODY_SCALE);
+}
+
+function scalePrimeDisk(sheet) {
+    if (!sheet || typeof sheet.setParam !== 'function') {
+        return;
+    }
+    sheet.setParam('radFrom', sheet.radFrom * PRIME_BODY_SCALE);
+    sheet.setParam('radTo', sheet.radTo * PRIME_BODY_SCALE);
+    sheet.setParam('ballRadius', sheet.ballRadius * PRIME_BODY_SCALE);
+    sheet.setParam('ballSize', sheet.ballSize * PRIME_BODY_SCALE);
 }
 
 function primeItemExit() {

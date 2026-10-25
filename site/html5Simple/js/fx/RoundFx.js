@@ -56,14 +56,22 @@ function stampRoundDisk(grid, cols, rows, center, pose) {
         const base = y * cols;
         for (let x = x0; x <= x1; x++) {
             const dx = x - center.col;
-            const outside = Math.max(0, Math.hypot(dx, dy) - radius);
-            if (outside > edge) {
+            const d2 = dx * dx + dy * dy;
+            const reach = radius + edge + 1;
+            if (d2 > reach * reach) {
                 continue;
             }
             let w = 1;
-            if (outside > 0) {
-                const fall = outside / edge;
-                w = Math.exp(-fall * fall * 3);
+            const inner = radius > 1 ? radius - 1 : 0;
+            if (!(inner > 0) || d2 >= inner * inner) {
+                const outside = Math.max(0, Math.hypot(dx, dy) - radius);
+                if (outside > edge) {
+                    continue;
+                }
+                if (outside > 0) {
+                    const fall = outside / edge;
+                    w = Math.exp(-fall * fall * 3);
+                }
             }
             const heat = energy * w;
             if (heat <= 0) {

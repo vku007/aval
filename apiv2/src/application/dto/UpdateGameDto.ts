@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { ValidationError } from '../../shared/errors/index.js';
+import { GamePlayerInventoriesSchema } from './GamePlayerInventorySchema.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 // Schema for updating a game (all fields optional)
 const UpdateGameSchema = z.object({
@@ -71,6 +73,8 @@ const UpdateGameSchema = z.object({
       .optional()
   }))
     .optional(),
+
+  inventories: GamePlayerInventoriesSchema.optional(),
   
   isFinished: z.boolean()
     .optional()
@@ -82,7 +86,8 @@ export class UpdateGameDto {
   constructor(
     public readonly usersIds?: string[],
     public readonly rounds?: RoundDto[],
-    public readonly isFinished?: boolean
+    public readonly isFinished?: boolean,
+    public readonly inventories?: GamePlayerInventory[]
   ) {}
 
   static fromRequest(body: unknown, merge: boolean = false): UpdateGameDto {
@@ -91,7 +96,8 @@ export class UpdateGameDto {
       return new UpdateGameDto(
         validated.usersIds,
         validated.rounds,
-        validated.isFinished
+        validated.isFinished,
+        validated.inventories?.map(item => GamePlayerInventory.fromJSON(item))
       );
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -126,7 +132,7 @@ export interface MoveDto {
 }
 
 export class UpdateGameDtoValidator {
-  static validate(data: unknown): UpdateGameDto {
+  static validate(data: unknown): UpdateGameDtoType {
     try {
       return UpdateGameSchema.parse(data);
     } catch (error) {
@@ -140,7 +146,7 @@ export class UpdateGameDtoValidator {
     }
   }
 
-  static validatePartial(data: unknown): Partial<UpdateGameDto> {
+  static validatePartial(data: unknown): Partial<UpdateGameDtoType> {
     try {
       return UpdateGameSchema.partial().parse(data);
     } catch (error) {

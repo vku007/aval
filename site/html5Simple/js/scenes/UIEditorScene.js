@@ -210,8 +210,17 @@ function uiObjectTypeLabel(object) {
     if (kind === 'hot-map-stone') {
         return 'Stone';
     }
+    if (kind === 'hot-map-stone-prime') {
+        return 'Stone Prime';
+    }
     if (kind === 'hot-map-scissor') {
         return 'Scissor';
+    }
+    if (kind === 'hot-map-scissors-prime') {
+        return 'Scissors Prime';
+    }
+    if (kind === 'hot-map-paper-prime') {
+        return 'Paper Prime';
     }
     if (kind === 'hot-map-paper') {
         return 'Paper';
@@ -286,7 +295,7 @@ function shiftUiObjectCopy(kind, data, field) {
         data.target = shiftUiObjectPoint(field, data.target || data.center);
         return;
     }
-    if (kind === 'hot-map-cross' && data.center) {
+    if ((kind === 'hot-map-cross' || kind === 'hot-map-stone-prime' || kind === 'hot-map-scissors-prime' || kind === 'hot-map-paper-prime') && data.center) {
         data.center = shiftUiObjectPoint(field, data.center);
     }
 }

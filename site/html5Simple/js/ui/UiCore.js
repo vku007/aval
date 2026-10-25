@@ -39,8 +39,8 @@ const CORE_PRESET = {
         isVisible: true,
         cycling: false,
         params: { speed: 1.2, delay: 0.5, gap: 0.4 },
-        from: { radius: 56, heat: 0.45 },
-        to: { radius: 60, heat: 1.8 }
+        from: { radius: 44, heat: 0.45 },
+        to: { radius: 48, heat: 1.8 }
     },
     circle: {
         isVisible: true,
@@ -54,8 +54,8 @@ const CORE_PRESET = {
             glistenDelay: 0.4,
             glistenPower: 0.1
         },
-        from: { outer: 60, inner: 56, heat: 0 },
-        to: { outer: 60, inner: 60, heat: 0.6 },
+        from: { outer: 48, inner: 44, heat: 0 },
+        to: { outer: 48, inner: 48, heat: 0.6 },
         glisten: 0,
         glistenPhase: 'gap',
         glistenWait: 0
@@ -109,7 +109,7 @@ class UiCore extends HeatComposite {
         this.round = null;
         this.circle = null;
         this.ball = null;
-        this.addItem();
+        this.addItem({ animate: opts.animate !== false });
     }
 
     get isVisible() {
@@ -385,6 +385,13 @@ class UiCore extends HeatComposite {
     fadeRound(round) {
         if (!round || typeof round.play !== 'function') {
             return null;
+        }
+        const emitter = round.emitter;
+        if (emitter && emitter.to) {
+            emitter.current = copyBackHighlightPose(emitter.to);
+            emitter.cycling = false;
+            emitter.phase = 'wait';
+            emitter.waitLeft = Infinity;
         }
         round.isVisible = true;
         round.define('enter', fade({
@@ -682,6 +689,31 @@ function corePlaceBall(ball, cell) {
 
 function coreCopyPreset(value) {
     return JSON.parse(JSON.stringify(value));
+}
+
+function applyCoreCircleSize(preset) {
+    const ring = CORE_PRESET.circle;
+    if (!preset) {
+        return preset;
+    }
+    preset.from = preset.from || {};
+    preset.to = preset.to || {};
+    preset.from.outer = ring.from.outer;
+    preset.from.inner = ring.from.inner;
+    preset.to.outer = ring.to.outer;
+    preset.to.inner = ring.to.inner;
+    return preset;
+}
+
+function applyCoreRoundRadius(preset, emitter) {
+    if (!preset || !emitter) {
+        return preset;
+    }
+    preset.from = preset.from || {};
+    preset.to = preset.to || {};
+    preset.from.radius = emitter.from.inner;
+    preset.to.radius = emitter.to.inner;
+    return preset;
 }
 
 function coreFieldStub(field) {

@@ -3,6 +3,12 @@
  * Full-scene heat map with four stacked green frames.
  * Starts an extended best-of-5 match and sends the current stack as the move.
  * Item count is the extended size. Paper is a New Paper stack. NEG and SIZE are one toggle.
+ * Choosing an NA effect (NEG) drops that stack to one item, hides it, and shows its prime.
+ * Clearing NEG removes the prime and shows the normal composite again. Adds stay blocked while NEG is on.
+ * Choosing an NT effect (SIZE) hides that stack and shows a Core on the same center.
+ * The Core has one ball for each stack item. Adds and removes change the hidden stack and the Core together.
+ * That Core's round starts bright and fades once. Clearing SIZE removes the Core and shows the normal composite again.
+ * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
  */
 class LocalAdvancedGameScene extends Phaser.Scene {
     constructor() {
@@ -84,6 +90,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this.healthBars = null;
         this.enemyHealthBars = null;
         this.createMatchReadout(boxes);
+        this.createInventoryReadout(boxes);
         this.createLocalAdvancedButtons(boxes);
         this.startMatch();
     }
@@ -180,6 +187,11 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (this.isMatchOver()) {
             return;
         }
+        const cap = this.turnCap(selection.moveType);
+        if (selection.size > cap) {
+            this.showErrorModal('Move not allowed', `${selection.moveType} size ${selection.size} exceeds the turn cap ${cap}.`);
+            return;
+        }
 
         const field = this.heatMap && this.heatMap.field;
         const abort = this.abortOnShutdown();
@@ -203,6 +215,10 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             this._deferHealth = true;
             this.refreshMatchReadout();
             await this.playMoveResult(user.id);
+            if (!this.fieldLive(field)) {
+                return;
+            }
+            this.selectedEffects = [];
         } catch (error) {
             if (!this.fieldLive(field)) {
                 return;
@@ -274,6 +290,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     async playMoveResult(userId) {
+        this.holdNtCoreForTurn();
         const field = this.heatMap && this.heatMap.field;
         if (!this.fieldLive(field)) {
             return;
@@ -288,7 +305,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this.resetEnemyBoards();
         const shown = Math.min(
             Math.max(0, exchange.enemySize),
-            localAdvancedMax(exchange.enemyType)
+            this.turnCap(exchange.enemyType)
         );
         let emptySweep = null;
         if (shown === 0 && enemyComposite) {
@@ -330,6 +347,14 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             if (cleared.some((ok) => !ok)) {
                 return;
             }
+        } else {
+            const cleared = await Promise.all([
+                this.finishRun(this.dramaticClear(playerComposite), field),
+                this.finishRun(this.dramaticClear(enemyComposite), field)
+            ]);
+            if (cleared.some((ok) => !ok)) {
+                return;
+            }
         }
         if (playerWon) {
             if (!(await this.finishRun(this.playVerticalPulse('enemyPostMortemPulse'), field))) {
@@ -337,6 +362,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             }
             if (this.fieldLive(field) && playerComposite) {
                 playerComposite.reset({ items: 'spec' });
+                this.syncShownNtCore(playerComposite);
             }
             await this.finishRun(this.playPlayerVictoryPulse(), field);
         } else if (enemyWon) {
@@ -351,12 +377,55 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     dramaticClear(composite, count) {
+        if (this.ntCore && this.ntCoreSource === composite) {
+            return this.clearShownNtCore(composite, count);
+        }
         if (!composite || typeof composite.removeWithDrama !== 'function') {
             const run = heatDoneRun();
             run.removed = 0;
             return run;
         }
         return composite.removeWithDrama(count);
+    }
+
+    clearShownNtCore(composite, count) {
+        const available = activePartCount(composite);
+        const limit = count == null ? available : Math.min(available, Math.max(0, count | 0));
+        const starts = [];
+        for (let index = 0; index < limit; index += 1) {
+            starts.push(() => {
+                if (composite && typeof composite.removeItem === 'function') {
+                    composite.removeItem();
+                }
+                setCompositeShown(composite, false);
+                if (this.ntCore && typeof this.ntCore.removeItem === 'function') {
+                    this.ntCore.removeItem();
+                }
+            });
+        }
+        if (!this.ntCore) {
+            const run = heatDoneRun();
+            run.removed = 0;
+            return run;
+        }
+        return heatStaggerDramas(this.ntCore, starts);
+    }
+
+    holdNtCoreForTurn() {
+        if (this._sending && this.ntCore) {
+            this.removeNaPrime();
+            setCompositeShown(this.ntCoreSource, false);
+            return;
+        }
+        this.dismissNaPrime();
+    }
+
+    syncShownNtCore(composite) {
+        if (!this.ntCore || this.ntCoreSource !== composite) {
+            return;
+        }
+        setCompositeShown(composite, false);
+        syncNtCoreCount(this.ntCore, activePartCount(composite));
     }
 
     resetEnemyBoards() {
@@ -485,31 +554,131 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             && SimpleGameSceneUtil.isGameFinished(this.gameData);
     }
 
+    hasStackItems() {
+        return activePartCount(this.stone) + activePartCount(this.scissor) + activePartCount(this.paper) > 0;
+    }
+
     onSelectEffect(kind, category) {
-        if (this.isMatchOver() || this._sending) {
+        if (this.isMatchOver() || this._sending || !this.hasStackItems()) {
             return;
         }
         const selected = this.selectedEffects || [];
+        let choseNa = false;
         if (selected.includes(kind)) {
             this.selectedEffects = selected.filter((item) => item !== kind);
-        } else {
+        } else if (this.canChooseEffect(kind)) {
             const defs = this.effectDefs();
             this.selectedEffects = selected.filter((item) => {
                 const def = defs.find((entry) => entry.kind === item);
                 return def && def.category !== category;
             });
             this.selectedEffects.push(kind);
+            choseNa = naEffectKind(kind);
         }
-        this.refreshEffectButtons();
+        if (choseNa) {
+            const selection = this.currentSelection();
+            reduceCompositeToOne(selection && selection.composite);
+        }
+        this.syncNaPrime();
+        this.refreshMatchReadout();
+    }
+
+    naEffectSelected() {
+        return (this.selectedEffects || []).some((kind) => naEffectKind(kind));
+    }
+
+    ntEffectSelected() {
+        return (this.selectedEffects || []).some((kind) => ntEffectKind(kind));
+    }
+
+    canChooseEffect(kind) {
+        const selection = this.currentSelection();
+        const items = readInventoryItems(this.gameData);
+        return effectChoiceCovered(effectInventoryTotal(items, kind, selection && selection.moveType));
     }
 
     refreshEffectButtons() {
+        const hasItems = this.hasStackItems();
+        const selection = hasItems ? this.currentSelection() : null;
+        const items = readInventoryItems(this.gameData);
+        const moveType = selection && selection.moveType;
+        if (!hasItems) {
+            this.selectedEffects = [];
+        } else {
+            this.selectedEffects = (this.selectedEffects || []).filter((kind) => {
+                return effectChoiceCovered(effectInventoryTotal(items, kind, moveType));
+            });
+        }
+        const enabled = hasItems && !this.isMatchOver() && !this._sending && !!this.currentGameId;
         const selected = this.selectedEffects || [];
-        const over = this.isMatchOver() || this._sending;
         (this.effectButtons || []).forEach((btn) => {
-            this.setGreenButtonEnabled(btn, !over);
-            this.setGreenButtonSelected(btn, selected.includes(btn.effectKind));
+            const covered = effectChoiceCovered(effectInventoryTotal(items, btn.effectKind, moveType));
+            const on = enabled && covered;
+            this.setGreenButtonEnabled(btn, on);
+            this.setGreenButtonSelected(btn, on && selected.includes(btn.effectKind));
         });
+        this.refreshInventoryReadout();
+        this.syncNaPrime();
+    }
+
+    syncNaPrime() {
+        if (this._sending) {
+            this.holdNtCoreForTurn();
+            return;
+        }
+        const selection = this.currentSelection();
+        if (!selection) {
+            this.dismissNaPrime();
+            return;
+        }
+        if (this.naEffectSelected()) {
+            this.removeNtCore();
+            if (this.naPrime && this.naPrimeSource === selection.composite) {
+                setCompositeShown(selection.composite, false);
+                return;
+            }
+            this.removeNaPrime();
+            setCompositeShown(selection.composite, false);
+            this.naPrimeSource = selection.composite;
+            this.naPrime = createNaPrime(this.heatMap, selection);
+            return;
+        }
+        if (this.ntEffectSelected()) {
+            this.removeNaPrime();
+            if (this.ntCore && this.ntCoreSource === selection.composite) {
+                setCompositeShown(selection.composite, false);
+                syncNtCoreCount(this.ntCore, activePartCount(selection.composite));
+                return;
+            }
+            this.removeNtCore();
+            setCompositeShown(selection.composite, false);
+            this.ntCoreSource = selection.composite;
+            this.ntCore = createNtCore(this.heatMap, selection);
+            return;
+        }
+        this.dismissNaPrime();
+    }
+
+    dismissNaPrime() {
+        setCompositeShown(this.stone, true);
+        setCompositeShown(this.scissor, true);
+        setCompositeShown(this.paper, true);
+        this.removeNaPrime();
+        this.removeNtCore();
+    }
+
+    removeNaPrime() {
+        const prime = this.naPrime;
+        this.naPrime = null;
+        this.naPrimeSource = null;
+        removeHeatStandIn(prime);
+    }
+
+    removeNtCore() {
+        const core = this.ntCore;
+        this.ntCore = null;
+        this.ntCoreSource = null;
+        removeHeatStandIn(core);
     }
 
     setStatus(text) {
@@ -548,6 +717,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this.refreshMoveButtons();
         this.refreshEffectButtons();
         this.syncHealthBars();
+        this.refreshInventoryReadout();
     }
 
     gameRounds() {
@@ -690,16 +860,118 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         this.enemyReadout.setDepth(1100);
     }
 
+    createInventoryReadout(boxes) {
+        const stone = boxes.find((box) => box.label === 'stone_storage_panel');
+        const scissors = boxes.find((box) => box.label === 'scissors_storage_panel');
+        const paper = boxes.find((box) => box.label === 'paper_storage_panel');
+        const nt = boxes.find((box) => box.label === 'NT_effects_panel');
+        const style = {
+            font: `${UI.body}px monospace`,
+            fill: '#00ff66'
+        };
+        this.stoneCountText = this.createInventorySideText(stone, 'left', style);
+        this.stoneNaText = this.createInventorySideText(stone, 'right', style);
+        this.stoneCountText.panelBox = stone;
+        this.scissorsCountText = this.createInventorySideText(scissors, 'left', style);
+        this.scissorsNaText = this.createInventorySideText(scissors, 'right', style);
+        this.scissorsCountText.panelBox = scissors;
+        this.paperCountText = this.createInventorySideText(paper, 'left', style);
+        this.paperNaText = this.createInventorySideText(paper, 'right', style);
+        this.paperCountText.panelBox = paper;
+        this.ntEffectText = this.add.text(
+            nt.x + nt.width / 2,
+            nt.y + nt.height * 0.58,
+            '—',
+            {
+                font: `${UI.small}px monospace`,
+                fill: '#00ff66',
+                align: 'center'
+            }
+        ).setOrigin(0.5).setDepth(1100);
+        this.ntEffectText.panelBox = nt;
+        this.fitInventoryPanelLabels(boxes);
+        this.refreshInventoryReadout();
+    }
+
+    createInventorySideText(box, side, style) {
+        const left = side === 'left';
+        const text = this.add.text(
+            left ? box.x + 6 : box.x + box.width - 6,
+            box.y + box.height * 0.58,
+            '—',
+            style
+        );
+        text.setOrigin(left ? 0 : 1, 0.5);
+        text.setDepth(1100);
+        return text;
+    }
+
+    fitInventoryPanelLabels(boxes) {
+        const layer = this.stageMarkup;
+        if (!layer || !layer.list) {
+            return;
+        }
+        const inventoryTitle = layer.list.find((item) => item.text === 'inventory');
+        if (inventoryTitle) {
+            inventoryTitle.setVisible(false);
+        }
+        ['stone_storage_panel', 'scissors_storage_panel', 'paper_storage_panel', 'NT_effects_panel'].forEach((label) => {
+            const box = boxes.find((item) => item.label === label);
+            const text = layer.list.find((item) => item.text === label);
+            if (!box || !text || typeof text.setWordWrapWidth !== 'function') {
+                return;
+            }
+            text.setWordWrapWidth(Math.max(8, box.width - 8), true);
+        });
+    }
+
+    refreshInventoryReadout() {
+        if (!this.stoneCountText) {
+            return;
+        }
+        const items = readInventoryItems(this.gameData);
+        const selection = this.currentSelection();
+        const effects = this.selectedEffects;
+        this.stoneCountText.setText(inventorySelectedCountText(items && items.stones, activePartCount(this.stone)));
+        this.stoneNaText.setText(inventorySelectedCountText(items && items.NA_effect_stone, naEffectPicked('Stone', selection, effects)));
+        this.scissorsCountText.setText(inventorySelectedCountText(items && items.scissors, activePartCount(this.scissor)));
+        this.scissorsNaText.setText(inventorySelectedCountText(items && items.NA_effect_scissors, naEffectPicked('Scissors', selection, effects)));
+        this.paperCountText.setText(inventorySelectedCountText(items && items.papers, activePartCount(this.paper)));
+        this.paperNaText.setText(inventorySelectedCountText(items && items.NA_effect_papers, naEffectPicked('Paper', selection, effects)));
+        this.ntEffectText.setText(inventorySelectedCountText(items && items.NT_effect, ntEffectPicked(effects)));
+        fitInventoryCountPair(this.stoneCountText, this.stoneNaText);
+        fitInventoryCountPair(this.scissorsCountText, this.scissorsNaText);
+        fitInventoryCountPair(this.paperCountText, this.paperNaText);
+        fitInventorySingleCount(this.ntEffectText);
+    }
+
+    turnCap(moveType) {
+        return SimpleGameSceneUtil.turnCap(this.gameData, moveType);
+    }
+
     onStonePress() {
-        this.addCompositeItem('stone', LOCAL_ADVANCED_STONE_MAX);
+        this.addStockedItem('stone', 'stones', 'Stone');
     }
 
     onScissorsPress() {
-        this.addCompositeItem('scissor', LOCAL_ADVANCED_SCISSOR_MAX);
+        this.addStockedItem('scissor', 'scissors', 'Scissors');
     }
 
     onPaperPress() {
-        this.addCompositeItem('paper', LOCAL_ADVANCED_PAPER_MAX);
+        this.addStockedItem('paper', 'papers', 'Paper');
+    }
+
+    addStockedItem(compositeKey, itemKey, moveType) {
+        if (this.naEffectSelected()) {
+            return;
+        }
+        const items = readInventoryItems(this.gameData);
+        const selected = activePartCount(this[compositeKey]);
+        const left = inventoryRemaining(items && items[itemKey], selected);
+        if (!(left > 0)) {
+            return;
+        }
+        this.addCompositeItem(compositeKey, Math.min(this.turnCap(moveType), selected + left));
     }
 
     addCompositeItem(key, maxItems) {
@@ -708,6 +980,12 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
         composite.addItem();
+        if (composite._naHidden) {
+            setCompositeShown(composite, false);
+        }
+        if (this.ntCore && this.ntCoreSource === composite) {
+            syncNtCoreCount(this.ntCore, activePartCount(composite));
+        }
         this.refreshMatchReadout();
     }
 
@@ -717,7 +995,30 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             return;
         }
         composite.removeItem();
+        if (this.ntCore && this.ntCoreSource === composite) {
+            syncNtCoreCount(this.ntCore, activePartCount(composite));
+        }
         this.refreshMatchReadout();
+    }
+
+    selectionSignature() {
+        return [
+            activePartCount(this.stone),
+            activePartCount(this.scissor),
+            activePartCount(this.paper)
+        ].join(':');
+    }
+
+    syncSelectionButtons() {
+        if (this._sending) {
+            return;
+        }
+        const signature = this.selectionSignature();
+        if (signature === this._selectionSignature) {
+            return;
+        }
+        this.refreshMoveButtons();
+        this.refreshEffectButtons();
     }
 
     refreshMoveButtons() {
@@ -726,15 +1027,24 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             scissors: activePartCount(this.scissor),
             paper: activePartCount(this.paper)
         };
+        this._selectionSignature = counts.stone + ':' + counts.scissors + ':' + counts.paper;
         const limits = {
-            stone: LOCAL_ADVANCED_STONE_MAX,
-            scissors: LOCAL_ADVANCED_SCISSOR_MAX,
-            paper: LOCAL_ADVANCED_PAPER_MAX
+            stone: this.turnCap('Stone'),
+            scissors: this.turnCap('Scissors'),
+            paper: this.turnCap('Paper')
+        };
+        const items = readInventoryItems(this.gameData);
+        const stockLeft = {
+            stone: inventoryRemaining(items && items.stones, counts.stone),
+            scissors: inventoryRemaining(items && items.scissors, counts.scissors),
+            paper: inventoryRemaining(items && items.papers, counts.paper)
         };
         Object.keys(this.moveButtons || {}).forEach((key) => {
             const othersHaveItems = Object.keys(counts).some((other) => other !== key && counts[other] > 0);
-            const atLimit = counts[key] >= limits[key];
-            this.setGreenButtonEnabled(this.moveButtons[key], !othersHaveItems && !atLimit);
+            const cap = this.naEffectSelected() ? 1 : limits[key];
+            const atLimit = counts[key] >= cap;
+            const outOfStock = !(stockLeft[key] > 0);
+            this.setGreenButtonEnabled(this.moveButtons[key], !othersHaveItems && !atLimit && !outOfStock);
         });
         const anyItems = counts.stone + counts.scissors + counts.paper > 0;
         const locked = this.isMatchOver() || this._sending || !this.currentGameId;
@@ -863,10 +1173,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (button.root.input) {
             button.root.input.cursor = 'pointer';
         }
-        const round = this.placeButtonRound(button, def.kind === 'NegateSize' ? 'Negate' : 'Size');
-        if (round.emitter && typeof round.emitter.setParam === 'function') {
-            round.emitter.setParam('toHeat', 1.2);
-        }
+        this.placeButtonRound(button, def.kind === 'NegateSize' ? 'Negate' : 'Size');
         return button;
     }
 
@@ -889,10 +1196,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (button.root.input) {
             button.root.input.cursor = 'pointer';
         }
-        const round = this.placeButtonRound(button, def.kind === 'NegateSize' ? 'Negate' : 'Size');
-        if (round.emitter && typeof round.emitter.setParam === 'function') {
-            round.emitter.setParam('toHeat', 1.2);
-        }
+        this.placeButtonRound(button, def.kind === 'NegateSize' ? 'Negate' : 'Size');
         return button;
     }
 
@@ -1033,6 +1337,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (this.heatMap && typeof this.heatMap.update === 'function') {
             this.heatMap.update(time, delta);
         }
+        this.syncSelectionButtons();
         if (this.stoneButton && typeof this.stoneButton.update === 'function') {
             this.stoneButton.update(time, delta);
         }
@@ -1098,6 +1403,9 @@ function localAdvancedPanelBoxes(width, height) {
             label: panel.label
         };
         boxes.push(box);
+        if (panel.label === 'inventory') {
+            pushInventoryStoragePanels(boxes, box);
+        }
         if (panel.label === 'current turn') {
             const innerH = panelH * 0.2;
             const pad = 8;
@@ -1136,12 +1444,261 @@ const LOCAL_ADVANCED_CANCEL_BUTTON = 60;
 const LOCAL_ADVANCED_EFFECT_BUTTON = 60;
 const LOCAL_ADVANCED_STONE_BALL_RADIUS = 6.4;
 const LOCAL_ADVANCED_STONE_BALL_HEAT = 2;
-const LOCAL_ADVANCED_STONE_MAX = 9;
-const LOCAL_ADVANCED_SCISSOR_MAX = 4;
-const LOCAL_ADVANCED_PAPER_MAX = 8;
 const LOCAL_ADVANCED_REVEAL_PAUSE = 5000;
 const LOCAL_ADVANCED_CLASH_PAUSE = 2000;
 const LOCAL_ADVANCED_REMOVE_PAUSE = 320;
+
+function pushInventoryStoragePanels(boxes, inventory) {
+    const specs = [
+        { label: 'stone_storage_panel', share: 0.3 },
+        { label: 'scissors_storage_panel', share: 0.3 },
+        { label: 'paper_storage_panel', share: 0.3 },
+        { label: 'NT_effects_panel', share: 0.1 }
+    ];
+    let x = inventory.x;
+    specs.forEach((spec, index) => {
+        const width = index === specs.length - 1
+            ? (inventory.x + inventory.width) - x
+            : inventory.width * spec.share;
+        boxes.push({
+            x: x,
+            y: inventory.y,
+            width: width,
+            height: inventory.height,
+            label: spec.label
+        });
+        x += width;
+    });
+}
+
+function readInventoryItems(gameData) {
+    const payload = gameData && gameData.payload;
+    const player = payload && payload.playerContext;
+    const inventory = player && player.inventory;
+    const items = inventory && inventory.items;
+    if (!items || typeof items !== 'object') {
+        return null;
+    }
+    return items;
+}
+
+const NA_EFFECT_KINDS = ['NegateSize', 'Overpower'];
+
+function naEffectKind(kind) {
+    return NA_EFFECT_KINDS.indexOf(kind) !== -1;
+}
+
+function reduceCompositeToOne(composite) {
+    if (!composite || typeof composite.removeItem !== 'function') {
+        return;
+    }
+    while (activePartCount(composite) > 1) {
+        if (!composite.removeItem()) {
+            break;
+        }
+    }
+}
+
+function naPrimeConstructor(moveType) {
+    if (moveType === 'Stone' && typeof HotMapUiStonePrime !== 'undefined') {
+        return HotMapUiStonePrime;
+    }
+    if (moveType === 'Scissors' && typeof HotMapUiScissorsPrime !== 'undefined') {
+        return HotMapUiScissorsPrime;
+    }
+    if (moveType === 'Paper' && typeof HotMapUiPaperPrime !== 'undefined') {
+        return HotMapUiPaperPrime;
+    }
+    return null;
+}
+
+function createNaPrime(heatMap, selection) {
+    const Ctor = naPrimeConstructor(selection && selection.moveType);
+    const composite = selection && selection.composite;
+    if (!Ctor || !composite || !heatMap) {
+        return null;
+    }
+    return new Ctor(heatMap, {
+        center: {
+            col: composite.center.col,
+            row: composite.center.row
+        },
+        spawn: {
+            col: composite.spawn.col,
+            row: composite.spawn.row
+        },
+        animate: false
+    });
+}
+
+function createNtCore(heatMap, selection) {
+    const composite = selection && selection.composite;
+    if (!composite || !heatMap || typeof UiCore === 'undefined') {
+        return null;
+    }
+    const core = new UiCore(heatMap, {
+        name: 'NT Core',
+        center: {
+            col: composite.center.col,
+            row: composite.center.row
+        }
+    });
+    syncNtCoreCount(core, activePartCount(composite));
+    return core;
+}
+
+function syncNtCoreCount(core, count) {
+    if (!core || typeof core.balls !== 'function') {
+        return;
+    }
+    const target = Math.max(0, count || 0);
+    while (core.balls().length < target) {
+        if (!core.addItem()) {
+            break;
+        }
+    }
+    while (core.balls().length > target) {
+        if (!core.removeItem()) {
+            break;
+        }
+    }
+}
+
+function removeHeatStandIn(node) {
+    if (!node) {
+        return;
+    }
+    if (typeof node.releaseContents === 'function') {
+        node.releaseContents();
+    } else if (typeof node.clear === 'function') {
+        node.clear({ instant: true });
+    }
+    if (typeof node.detach === 'function') {
+        node.detach();
+    }
+}
+
+function setCompositeShown(composite, shown) {
+    if (!composite) {
+        return;
+    }
+    if (shown) {
+        if (!composite._naHidden) {
+            return;
+        }
+        composite._naHidden = false;
+    } else {
+        composite._naHidden = true;
+    }
+    composite.items.forEach((item) => {
+        if (item) {
+            item.isVisible = !!shown;
+        }
+    });
+}
+
+const NT_EFFECT_KINDS = ['Protection', 'SizeOnly'];
+
+function ntEffectKind(kind) {
+    return NT_EFFECT_KINDS.indexOf(kind) !== -1;
+}
+
+function naEffectPicked(moveType, selection, selectedEffects) {
+    if (!selection || selection.moveType !== moveType) {
+        return 0;
+    }
+    const kinds = selectedEffects || [];
+    return kinds.some((kind) => NA_EFFECT_KINDS.indexOf(kind) !== -1) ? 1 : 0;
+}
+
+function ntEffectPicked(selectedEffects) {
+    const kinds = selectedEffects || [];
+    return kinds.some((kind) => NT_EFFECT_KINDS.indexOf(kind) !== -1) ? 1 : 0;
+}
+
+function effectInventoryKey(kind, moveType) {
+    if (NA_EFFECT_KINDS.indexOf(kind) !== -1) {
+        if (moveType === 'Stone') {
+            return 'NA_effect_stone';
+        }
+        if (moveType === 'Scissors') {
+            return 'NA_effect_scissors';
+        }
+        if (moveType === 'Paper') {
+            return 'NA_effect_papers';
+        }
+        return null;
+    }
+    if (NT_EFFECT_KINDS.indexOf(kind) !== -1) {
+        return 'NT_effect';
+    }
+    return null;
+}
+
+function effectInventoryTotal(items, kind, moveType) {
+    const key = effectInventoryKey(kind, moveType);
+    return key && items ? items[key] : undefined;
+}
+
+function effectChoiceCovered(total) {
+    const left = inventoryRemaining(total, 1);
+    return left !== null && left >= 0;
+}
+
+function fitInventorySingleCount(text) {
+    const box = text && text.panelBox;
+    if (!box) {
+        return;
+    }
+    const max = Math.max(8, box.width - 4);
+    let size = UI.small;
+    while (size >= 8) {
+        text.setFont(`${size}px monospace`);
+        if (text.width <= max) {
+            return;
+        }
+        size -= 1;
+    }
+}
+
+function fitInventoryCountPair(leftText, rightText) {
+    const box = leftText && leftText.panelBox;
+    if (!box) {
+        return;
+    }
+    const gap = 8;
+    const max = Math.max(8, box.width - 12 - gap);
+    let size = UI.body;
+    while (size >= 9) {
+        const font = `${size}px monospace`;
+        leftText.setFont(font);
+        rightText.setFont(font);
+        if (leftText.width + rightText.width <= max) {
+            return;
+        }
+        size -= 1;
+    }
+}
+
+function inventoryRemaining(total, selected) {
+    if (!Number.isFinite(total)) {
+        return null;
+    }
+    const picked = Number.isFinite(selected) ? Math.max(0, Math.trunc(selected)) : 0;
+    return total - picked;
+}
+
+function inventorySelectedCountText(total, selected) {
+    const left = inventoryRemaining(total, selected);
+    if (left === null) {
+        return '—';
+    }
+    const picked = Number.isFinite(selected) ? Math.max(0, Math.trunc(selected)) : 0;
+    if (picked <= 0) {
+        return String(total);
+    }
+    return `${left} + ${picked}`;
+}
 
 function localAdvancedRoundCount(rounds) {
     const match = String(rounds || '').match(/(\d+)/);
@@ -1182,16 +1739,6 @@ function heatMapCellSpan(heatMap, pixels, axis) {
     const span = vertical ? field.rows - 1 : field.cols - 1;
     const size = vertical ? bounds.height : bounds.width;
     return (pixels / Math.max(size, 1)) * span;
-}
-
-function localAdvancedMax(moveType) {
-    if (moveType === 'Scissors') {
-        return LOCAL_ADVANCED_SCISSOR_MAX;
-    }
-    if (moveType === 'Paper') {
-        return LOCAL_ADVANCED_PAPER_MAX;
-    }
-    return LOCAL_ADVANCED_STONE_MAX;
 }
 
 function createLocalAdvancedComposite(Ctor, heatMap, boxes, spawnPixel, centerBox) {
@@ -1268,16 +1815,7 @@ function heatMapCellAt(heatMap, x, y) {
 }
 
 function activePartCount(composite) {
-    if (!composite || !composite.parts) {
-        return 0;
-    }
-    let count = 0;
-    composite.parts.forEach((part) => {
-        if (!part.object || !part.object._stoneLeaving) {
-            count += 1;
-        }
-    });
-    return count;
+    return hotMapActivePartCount(composite);
 }
 
 function panelButtonChrome() {

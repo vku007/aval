@@ -243,4 +243,35 @@ describe('new paper drama', () => {
         expect(paper.items).not.toContain(first);
         expect(paper.items).not.toContain(second);
     });
+
+    it('does not count a sheet once its exit has started', async () => {
+        const ctx = loadHeat();
+        const dt = 1000 / 60;
+        const heatMap = createHeatMap(ctx);
+        const paper = new ctx.HotMapUiNewPaper(heatMap);
+        const sheet = paper.addItem({ animate: false });
+        expect(ctx.hotMapActivePartCount(paper)).toBe(1);
+        const run = paper.removeWithDrama();
+        expect(sheet._paperLeaving).toBe(true);
+        expect(ctx.hotMapActivePartCount(paper)).toBe(0);
+        let countAtSettle = -1;
+        const pending = run.finished.then((result) => {
+            countAtSettle = ctx.hotMapActivePartCount(paper);
+            return result;
+        });
+        for (let frame = 0; frame < 180; frame += 1) {
+            heatMap.field.update(frame * dt, dt);
+        }
+        await expect(pending).resolves.toEqual({ status: 'finished' });
+        expect(countAtSettle).toBe(0);
+        expect(ctx.hotMapActivePartCount({
+            parts: [
+                { object: { kind: 'new-sheet' } },
+                { object: { kind: 'new-sheet', _paperLeaving: true } },
+                { object: { kind: 'new-sheet', drama: { done: true } } },
+                { object: { kind: 'hot-ball', _stoneLeaving: true } },
+                { object: { kind: 'shard', _scissorLeaving: true } }
+            ]
+        })).toBe(1);
+    });
 });

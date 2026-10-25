@@ -6,6 +6,7 @@ import { SubRound } from '../value-object/SubRound.js';
 import { Move, MoveContext, MoveType } from '../value-object/Move.js';
 import { ValidationError } from '../../shared/errors/index.js';
 import { GameStatus } from '../value-object/GameStatus.js';
+import { GamePlayerInventory } from '../value-object/GamePlayerInventory.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
 import { GameType } from '../value-object/GameType.js';
 import { RoundsLength } from '../value-object/RoundsLength.js';
@@ -149,12 +150,15 @@ describe('Game', () => {
       round.subRounds = [subRound];
       const game = new Game('game-1', ['user-1'], GameStatus.Created);
       game.rounds = [round];
+      game.inventories = [GamePlayerInventory.defaultFor('user-1', 42)];
       
       const updatedGame = game.finishRound('round-1');
       
       expect(updatedGame).not.toBe(game); // Different instance
       expect(updatedGame.rounds[0].status).toBe(RoundStatus.Finished);
       expect(game.rounds[0].status).toBe(RoundStatus.Current); // Original unchanged
+      expect(updatedGame.inventories[0].time).toBe(42);
+      expect(game.inventories[0].time).toBe(42);
     });
 
     it('should throw ValidationError for non-existent round', () => {
@@ -285,6 +289,10 @@ describe('Game', () => {
       expect(json).toEqual({
         id: 'game-1',
         usersIds: ['user-1', 'user-2'],
+        inventories: [
+          GamePlayerInventory.defaultFor('user-1', 0).toJSON(),
+          GamePlayerInventory.defaultFor('user-2', 0).toJSON()
+        ],
         rounds: [{
           id: 'round-1',
           subRounds: [{
@@ -355,6 +363,32 @@ describe('Game', () => {
       expect(game.rounds[0].id).toBe('round-1');
       expect(game.rounds[0].status).toBe(RoundStatus.Finished);
       expect(game.status).toBe(GameStatus.Finished);
+      expect(game.inventories.map(inventory => inventory.userId)).toEqual(['user-1', 'user-2']);
+      expect(game.inventories[0].items.stones).toBe(1000);
+      expect(game.inventories[0].time).toBe(0);
+    });
+
+    it('should restore provided inventories and fill a missing player at time 0', () => {
+      const provided = GamePlayerInventory.defaultFor('user-1', 15);
+      const custom = new GamePlayerInventory(
+        'user-1',
+        { ...provided.items, stones: 4 },
+        { ...provided.currencies, gold: 2 },
+        15
+      );
+      const game = Game.fromJSON({
+        id: 'game-1',
+        usersIds: ['user-1', 'user-2'],
+        rounds: [],
+        status: GameStatus.Created,
+        inventories: [custom.toJSON()]
+      });
+
+      expect(game.inventories[0].items.stones).toBe(4);
+      expect(game.inventories[0].time).toBe(15);
+      expect(game.inventories[1].userId).toBe('user-2');
+      expect(game.inventories[1].items.papers).toBe(1000);
+      expect(game.inventories[1].time).toBe(0);
     });
 
     it('should ignore leftover type from stored JSON', () => {

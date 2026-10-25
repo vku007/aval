@@ -42,10 +42,13 @@ HeatNode          attach, detach, play, cancelAll, reset, tick
    ├─ HotMapUiNewPaper    kind hot-map-new-paper, config diskStack
    ├─ HotMapUiCross       kind hot-map-cross, config cross
    ├─ UiCore              kind core. Round, circle, and hot balls on one center
-   └─ UiPrime             kind prime, config prime. Circle, cycling round, and one cycling round item
+   ├─ UiPrime             kind prime, config prime. Circle, cycling round, and one cycling round item
+   ├─ HotMapUiStonePrime  kind hot-map-stone-prime, config stonePrime. One stone ball, plus Prime's circle and cycling round
+   ├─ HotMapUiScissorsPrime kind hot-map-scissors-prime, config scissorsPrime. One scissor shard, plus Prime's circle and cycling round
+   └─ HotMapUiPaperPrime  kind hot-map-paper-prime, config paperPrime. One New Paper disk, plus Prime's circle and cycling round
 ```
 
-Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiCircle`, `UiCore`, `UiPrime`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiScissor`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
+Aliases to keep: `UiHotBall`, `UiHotRod`, `UiBackHighlighter`, `UiShard`, `UiPointer`, `UiRound`, `UiCircle`, `UiCore`, `UiPrime`, `UiSheet`, `UiNewSheet`, `HotMapUiStone`, `HotMapUiStonePrime`, `HotMapUiScissor`, `HotMapUiScissorsPrime`, `HotMapUiPaper`, `HotMapUiNewPaper`, `HotMapUiPaperPrime`, `HotMapUiCross`, `HorisontalPulse`, `VerticalPulse`, `VictoryPulse`.
 
 Behaviours in `js/heat/behaviours/behaviours.js`: `Orbit`, `Follow`, `PathLoop`, `PoseCycle`, `Glisten`, `CornerGlisten`, `BallRunner`, `DiskLoop`, `Spin`. Each has `reset()`, `advance(dt)`, `copyStateFrom(other, shift)`.
 
@@ -55,11 +58,12 @@ Rendered value = fields, then behaviour state, then the item's combined channels
 
 Field tick:
 
-1. Diffuse.
-2. Advance each node: behaviour, then runs.
-3. Stamp.
-4. Flush deferred adds and removes.
-5. Paint.
+1. If nothing visible is stamping and no cell is above `1e-4`, advance nodes and skip diffusion and paint.
+2. Diffuse. Values at or below `1e-4` become 0, so a cooled row leaves the tick.
+3. Advance each node: behaviour, then runs.
+4. Stamp.
+5. Flush deferred adds and removes.
+6. Paint and upload only the rows that hold heat or just cleared. A color table replaces the per-cell ramp.
 
 `attachRotatedHeatField` registers `scene.events.once('shutdown', field.destroy)`. Destroy detaches every root and resolves pending `finished` promises with `cancelled`. `call` hooks do not fire after destroy.
 
@@ -100,6 +104,9 @@ Eases: `linear`, `sine` (in-out), `expOut` (`k = 3`, scaled so `u = 1` lands on 
 | `paper` | HeatSheet, stacked by `stackGap` | pair / split / reveal. Waypoint is the previous sheet's spec pose | fade, then detach |
 | `diskStack` | HeatDisk | `gather` 1→0 from `$spawn`, 1 s | instant. POP is still `drama`, then `call detach` |
 | `cross` | two HeatRects and two shards on one center | placed. Highlighters step by `highlightTurn` (90). Shards step by `shardTurn` (90) plus `shardOffset` (45) | fade, then detach |
+| `stonePrime` | one HotBall, plus Prime's circle and cycling round on the stone center | the ball uses stone enter. The circle and the round are placed | the ball fades, then detaches. The circle and the round stay |
+| `scissorsPrime` | one shard, plus Prime's circle and cycling round on the scissor center | the shard uses scissor enter. The circle and the round are placed | the shard fades, then detaches. The circle and the round stay |
+| `paperPrime` | one HeatDisk, plus Prime's circle and cycling round on the New Paper center | the disk uses New Paper enter. The circle and the round are placed. The disk stays index 0 | the disk's drama, then detach. The circle and the round stay |
 
 `reveal(count)` adds on a 0.32 s stagger. `clear()` plays each exit 0.32 s apart (`HEAT_COMPOSITE_CLEAR_GAP`, same as `LOCAL_ADVANCED_REMOVE_PAUSE`). `clear({ instant: true })` drops every item. An empty reveal or clear resolves `finished`. `hit` / `break` are group `shake` / `flash` on slot `react`.
 
@@ -117,4 +124,4 @@ Resource JSON that must still load: `resources/stone-1.json`, `scissors-1.json`,
 
 ## Scene waits
 
-LocalAdvanced: `enemy.reveal(count)`, `heatFieldWait` for `LOCAL_ADVANCED_REVEAL_PAUSE` (5 s) and `LOCAL_ADVANCED_CLASH_PAUSE` (2 s), fight pulses in parallel, then `removeWithDrama()` on every loser item, each drama starting 0.66 s after the previous. When both moves are the same type, the winner's board also `removeWithDrama(loserCount)` with the same gap. Post-mortem and victory pulses follow. `playMoveResult` may stay async. It must return without touching objects when the captured field is destroyed. Abort the in-flight `gameClient.updateGame` / `createGame` / `getGame` from scene shutdown (`signal`).
+LocalAdvanced: choosing an NA effect (`NegateSize` or `Overpower`) drops the current composite to one item, hides it, and shows that gesture's prime (`stonePrime`, `scissorsPrime`, or `paperPrime`) on the same center. Clearing the effect removes the prime and shows the normal composite again. Further adds stay blocked until that effect is cleared. Choosing an NT effect (`Protection` or `SizeOnly`) hides the current composite and shows a Core on the same center. That Core's round starts on its bright pose and fades once. The composite's item count stays as it is, and the Core has the same number of balls. Adding an item adds one to the hidden composite and one ball to the Core. Removing an item removes one from both. Clearing the effect removes the Core and shows the normal composite again. The result animation dismisses the prime first so drama still runs on the normal composite. An NT turn keeps the Core on screen and the selected composite hidden; the result removes Core balls instead of that composite's drama. `enemy.reveal(count)`, `heatFieldWait` for `LOCAL_ADVANCED_REVEAL_PAUSE` (5 s) and `LOCAL_ADVANCED_CLASH_PAUSE` (2 s), fight pulses in parallel, then `removeWithDrama()` on every loser item, each drama starting 0.66 s after the previous. When both moves are the same type, the winner's board also `removeWithDrama(loserCount)` with the same gap. On a draw (`winnerId` unset), both boards `removeWithDrama()` in parallel and the post-mortem and victory pulses are skipped. Otherwise post-mortem and victory pulses follow. `playMoveResult` may stay async. It must return without touching objects when the captured field is destroyed. After that result finishes, clear `selectedEffects` and refresh the effect buttons so they are off. The player selects effects again by hand. A failed send keeps the selection. Abort the in-flight `gameClient.updateGame` / `createGame` / `getGame` from scene shutdown (`signal`).

@@ -53,6 +53,7 @@ Moves are **not** children of `Round`. `Game.addMoveToRound` throws. A round is 
 ```mermaid
 classDiagram
   Game "1" *-- "*" Round
+  Game "1" *-- "*" GamePlayerInventory
   Game "1" *-- "1" GameOutcome
   Game --> GameCreateContext
   Round "1" *-- "*" SubRound
@@ -67,6 +68,7 @@ classDiagram
 - `id`, `usersIds` (player + `NPC_1` on create)
 - `status`: `created` | `started` | `finished` | `broken`
 - `createContext`: how the player asked to play
+- `inventories`: one `GamePlayerInventory` per `usersIds` entry (items, currencies, `time`). Create may pass them. Otherwise a classic game gives every amount as 1000, and an extended game gives both players 20 stones, 12 scissors, 10 papers, 2 `NA_effect_stone`, 5 `NA_effect_scissors`, 3 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. Classic play and surrender leave them unchanged. An extended move spends the thrower's row (see Play).
 - `outcome`: rewards map, filled at game end
 - `endTime` when finished
 
@@ -78,6 +80,7 @@ Create payload, echoed in GET as `initGameContext`:
 - `rounds`: `BO1` | `BO3` | `BO7` — this is what victory uses
 - `kind`: `classic` | `extended` — selects the sub-round resolver (`ClassicGameResolver` vs `ExtendedGameResolver`). Missing kind on old games is Classic.
 - `level`, `episode`: campaign metadata
+- Extended turn caps, stored on this object and returned on `gameContext`: `max_stone_per_turn` (default 9), `max_scissors_per_turn` (default 4), `max_paper_per_turn` (default 7). Classic omits them.
 
 ### `Round`
 
@@ -224,6 +227,7 @@ Guards: reject `finished`/`broken`; caller must be in `usersIds`.
 2. If the last sub-round is `done`, open a new sub-round (draw continuation or next throw).
 3. `addMoveToSubRound`:
    - reject a second throw by the same user (`ValidationError: Second turn in sub round`)
+   - **Extended only**: reject `size` above `max_stone_per_turn` / `max_scissors_per_turn` / `max_paper_per_turn` (`ValidationError`, move not stored). Defaults are 9, 4, and 7. Then spend that player's inventory. Stone / Scissors / Paper removes `size` from `stones` / `scissors` / `papers`. A size effect (`NegateSize`, `Overpower`) removes one NA effect of the thrown type (`NA_effect_stone`, `NA_effect_scissors`, or `NA_effect_papers`). A type effect (`Protection`, `SizeOnly`) removes one `NT_effect`. A short stack is `ValidationError` (`Not enough <item> in inventory`) and the move is not stored. Classic does not spend.
    - `init` → `wait_player` after the first throw
    - when **2 moves** exist: `GameResolver.calculateSubRoundResult` (Classic or Extended from `createContext.kind`)
 4. RPS: Stone beats Scissors, Paper beats Stone, Scissors beats Paper.
@@ -244,7 +248,7 @@ NPC is **not** inside `processAction`. After a human move, `updateGame` calls `d
 - last sub-round is `init` or `wait_player`
 - NPC has not already thrown in that sub-round
 
-Otherwise it returns `null`. Classic NPC uses `size: 0`. Extended NPC uses a random integer `0..10` so same-type size can decide.
+Otherwise it returns `null`. Classic NPC uses `size: 0`. Extended NPC picks a type that still has items and a size from `1` through `min(that type's turn cap, items of that type)`, and still attaches no effects. When no type can be paid for, the action is `Surrender` and `doNpcAction` applies it, so the opponent wins.
 
 `GameProcessor.doNpcAction` applies that action via `processAction`. Typical PVE: player throws → sub-round `wait_player` → NPC throws → resolve → maybe new round.
 

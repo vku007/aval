@@ -144,12 +144,12 @@
           "gap": 2
         },
         "from": {
-          "radius": 56,
-          "heat": 0.01
+          "radius": 44,
+          "heat": 0
         },
         "to": {
-          "radius": 60,
-          "heat": 0.2
+          "radius": 48,
+          "heat": 0.08
         },
         "center": {
           "col": 64.5,
@@ -174,13 +174,13 @@
           "glistenPower": 0.1
         },
         "from": {
-          "outer": 60,
-          "inner": 56,
+          "outer": 48,
+          "inner": 44,
           "heat": 0
         },
         "to": {
-          "outer": 60,
-          "inner": 60,
+          "outer": 48,
+          "inner": 48,
           "heat": 0.6
         },
         "center": {
@@ -209,7 +209,7 @@
           "heat": 0.8
         },
         "to": {
-          "radius": 24,
+          "radius": 20,
           "heat": 0.8
         },
         "center": {
@@ -234,7 +234,7 @@
           "heat": 0.8
         },
         "to": {
-          "radius": 24,
+          "radius": 20,
           "heat": 0.8
         }
       }

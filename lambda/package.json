@@ -2,6 +2,7 @@
     "name": "vkp-lambda",
     "type": "module",
     "private": true,
+    "license": "Apache-2.0",
   "scripts": {
       "build": "esbuild src/handler.ts --bundle --platform=node --target=node20 --outfile=dist/index.mjs --format=esm",
       "zip": "cd dist && zip -r ../lambda.zip .",

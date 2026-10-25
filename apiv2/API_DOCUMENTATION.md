@@ -87,8 +87,16 @@ classDiagram
         +status: GameStatus
         +rounds: Round[]
         +outcome: GameOutcome
+        +inventories: GamePlayerInventory[]
         +createContext?: GameCreateContext
         +endTime?: number
+    }
+
+    class GamePlayerInventory {
+        +userId: string
+        +items: InventoryItems
+        +currencies: InventoryCurrencies
+        +time: number
     }
 
     class Round {
@@ -134,6 +142,7 @@ classDiagram
     class JsonEntity
     class GameOutcome
 
+    Game "1" *-- "*" GamePlayerInventory
     Game "1" *-- "*" Round
     Round "1" *-- "*" SubRound
     SubRound "1" *-- "*" Move
@@ -233,6 +242,31 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 | `kind` | string | Yes | `classic` (same type is a draw; `size` and `effects` unused), `extended` (same type compares `size`; different types ignore `size`; optional `effects` on one throw) |
 | `level.name` | string | Yes | non-empty |
 | `episode.name` | string | Yes | non-empty |
+| `inventories` | object[] | No | One row per player. Omit on classic and both players get 1000 of every amount. Omit on extended and both get the advanced start: 20 stones, 12 scissors, 10 papers, 2 `NA_effect_stone`, 5 `NA_effect_scissors`, 3 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. `time` = now |
+| `max_stone_per_turn` | number | No | Extended only. Largest Stone `size` in one throw. Omit for `9`. Integer >= 1 |
+| `max_scissors_per_turn` | number | No | Extended only. Largest Scissors `size` in one throw. Omit for `4`. Integer >= 1 |
+| `max_paper_per_turn` | number | No | Extended only. Largest Paper `size` in one throw. Omit for `7`. Integer >= 1 |
+
+Each inventory row:
+
+```json
+{
+  "userId": "<jwt-sub or NPC_1>",
+  "items": {
+    "stones": 1000,
+    "scissors": 1000,
+    "papers": 1000,
+    "NA_effect_stone": 1000,
+    "NA_effect_scissors": 1000,
+    "NA_effect_papers": 1000,
+    "NT_effect": 1000
+  },
+  "currencies": { "gold": 1000, "silver": 1000, "copper": 1000 },
+  "time": 1697123456789
+}
+```
+
+Every count and `time` is a non-negative integer, and a provided row must include every item and currency key. `userId` must be the caller or `NPC_1`. A missing player gets the same fill as an omitted list: 1000 of every amount on classic, the advanced start on extended. Unknown or duplicate ids are `400`.
 
 **Success (200)**:
 
@@ -259,6 +293,20 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
       }
     },
     "playerContext": {
+      "inventory": {
+        "userId": "<jwt-sub>",
+        "items": {
+          "stones": 1000,
+          "scissors": 1000,
+          "papers": 1000,
+          "NA_effect_stone": 1000,
+          "NA_effect_scissors": 1000,
+          "NA_effect_papers": 1000,
+          "NT_effect": 1000
+        },
+        "currencies": { "gold": 1000, "silver": 1000, "copper": 1000 },
+        "time": 1697123456789
+      },
       "roundStates": [
         {
           "status": "current",
@@ -285,6 +333,10 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 }
 ```
 
+`playerContext.inventory` is only the caller's `GamePlayerInventory`. The opponent's inventory is not returned.
+
+An extended game adds the turn caps on `payload.gameContext`: `max_stone_per_turn` (default 9), `max_scissors_per_turn` (default 4), and `max_paper_per_turn` (default 7). Classic games omit them.
+
 `roundStates` / `subRoundStates` are presentation objects (`RoundState`, `SubRoundState`). Move objects use `userId`, `context.moveType` (`Stone` \| `Paper` \| `Scissors`), `context.size`, `context.decorId`, `context.effects` (`{ kind }` objects; omitted is `[]`), `time`.
 
 #### Update game (action)
@@ -304,7 +356,16 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 }
 ```
 
-`type` is `Move` or `Surrender`. Response is `status`, `gameId`, `payload` (same shape as GET), and `message`.
+`type` is `Move` or `Surrender`. Response is `status`, `gameId`, `payload` (same shape as GET, including the caller's current `inventory`), and `message`.
+
+Classic moves and surrender do not change inventories. An extended move (`kind: extended`) spends the thrower's inventory, then the response shows that caller's updated row:
+
+- `size` of the thrown type is removed: Stone → `stones`, Scissors → `scissors`, Paper → `papers`.
+- A size effect (`NegateSize` or `Overpower`) removes one NA effect of the thrown type: Stone → `NA_effect_stone`, Scissors → `NA_effect_scissors`, Paper → `NA_effect_papers`.
+- A type effect (`Protection` or `SizeOnly`) removes one `NT_effect` for that move's type.
+- `time` becomes the time of the spend.
+
+If any of those counts is too small, the move is `400` (`Not enough <item> in inventory`) and nothing is saved. A throw whose `size` is above that type's turn cap is also `400` (`exceeds max_*_per_turn`) and nothing is saved. `NPC_1` throws no effects. On an extended game its size is `1` through `min(turn cap, stock)` of a type that still has items. When no type can be paid for, `NPC_1` surrenders and the opponent wins.
 
 ---
 
@@ -1080,6 +1141,8 @@ Actions: `create`, `update`, `delete`, `set-group`, `set-password`, `enable`, `d
 
 Admin CRUD for the same `Game` aggregate. Zod still accepts a **legacy round DTO** (`moves` on the round, `isFinished`, numeric `winnerId`). On write, those moves are wrapped in one `SubRound`. On read, `GameResponseDto` flattens every sub-round's moves back onto the round and maps `GameStatus` / `RoundStatus` to `isFinished`. Match length lives on `createContext.rounds` (`RoundsLength`), not on the admin DTO.
 
+`inventories` is the full list, one `GamePlayerInventory` per `usersIds` entry (same object as the player API). Create and replace/merge accept it as optional. Omit it on create and both players get 1000 of every amount with `time` = now. Omit it on PUT or PATCH and stored rows stay; users removed from `usersIds` lose their row, and a new user gets defaults at `time` = now. A provided array replaces the collection, and any participant missing from that array still gets defaults. Moves stay `userId`, `context`, and `time`. Extended play spends a row in place; this admin API does not apply that spend itself.
+
 ### List Games
 
 **GET** `/apiv2/internal/games`
@@ -1150,6 +1213,18 @@ Retrieve a specific game by ID. Response is the flattened admin DTO (`isFinished
     }
   ],
   "isFinished": false,
+  "inventories": [
+    {
+      "userId": "user-001",
+      "items": {
+        "stones": 1000, "scissors": 1000, "papers": 1000,
+        "NA_effect_stone": 1000, "NA_effect_scissors": 1000, "NA_effect_papers": 1000,
+        "NT_effect": 1000
+      },
+      "currencies": { "gold": 1000, "silver": 1000, "copper": 1000 },
+      "time": 1697123456789
+    }
+  ],
   "etag": "\"abc123\"",
   "metadata": { "etag": "\"abc123\"", "size": 512, "lastModified": "2026-09-02T18:30:00.000Z" }
 }
@@ -1227,6 +1302,7 @@ Create a new game with the specified ID, users, rounds, and finished flag.
 | `id` | string | Yes | 1-128 chars, alphanumeric + dots, hyphens, underscores |
 | `usersIds` | string[] | Yes | 1-10 unique user IDs |
 | `rounds` | Round[] | No | Array of legacy round objects (default: []) |
+| `inventories` | object[] | No | Same row as the player API. Omit to default every `usersIds` entry to 1000 at `time` = now |
 | `isFinished` | boolean | No | Default: false. Mapped to `GameStatus.finished` or `created` |
 
 **Round Object** (write DTO; stored as one `SubRound` containing `moves`):

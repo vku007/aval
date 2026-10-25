@@ -166,7 +166,7 @@ function rotatedHeatColdRows(src, cols, rows) {
         const end = start + cols;
         let isCold = 1;
         for (let i = start; i < end; i++) {
-            if (src[i] > 0) {
+            if (src[i] > ROTATED_HEAT_EPSILON) {
                 isCold = 0;
                 break;
             }
@@ -202,28 +202,101 @@ function stepRotatedHeat(src, dst, cols, rows, delta, params) {
                 src[sRow + west] + src[sRow + x] + src[sRow + east]
             ) / 8;
             const i = row + x;
-            dst[i] = Math.max(0, Math.min(1, (src[i] + k * (avg - src[i])) * cool));
+            let next = (src[i] + k * (avg - src[i])) * cool;
+            if (next < 0) {
+                next = 0;
+            } else if (next > 1) {
+                next = 1;
+            }
+            dst[i] = next > ROTATED_HEAT_EPSILON ? next : 0;
         }
     }
 }
 
-function paintRotatedHeat(imageData, grid, cols, rows) {
-    const data = imageData.data;
-    for (let i = 0, n = cols * rows; i < n; i++) {
-        const p = i * 4;
-        const heat = grid[i];
-        if (heat <= 0) {
-            data[p] = 0;
-            data[p + 1] = 0;
-            data[p + 2] = 0;
-            data[p + 3] = 255;
-            continue;
+const ROTATED_HEAT_EPSILON = 1e-4;
+const ROTATED_HEAT_LUT_LAST = 2047;
+const ROTATED_HEAT_LUT = new Uint8Array((ROTATED_HEAT_LUT_LAST + 1) * 3);
+for (let lutIndex = 0; lutIndex <= ROTATED_HEAT_LUT_LAST; lutIndex += 1) {
+    const rgb = rotatedHeatRgb(lutIndex / ROTATED_HEAT_LUT_LAST);
+    const channel = lutIndex * 3;
+    ROTATED_HEAT_LUT[channel] = rgb[0];
+    ROTATED_HEAT_LUT[channel + 1] = rgb[1];
+    ROTATED_HEAT_LUT[channel + 2] = rgb[2];
+}
+
+function rotatedHeatListedLive(list) {
+    if (!list) {
+        return false;
+    }
+    for (let index = 0; index < list.length; index += 1) {
+        const item = list[index];
+        if (item && item.isVisible !== false) {
+            return true;
         }
-        const rgb = rotatedHeatRgb(heat);
-        data[p] = rgb[0];
-        data[p + 1] = rgb[1];
-        data[p + 2] = rgb[2];
-        data[p + 3] = 255;
+    }
+    return false;
+}
+
+function rotatedHeatAbove(grid, eps) {
+    for (let index = 0; index < grid.length; index += 1) {
+        if (grid[index] > eps) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function rotatedHeatSpan(grid, cols, rows, eps) {
+    let y0 = -1;
+    let y1 = -1;
+    for (let y = 0; y < rows; y += 1) {
+        const start = y * cols;
+        const end = start + cols;
+        for (let index = start; index < end; index += 1) {
+            if (grid[index] > eps) {
+                if (y0 < 0) {
+                    y0 = y;
+                }
+                y1 = y;
+                break;
+            }
+        }
+    }
+    if (y0 < 0) {
+        return null;
+    }
+    return { y0: y0, y1: y1 };
+}
+
+function paintRotatedHeat(imageData, grid, cols, rows, span) {
+    const data = imageData.data;
+    const y0 = span ? span.y0 : 0;
+    const y1 = span ? span.y1 : rows - 1;
+    const lut = ROTATED_HEAT_LUT;
+    const last = ROTATED_HEAT_LUT_LAST;
+    for (let y = y0; y <= y1; y += 1) {
+        const row = y * cols;
+        let pixel = row * 4;
+        for (let x = 0; x < cols; x += 1) {
+            const heat = grid[row + x];
+            if (!(heat > ROTATED_HEAT_EPSILON)) {
+                data[pixel] = 0;
+                data[pixel + 1] = 0;
+                data[pixel + 2] = 0;
+                data[pixel + 3] = 255;
+            } else {
+                let idx = (heat * last + 0.5) | 0;
+                if (idx > last) {
+                    idx = last;
+                }
+                const channel = idx * 3;
+                data[pixel] = lut[channel];
+                data[pixel + 1] = lut[channel + 1];
+                data[pixel + 2] = lut[channel + 2];
+                data[pixel + 3] = 255;
+            }
+            pixel += 4;
+        }
     }
 }
 
@@ -443,9 +516,25 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
         setParam: api.setParam,
         nudgeParam: api.nudgeParam,
         present: present,
+        painted: false,
+        paintY0: null,
+        paintY1: null,
         paint: () => {
-            paintRotatedHeat(field.imageData, field.src, cols, rows);
-            field.ctx.putImageData(field.imageData, 0, 0);
+            const span = field.paintSpan;
+            paintRotatedHeat(field.imageData, field.src, cols, rows, span);
+            if (!span || (span.y0 === 0 && span.y1 === rows - 1)) {
+                field.ctx.putImageData(field.imageData, 0, 0);
+            } else {
+                field.ctx.putImageData(
+                    field.imageData,
+                    0,
+                    0,
+                    0,
+                    span.y0,
+                    cols,
+                    span.y1 - span.y0 + 1
+                );
+            }
             if (field.present && field.tex) {
                 field.tex.refresh();
             }
@@ -586,17 +675,7 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
             }
         },
         pointerToCell: (pointer) => pointerToRotatedHeatCell(pointer, x, y, width, height, cols, rows),
-        update: (_, delta) => {
-            if (field.destroyed) {
-                return;
-            }
-            if (field.diskHeat) {
-                field.diskHeat.fill(0);
-            }
-            stepRotatedHeat(field.src, field.dst, cols, rows, delta, field.params);
-            const swap = field.src;
-            field.src = field.dst;
-            field.dst = swap;
+        tickNodes: (delta) => {
             heatEnterTick();
             field.ticking = true;
             const phased = [];
@@ -655,8 +734,55 @@ function attachRotatedHeatField(scene, x, y, width, height, options) {
             field.ticking = false;
             heatLeaveTick();
             field.flushPending();
-            if (!field.destroyed) {
-                field.paint();
+        },
+        update: (_, delta) => {
+            if (field.destroyed) {
+                return;
+            }
+            field.painted = false;
+            const live = rotatedHeatListedLive(field.balls)
+                || rotatedHeatListedLive(field.rods)
+                || rotatedHeatListedLive(field.highlighters);
+            if (!live && !rotatedHeatAbove(field.src, ROTATED_HEAT_EPSILON)) {
+                field.tickNodes(delta);
+                return;
+            }
+            if (field.diskHeat) {
+                field.diskHeat.fill(0);
+            }
+            stepRotatedHeat(field.src, field.dst, cols, rows, delta, field.params);
+            const swap = field.src;
+            field.src = field.dst;
+            field.dst = swap;
+            field.tickNodes(delta);
+            if (field.destroyed) {
+                return;
+            }
+            const span = rotatedHeatSpan(field.src, cols, rows, ROTATED_HEAT_EPSILON);
+            let y0 = span ? span.y0 : -1;
+            let y1 = span ? span.y1 : -1;
+            if (field.paintY0 !== null) {
+                if (y0 < 0 || field.paintY0 < y0) {
+                    y0 = field.paintY0;
+                }
+                if (y1 < 0 || field.paintY1 > y1) {
+                    y1 = field.paintY1;
+                }
+            }
+            if (y0 < 0) {
+                field.paintY0 = null;
+                field.paintY1 = null;
+                return;
+            }
+            field.paintSpan = { y0: y0, y1: y1 };
+            field.paint();
+            field.painted = true;
+            if (span) {
+                field.paintY0 = span.y0;
+                field.paintY1 = span.y1;
+            } else {
+                field.paintY0 = null;
+                field.paintY1 = null;
             }
         }
     };

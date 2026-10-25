@@ -3,8 +3,19 @@
  * A horizontal hot rod used as a one-shot victory strike.
  * It starts on the bottom of a panel at that panel's width, slides to a
  * target on the field clock, and arrives at the given end width.
+ * The rim falls off over a few cells. Each end lies on the straight line
+ * from that side's start corner to its end corner.
  */
 const VICTORY_PULSE_MS = 750;
+const VICTORY_PULSE_EDGE = 8;
+
+function victoryEdgeAngle(dx, dy) {
+    const len = Math.hypot(dx, dy);
+    if (!(len > 1e-4) || Math.abs(dx) > Math.abs(dy)) {
+        return 0;
+    }
+    return Math.atan2(dx, Math.abs(dy)) * 180 / Math.PI;
+}
 
 class VictoryPulse {
     constructor(heatMap, options) {
@@ -24,6 +35,15 @@ class VictoryPulse {
         };
         this.clipFrom = endHalf > 1e-6 ? startHalf / endHalf : 1;
         this.duration = VICTORY_PULSE_MS / 1000;
+        const travelRow = endCell.row - startCell.row;
+        this.leftAngle = victoryEdgeAngle(
+            (endCell.col - endHalf) - (startCell.col - startHalf),
+            travelRow
+        );
+        this.rightAngle = victoryEdgeAngle(
+            (endCell.col + endHalf) - (startCell.col + startHalf),
+            travelRow
+        );
         this.rod = new UiHotRod(heatMap, {
             name: this.name,
             loopOn: false,
@@ -41,10 +61,19 @@ class VictoryPulse {
         });
         const emitter = this.rod.emitter;
         pinPulseRod(this.rod, endCell.col, endCell.row);
-        armPulseStamp(emitter, (placed, frame) => heatClip(frame, {
-            colMin: placed.col - endHalf,
-            colMax: placed.col + endHalf
-        }));
+        armPulseStamp(emitter, (placed, frame) => {
+            const clip = heatClip(frame, {
+                colMin: placed.col - endHalf,
+                colMax: placed.col + endHalf
+            });
+            if (clip) {
+                clip.feather = VICTORY_PULSE_EDGE;
+                clip.row = placed.row;
+                clip.leftAngle = this.leftAngle;
+                clip.rightAngle = this.rightAngle;
+            }
+            return clip;
+        });
     }
 
     play() {

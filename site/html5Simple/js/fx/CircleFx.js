@@ -84,6 +84,16 @@ function stampCircle(grid, cols, rows, center, pose, shine) {
         const base = y * cols;
         for (let x = x0; x <= x1; x++) {
             const dx = x - center.col;
+            const d2 = dx * dx + dy * dy;
+            if (d2 > (outer + edge + 1) * (outer + edge + 1)) {
+                continue;
+            }
+            if (inner > edge + 1) {
+                const hole = inner - edge - 1;
+                if (d2 < hole * hole) {
+                    continue;
+                }
+            }
             const radius = Math.hypot(dx, dy);
             const outside = Math.max(0, Math.max(radius - outer, inner - radius));
             if (outside > edge) {

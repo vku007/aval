@@ -3,7 +3,7 @@
  * A stage button whose face is a heat-map image.
  * A subclass installs the composite. The map paints a canvas,
  * and that canvas is scaled to the button and clipped to the button shape.
- * The field is 60×60 cells. It advances on every scene frame.
+ * The field is 60×60 cells. It advances while the button is enabled or selected.
  * Lengths that were drawn for a 100-cell field scale by HM_SKINNED_LENGTH_SCALE.
  */
 const HM_SKINNED_HEAT_SIZE = 60;
@@ -74,13 +74,30 @@ class HmSkinnedButton extends UiStageButton {
         return this.width;
     }
 
-    update(time, delta) {
-        if (this.heatMap && typeof this.heatMap.update === 'function') {
-            this.heatMap.update(time, delta);
+    shouldTickHeat() {
+        if (this.root && this.root.visible === false) {
+            return false;
         }
-        const canvas = this.heatMap && this.heatMap.field && this.heatMap.field.ctx
-            ? this.heatMap.field.ctx.canvas
-            : null;
+        if (this._heatReady && this.isEnabled === false && !this.isSelected) {
+            return false;
+        }
+        return true;
+    }
+
+    update(time, delta) {
+        if (!this.heatMap || typeof this.heatMap.update !== 'function') {
+            return;
+        }
+        if (!this.shouldTickHeat()) {
+            return;
+        }
+        this.heatMap.update(time, delta);
+        this._heatReady = true;
+        const field = this.heatMap.field;
+        if (!field || field.painted === false) {
+            return;
+        }
+        const canvas = field.ctx ? field.ctx.canvas : null;
         if (!canvas) {
             return;
         }

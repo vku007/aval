@@ -2,6 +2,7 @@ import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { Round } from '../../domain/value-object/Round.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { Move } from '../../domain/value-object/Move.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 
 export class GameResponseDto {
@@ -10,6 +11,7 @@ export class GameResponseDto {
     public readonly usersIds: string[],
     public readonly rounds: RoundResponseDto[],
     public readonly isFinished: boolean,
+    public readonly inventories: GamePlayerInventory[],
     public readonly etag?: string,
     public readonly metadata?: EntityMetadata
   ) {}
@@ -20,6 +22,7 @@ export class GameResponseDto {
       gameEntity.usersIds,
       gameEntity.rounds.map(round => RoundResponseDto.fromRound(round)),
       gameEntity.isFinished, // Backward compatibility - uses getter that converts status
+      gameEntity.inventories,
       gameEntity.internalGetBackingStore().etag,
       gameEntity.metadata
     );
@@ -31,6 +34,7 @@ export class GameResponseDto {
       usersIds: this.usersIds,
       rounds: this.rounds.map(round => round.toJSON()),
       isFinished: this.isFinished,
+      inventories: this.inventories.map(inventory => inventory.toJSON()),
       etag: this.etag,
       metadata: this.metadata
     };

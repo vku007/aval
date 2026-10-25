@@ -61,7 +61,22 @@ class CompositeUIEditorScene extends Phaser.Scene {
             animate: false
         });
         this.primes.push(this.prime);
-        this.objects = [this.stone, this.scissor, this.newPaper, this.core, this.prime];
+        this.stonePrime = new HotMapUiStonePrime(this.heatMap, {
+            name: 'Stone Prime',
+            center: { col: 28, row: 48 },
+            animate: false
+        });
+        this.scissorsPrime = new HotMapUiScissorsPrime(this.heatMap, {
+            name: 'Scissors Prime',
+            center: { col: 102, row: 210 },
+            animate: false
+        });
+        this.paperPrime = new HotMapUiPaperPrime(this.heatMap, {
+            name: 'Paper Prime',
+            center: { col: 36, row: 250 },
+            animate: false
+        });
+        this.objects = [this.stone, this.scissor, this.newPaper, this.core, this.prime, this.stonePrime, this.scissorsPrime, this.paperPrime];
         this.selectedObject = this.stone;
         this.stageMarkup = createUiStageMarkup(this, width, height);
         this.menuMarkup = createUiMenuMarkup(this, width, height);

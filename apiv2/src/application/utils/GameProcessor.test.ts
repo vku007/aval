@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameProcessor } from './GameProcessor.js';
-import { NPC_EXTENDED_MAX_SIZE } from './NpcActor.js';
 import { ClassicGameResolver } from './ClassicGameResolver.js';
 import { ExtendedGameResolver } from './ExtendedGameResolver.js';
 import { SimpleGameOutcomeResolver } from './SimpleGameOutcomeResolver.js';
@@ -11,9 +10,15 @@ import { ActionType } from '../../domain/value-object/ActionType.js';
 import { ActionContext } from '../../domain/value-object/ActionContext.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { MoveEffect, MoveEffectKind } from '../../domain/value-object/MoveEffect.js';
+import { GamePlayerInventory, type InventoryItems } from '../../domain/value-object/GamePlayerInventory.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
-import { GameCreateContext } from '../dto/processor/GameCreateContext.js';
+import {
+  DEFAULT_MAX_PAPER_PER_TURN,
+  DEFAULT_MAX_SCISSORS_PER_TURN,
+  DEFAULT_MAX_STONE_PER_TURN,
+  GameCreateContext
+} from '../dto/processor/GameCreateContext.js';
 import { GameType } from '../../domain/value-object/GameType.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
@@ -831,24 +836,29 @@ describe('GameProcessor Extended kind', () => {
     expect(result.rounds[0].subRounds[0].winnerId).toBe(USER_1);
   });
 
-  it('different types ignore size (Paper 1 beats Stone 100)', () => {
+  it('different types ignore size (Paper 1 beats Stone 9)', () => {
     const game = createExtendedGame('game-1', [USER_1, USER_2]);
     processor.processAction(game, createMoveAction(USER_1, MoveType.Paper, 1), USER_1);
-    const result = processor.processAction(game, createMoveAction(USER_2, MoveType.Stone, 100), USER_2);
+    const result = processor.processAction(game, createMoveAction(USER_2, MoveType.Stone, DEFAULT_MAX_STONE_PER_TURN), USER_2);
 
     expect(result.rounds[0].status).toBe(RoundStatus.Finished);
     expect(result.rounds[0].winnerId).toBe(USER_1);
   });
 
-  it('NPC move size is in 0..NPC_EXTENDED_MAX_SIZE', () => {
+  it('NPC move size stays inside the turn cap', () => {
     const game = createExtendedGame('game-1', [USER_1, NPC_1]);
     processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 5), USER_1);
     processor.doNpcAction(game);
 
     const npcMove = game.rounds[0].subRounds[0].moves.find(m => m.userId === NPC_1);
+    const caps = {
+      [MoveType.Stone]: DEFAULT_MAX_STONE_PER_TURN,
+      [MoveType.Scissors]: DEFAULT_MAX_SCISSORS_PER_TURN,
+      [MoveType.Paper]: DEFAULT_MAX_PAPER_PER_TURN
+    };
     expect(npcMove).toBeDefined();
-    expect(npcMove!.context.size).toBeGreaterThanOrEqual(0);
-    expect(npcMove!.context.size).toBeLessThanOrEqual(NPC_EXTENDED_MAX_SIZE);
+    expect(npcMove!.context.size).toBeGreaterThanOrEqual(1);
+    expect(npcMove!.context.size).toBeLessThanOrEqual(caps[npcMove!.context.moveType]);
   });
 
   it('human effects persist and NPC has none', () => {
@@ -861,6 +871,123 @@ describe('GameProcessor Extended kind', () => {
     const npcMove = game.rounds[0].subRounds[0].moves.find(m => m.userId === NPC_1);
     expect(humanMove!.context.effects.map(e => e.kind)).toEqual([MoveEffectKind.Overpower]);
     expect(npcMove!.context.effects).toEqual([]);
+  });
+
+  function setItems(game: Game, userId: string, patch: Partial<InventoryItems>, time = 5): void {
+    game.inventories = game.inventories.map(inventory => {
+      if (inventory.userId !== userId) {
+        return inventory;
+      }
+      return new GamePlayerInventory(
+        userId,
+        { ...inventory.items, ...patch },
+        inventory.currencies,
+        time
+      );
+    });
+  }
+
+  it('spends size, the matching NA effect, and one NT effect', () => {
+    const game = createExtendedGame('game-1', [USER_1, USER_2]);
+    setItems(game, USER_1, {
+      stones: 8,
+      NA_effect_stone: 3,
+      NA_effect_scissors: 3,
+      NA_effect_papers: 3,
+      NT_effect: 4
+    });
+    const before = Date.now();
+
+    processor.processAction(
+      game,
+      createMoveAction(USER_1, MoveType.Stone, 3, [
+        new MoveEffect(MoveEffectKind.NegateSize),
+        new MoveEffect(MoveEffectKind.SizeOnly)
+      ]),
+      USER_1
+    );
+
+    const inventory = game.inventories.find(item => item.userId === USER_1)!;
+    expect(inventory.items.stones).toBe(5);
+    expect(inventory.items.NA_effect_stone).toBe(2);
+    expect(inventory.items.NA_effect_scissors).toBe(3);
+    expect(inventory.items.NA_effect_papers).toBe(3);
+    expect(inventory.items.NT_effect).toBe(3);
+    expect(inventory.currencies.gold).toBe(1000);
+    expect(inventory.time).toBeGreaterThanOrEqual(before);
+    expect(game.inventories.find(item => item.userId === USER_2)!.items.stones).toBe(1000);
+  });
+
+  it('NPC surrenders when no gesture stack can pay for a throw', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    setItems(game, NPC_1, { stones: 0, scissors: 0, papers: 0 });
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 1), USER_1);
+
+    processor.doNpcAction(game);
+
+    expect(game.status).toBe(GameStatus.Finished);
+    expect(processor.whoIsWinner(game)).toBe(USER_1);
+    expect(game.getMovesForUser(NPC_1)).toHaveLength(0);
+    expect(game.inventories.find(item => item.userId === NPC_1)!.items.stones).toBe(0);
+  });
+
+  it('rejects a throw larger than the turn cap and leaves the game unopened', () => {
+    const game = createExtendedGame('game-1', [USER_1, USER_2]);
+
+    expect(() => processor.processAction(
+      game,
+      createMoveAction(USER_1, MoveType.Scissors, DEFAULT_MAX_SCISSORS_PER_TURN + 1),
+      USER_1
+    )).toThrow(/exceeds max_scissors_per_turn/);
+
+    expect(game.rounds).toHaveLength(0);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.scissors).toBe(1000);
+  });
+
+  it('rejects an unaffordable move and leaves the game unopened', () => {
+    const game = createExtendedGame('game-1', [USER_1, USER_2]);
+    setItems(game, USER_1, { scissors: 4, NA_effect_scissors: 0, NA_effect_stone: 2, NA_effect_papers: 2 });
+
+    expect(() => processor.processAction(
+      game,
+      createMoveAction(USER_1, MoveType.Scissors, 1, [new MoveEffect(MoveEffectKind.Overpower)]),
+      USER_1
+    )).toThrow(/Not enough NA_effect_scissors/);
+
+    expect(game.rounds).toHaveLength(0);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.scissors).toBe(4);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.NA_effect_scissors).toBe(0);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.NA_effect_stone).toBe(2);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.NA_effect_papers).toBe(2);
+  });
+
+  it('does not spend inventory on a classic move', () => {
+    const classic = new GameProcessor(new ClassicGameResolver(new SimpleGameOutcomeResolver()));
+    const classicGame = new Game(
+      'game-classic',
+      [USER_1, USER_2],
+      GameStatus.Created,
+      new GameCreateContext(
+        GameType.PVP,
+        RoundsLength.BO3,
+        KindOfGame.Classic,
+        new GameLevel('Level1'),
+        new EpisodeContext('Episode1')
+      )
+    );
+    setItems(classicGame, USER_1, { stones: 0, NT_effect: 0 });
+
+    classic.processAction(
+      classicGame,
+      createMoveAction(USER_1, MoveType.Stone, 4, [new MoveEffect(MoveEffectKind.Protection)]),
+      USER_1
+    );
+
+    const inventory = classicGame.inventories.find(item => item.userId === USER_1)!;
+    expect(inventory.items.stones).toBe(0);
+    expect(inventory.items.NT_effect).toBe(0);
+    expect(inventory.time).toBe(5);
+    expect(classicGame.getMovesForUser(USER_1)).toHaveLength(1);
   });
 });
 

@@ -142,6 +142,16 @@ function clampNewSheetSpec(name, value) {
  * skirt under 1.5 pixels, feather about 1.5 pixels on each side of the rim
  * so the flattened edge does not stair-step. A wide rim keeps the old skirt.
  */
+function ellipseMaxGrad(a, b, c, d) {
+    const n00 = a * a + b * b;
+    const n01 = a * c + b * d;
+    const n11 = c * c + d * d;
+    const half = (n00 + n11) * 0.5;
+    const det = n00 * n11 - n01 * n01;
+    const disc = Math.sqrt(Math.max(0, half * half - det));
+    return Math.sqrt(Math.max(0, half + disc));
+}
+
 function diskRimWeight(dist, s, t, basis, edge) {
     if (!(dist > 1e-5)) {
         return 1;
@@ -921,6 +931,12 @@ class UiNewSheet extends HeatItem {
             c: -ex.y * inv,
             d: ex.x * inv
         };
+        const maxGrad = ellipseMaxGrad(basis.a, basis.b, basis.c, basis.d);
+        let solid = 1;
+        if (maxGrad > 1e-8 && edge / maxGrad < 1.5) {
+            solid = 1 - 1.5 * maxGrad;
+        }
+        const solid2 = solid > 0 ? solid * solid * 0.9999 : 0;
         for (let y = y0; y <= y1; y++) {
             const dy = y - center.row;
             const base = y * cols;
@@ -928,6 +944,12 @@ class UiNewSheet extends HeatItem {
                 const dx = x - center.col;
                 const s = basis.a * dx + basis.b * dy;
                 const t = basis.c * dx + basis.d * dy;
+                const dist2 = s * s + t * t;
+                if (solid2 > 0 && dist2 <= solid2) {
+                    const filled = base + x;
+                    grid[filled] = Math.min(1, grid[filled] + heat);
+                    continue;
+                }
                 const dist = Math.hypot(s, t);
                 const w = diskRimWeight(dist, s, t, basis, edge);
                 if (w <= 0) {
