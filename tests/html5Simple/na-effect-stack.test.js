@@ -186,6 +186,64 @@ describe('NA effect stack', () => {
         expect(scene.scissor._naHidden).toBeFalsy();
     });
 
+    it('keeps the prime shown when an NA turn is sent', async () => {
+        const ctx = loadHeat();
+        loadScene(ctx);
+        const heatMap = createHeatMap(ctx);
+        const scene = sceneFor(ctx, heatMap, 'stone');
+
+        scene.onSelectEffect('NegateSize', 'effect');
+        const prime = scene.naPrime;
+        scene.gameData.payload.playerContext.inventory.items.NA_effect_stone = 0;
+        scene._sending = true;
+        scene.refreshEffectButtons();
+
+        expect(scene.naPrime).toBe(prime);
+        expect(scene.stone._naHidden).toBe(true);
+        expect(scene.stone.items.every((item) => item.isVisible === false)).toBe(true);
+        expect(prime.ballCount()).toBe(1);
+        expect(prime.circle).toBeTruthy();
+        expect(prime.round).toBeTruthy();
+
+        scene.latestExchange = () => null;
+        await scene.playMoveResult('user-1');
+
+        expect(scene.naPrime).toBe(prime);
+        expect(scene.stone._naHidden).toBe(true);
+        expect(scene.stone.items.every((item) => item.isVisible === false)).toBe(true);
+        expect(prime.ballCount()).toBe(1);
+        expect(heatMap.field.roots).toContain(prime);
+    });
+
+    it.each([
+        ['stone', 'ballCount'],
+        ['scissor', 'shardCount'],
+        ['paper', 'sheetCount']
+    ])('takes the NEG result off the %s prime and leaves the stack hidden', (key, countName) => {
+        const ctx = loadHeat();
+        loadScene(ctx);
+        const heatMap = createHeatMap(ctx);
+        const scene = sceneFor(ctx, heatMap, key);
+
+        scene.onSelectEffect('NegateSize', 'effect');
+        const prime = scene.naPrime;
+        const run = scene.dramaticClear(scene[key]);
+
+        expect(run.removed).toBe(1);
+        for (let frame = 0; frame < 120; frame += 1) {
+            heatMap.field.update(frame * (1000 / 60), 1000 / 60);
+        }
+
+        expect(prime[countName]()).toBe(0);
+        expect(prime.circle).toBeTruthy();
+        expect(prime.round).toBeTruthy();
+        expect(ctx.hotMapActivePartCount(scene[key])).toBe(0);
+        expect(scene[key]._naHidden).toBe(true);
+        expect(scene[key].items.every((item) => item.isVisible === false)).toBe(true);
+        expect(scene.naPrime).toBe(prime);
+        expect(heatMap.field.roots).toContain(prime);
+    });
+
     it('keeps the core shown when a SIZE turn is sent', async () => {
         const ctx = loadHeat();
         loadScene(ctx);

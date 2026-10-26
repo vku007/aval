@@ -8,6 +8,7 @@
  * Choosing an NT effect (SIZE) hides that stack and shows a Core on the same center.
  * The Core has one ball for each stack item. Adds and removes change the hidden stack and the Core together.
  * That Core's round starts bright and fades once. Clearing SIZE removes the Core and shows the normal composite again.
+ * Sending an NA turn keeps that prime up and the selected stack hidden. The result takes the gesture item off the prime.
  * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
  */
 class LocalAdvancedGameScene extends Phaser.Scene {
@@ -378,7 +379,10 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     dramaticClear(composite, count) {
         if (this.ntCore && this.ntCoreSource === composite) {
-            return this.clearShownNtCore(composite, count);
+            return this.clearShownStandIn(composite, this.ntCore, count);
+        }
+        if (this.naPrime && this.naPrimeSource === composite) {
+            return this.clearShownStandIn(composite, this.naPrime, count);
         }
         if (!composite || typeof composite.removeWithDrama !== 'function') {
             const run = heatDoneRun();
@@ -388,7 +392,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         return composite.removeWithDrama(count);
     }
 
-    clearShownNtCore(composite, count) {
+    clearShownStandIn(composite, standIn, count) {
         const available = activePartCount(composite);
         const limit = count == null ? available : Math.min(available, Math.max(0, count | 0));
         const starts = [];
@@ -398,17 +402,17 @@ class LocalAdvancedGameScene extends Phaser.Scene {
                     composite.removeItem();
                 }
                 setCompositeShown(composite, false);
-                if (this.ntCore && typeof this.ntCore.removeItem === 'function') {
-                    this.ntCore.removeItem();
+                if (standIn && typeof standIn.removeItem === 'function') {
+                    standIn.removeItem();
                 }
             });
         }
-        if (!this.ntCore) {
+        if (!standIn) {
             const run = heatDoneRun();
             run.removed = 0;
             return run;
         }
-        return heatStaggerDramas(this.ntCore, starts);
+        return heatStaggerDramas(standIn, starts);
     }
 
     holdNtCoreForTurn() {
@@ -417,15 +421,22 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             setCompositeShown(this.ntCoreSource, false);
             return;
         }
+        if (this._sending && this.naPrime) {
+            setCompositeShown(this.naPrimeSource, false);
+            return;
+        }
         this.dismissNaPrime();
     }
 
     syncShownNtCore(composite) {
-        if (!this.ntCore || this.ntCoreSource !== composite) {
-            return;
+        if (this.ntCore && this.ntCoreSource === composite) {
+            setCompositeShown(composite, false);
+            syncNtCoreCount(this.ntCore, activePartCount(composite));
         }
-        setCompositeShown(composite, false);
-        syncNtCoreCount(this.ntCore, activePartCount(composite));
+        if (this.naPrime && this.naPrimeSource === composite) {
+            setCompositeShown(composite, false);
+            syncNaPrimeCount(this.naPrime, activePartCount(composite));
+        }
     }
 
     resetEnemyBoards() {
@@ -1545,6 +1556,36 @@ function createNtCore(heatMap, selection) {
     });
     syncNtCoreCount(core, activePartCount(composite));
     return core;
+}
+
+function syncNaPrimeCount(prime, count) {
+    if (!prime || typeof prime.removeItem !== 'function') {
+        return;
+    }
+    const target = Math.max(0, count || 0);
+    let guard = 0;
+    while (naPrimeGestureCount(prime) > target && guard < 4) {
+        guard += 1;
+        if (!prime.removeItem()) {
+            break;
+        }
+    }
+}
+
+function naPrimeGestureCount(prime) {
+    if (!prime) {
+        return 0;
+    }
+    if (typeof prime.ballCount === 'function') {
+        return prime.ballCount();
+    }
+    if (typeof prime.shardCount === 'function') {
+        return prime.shardCount();
+    }
+    if (typeof prime.sheetCount === 'function') {
+        return prime.sheetCount();
+    }
+    return 0;
 }
 
 function syncNtCoreCount(core, count) {
