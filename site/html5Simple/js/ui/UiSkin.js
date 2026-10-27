@@ -29,10 +29,11 @@ function preloadUiSkin(scene) {
     scene.load.json(UI_SKIN_JSON_KEY, UI_SKIN_JSON_PATH);
 }
 
-function mountUiSkin(scene, bounds) {
+function mountUiSkin(scene, bounds, options) {
     if (!scene || !scene.cache.json.exists(UI_SKIN_JSON_KEY)) {
         return null;
     }
+    const opts = options || {};
     const heatMap = new UiHeatMap(scene, bounds, { interactive: false });
     if (heatMap.field.view) {
         heatMap.field.view.setDepth(-1000);
@@ -48,7 +49,7 @@ function mountUiSkin(scene, bounds) {
         new UiHotRod(heatMap, { name: 'Hot Rod 3' })
     ];
     const raw = scene.cache.json.get(UI_SKIN_JSON_KEY);
-    const highlightList = (raw && raw.highlighters) || [];
+    const highlightList = opts.highlighters === false ? [] : ((raw && raw.highlighters) || []);
     const highlighters = highlightList.map((item, index) => new UiBackHighlighter(heatMap, {
         name: (item && item.name) || `Back Highlight ${index + 1}`
     }));

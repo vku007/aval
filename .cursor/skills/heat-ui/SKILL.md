@@ -2,9 +2,10 @@
 name: heat-ui
 description: >-
   Work on html5Simple Game UI and HotMap UI: heat items, composites, channels,
-  behaviours, transitions, pulses, and LocalAdvanced. Use when editing
-  site/html5Simple/js/heat, js/ui heat objects, HotMap composites, pulses,
-  UiHeatMap, or scenes that stamp a heat field.
+  behaviours, transitions, pulses, LocalAdvanced, and the game FPS overlay.
+  Use when editing site/html5Simple/js/heat, js/ui heat objects, HotMap
+  composites, pulses, UiHeatMap, or scenes that stamp a heat field, and when
+  Chrome shows 30 FPS on html5Simple.
 ---
 
 # Game UI and HotMap UI
@@ -69,6 +70,14 @@ npm test
 ```
 
 Idle goldens must stay bit-identical unless stamp math intentionally changed. Then `npm run goldens` and say why. New motion needs a lifecycle case: first frame in the same tick, `cancel` restores that slot, `finish` matches seek-to-end, `seek` matches stepping, destroy resolves `cancelled`. Harness loads scripts with `node:vm`. Add a new heat script to `HEAT_SCRIPTS` in `tests/html5Simple/harness.js` in the same order as `index.html`, and export any name the test calls.
+
+## Frame rate
+
+`#game-fps` (`showGameFps` in `js/game.js`) shows `Math.round(game.loop.actualFps)`. Phaser 3.70 runs its callback on every `requestAnimationFrame`. A steady 30 means Chrome is delivering frames at 30 Hz.
+
+On this Mac that was macOS Low Power Mode while the laptop was unplugged. The menu was idle, the skin was off, and the same page returned to 60 as soon as the laptop was plugged in. Check `pmset -g` for `lowpowermode 1` before changing heat or scene code. The Cursor browser can still report 60 on that URL while the user's Chrome is capped, and a Chrome window that is not frontmost can sit near 30 even on `about:blank`. Measure in the frontmost Chrome window with the laptop plugged in.
+
+A game stall is separate: a frame misses 16.6 ms and Chrome then presents every other vsync. Rebuilding a full-width RenderTexture on every divider move did that on the results bar. Draw the moving panel with Graphics, and rebuild only the small glyph texture when the label string changes.
 
 ## Out of scope
 

@@ -226,4 +226,200 @@ class SimpleGameSceneUtil {
         }
         return defaults[moveType] || 9;
     }
+
+    /**
+     * Finished-match summary for the advanced results scene.
+     * Rounds are finished rounds. Items and effects are what this player spent.
+     * @param {object} gameData
+     * @param {string} currentUserId
+     * @returns {{ winner: string, playerScore: number, enemyScore: number, rounds: number, items: object, enemyItems: object, effects: object }}
+     */
+    static summarizeAdvancedResult(gameData, currentUserId) {
+        const scores = this.calculateScore(gameData, currentUserId);
+        let winner = 'draw';
+        if (currentUserId && scores.playerScore !== scores.enemyScore) {
+            winner = scores.playerScore > scores.enemyScore ? 'you' : 'enemy';
+        }
+        const spend = this.playerSpend(gameData, currentUserId);
+        const enemy = this.enemySpend(gameData, currentUserId);
+        return {
+            winner,
+            playerScore: scores.playerScore,
+            enemyScore: scores.enemyScore,
+            rounds: this.finishedRoundCount(gameData),
+            items: spend.items,
+            enemyItems: enemy.items,
+            effects: spend.effects
+        };
+    }
+
+    /**
+     * @param {object} gameData
+     * @returns {number}
+     */
+    static finishedRoundCount(gameData) {
+        const rounds = gameData?.payload?.playerContext?.roundStates || [];
+        return rounds.filter((round) => {
+            const status = String((round && round.status) || '').toLowerCase();
+            return status === 'finished' || status === 'done' || status === 'completed';
+        }).length;
+    }
+
+    /**
+     * Stones, scissors, papers, and effects removed from this player's inventory.
+     * @param {object} gameData
+     * @param {string} currentUserId
+     * @returns {{ items: object, effects: object }}
+     */
+    static playerSpend(gameData, currentUserId) {
+        return this.spendFor(gameData, currentUserId, 'player');
+    }
+
+    /**
+     * Stones, scissors, and papers the other side spent.
+     * @param {object} gameData
+     * @param {string} currentUserId
+     * @returns {{ items: object, effects: object }}
+     */
+    static enemySpend(gameData, currentUserId) {
+        return this.spendFor(gameData, currentUserId, 'enemy');
+    }
+
+    /**
+     * @param {object} gameData
+     * @param {string} currentUserId
+     * @param {'player'|'enemy'} side
+     * @returns {{ items: object, effects: object }}
+     */
+    static spendFor(gameData, currentUserId, side) {
+        const items = { stones: 0, scissors: 0, papers: 0, total: 0 };
+        const effects = {
+            NA_effect_stone: 0,
+            NA_effect_scissors: 0,
+            NA_effect_papers: 0,
+            NT_effect: 0,
+            total: 0
+        };
+        if (!gameData || currentUserId == null || currentUserId === '') {
+            return { items, effects };
+        }
+        const itemKey = { Stone: 'stones', Scissors: 'scissors', Paper: 'papers' };
+        const naKey = {
+            Stone: 'NA_effect_stone',
+            Scissors: 'NA_effect_scissors',
+            Paper: 'NA_effect_papers'
+        };
+        const userId = String(currentUserId);
+        const wantPlayer = side !== 'enemy';
+        const rounds = gameData.payload?.playerContext?.roundStates || [];
+        rounds.forEach((round) => {
+            (round.subRoundStates || []).forEach((sub) => {
+                (sub.moves || []).forEach((move) => {
+                    if (!move || (String(move.userId) === userId) !== wantPlayer) {
+                        return;
+                    }
+                    const context = move.context || {};
+                    const key = itemKey[context.moveType];
+                    const size = typeof context.size === 'number' && context.size > 0
+                        ? Math.trunc(context.size)
+                        : 0;
+                    if (key && size > 0) {
+                        items[key] += size;
+                        items.total += size;
+                    }
+                    (context.effects || []).forEach((effect) => {
+                        const kind = effect && effect.kind;
+                        if (kind === 'NegateSize' || kind === 'Overpower') {
+                            const na = naKey[context.moveType];
+                            if (!na) {
+                                return;
+                            }
+                            effects[na] += 1;
+                            effects.total += 1;
+                            return;
+                        }
+                        if (kind === 'Protection' || kind === 'SizeOnly') {
+                            effects.NT_effect += 1;
+                            effects.total += 1;
+                        }
+                    });
+                });
+            });
+        });
+        return { items, effects };
+    }
+
+    /**
+     * Finished advanced match for the choose-game RESULTS button.
+     * Scores, items, and effects follow the current player id.
+     * @param {string} playerId
+     * @returns {object}
+     */
+    static finishedAdvancedGameStub(playerId) {
+        const you = playerId != null && playerId !== '' ? String(playerId) : 'you';
+        const enemy = 'npc';
+        const move = (userId, moveType, size, effects) => ({
+            userId,
+            context: { moveType, size, effects: effects || [] }
+        });
+        return {
+            payload: {
+                gameContext: { status: 'finished' },
+                enemyContext: { name: 'Rival' },
+                playerContext: {
+                    roundStates: [
+                        {
+                            status: 'finished',
+                            winnerId: you,
+                            subRoundStates: [
+                                {
+                                    status: 'done',
+                                    moves: [
+                                        move(you, 'Stone', 2, [{ kind: 'NegateSize' }]),
+                                        move(enemy, 'Stone', 2, [])
+                                    ]
+                                },
+                                {
+                                    status: 'done',
+                                    winnerId: you,
+                                    moves: [
+                                        move(you, 'Scissors', 3, [{ kind: 'SizeOnly' }]),
+                                        move(enemy, 'Paper', 4, [])
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            status: 'finished',
+                            winnerId: enemy,
+                            subRoundStates: [
+                                {
+                                    status: 'done',
+                                    winnerId: enemy,
+                                    moves: [
+                                        move(you, 'Paper', 1, [{ kind: 'Overpower' }]),
+                                        move(enemy, 'Scissors', 1, [])
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            status: 'finished',
+                            winnerId: you,
+                            subRoundStates: [
+                                {
+                                    status: 'done',
+                                    winnerId: you,
+                                    moves: [
+                                        move(you, 'Stone', 4, []),
+                                        move(enemy, 'Scissors', 2, [])
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        };
+    }
 }

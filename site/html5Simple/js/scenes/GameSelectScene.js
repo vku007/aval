@@ -54,6 +54,12 @@ class GameSelectScene extends Phaser.Scene {
                 strong: true
             },
             {
+                label: 'RESULTS',
+                kind: 'results',
+                height: UI.menuBtnH,
+                strong: false
+            },
+            {
                 label: 'BACK',
                 kind: null,
                 height: UI.menuBtnH,
@@ -91,6 +97,17 @@ class GameSelectScene extends Phaser.Scene {
         });
     }
 
+    onResultsClick() {
+        if (this._starting) {
+            return;
+        }
+        const user = this.registry.get('currentUser');
+        const playerId = user && user.id ? user.id : 'you';
+        fxGoTo(this, 'AdvancedGameResultsScene', {
+            gameData: SimpleGameSceneUtil.finishedAdvancedGameStub(playerId)
+        }, { flash: true });
+    }
+
     onBackClick() {
         if (this._starting) return;
         console.log('[GameSelectScene] Back clicked');
@@ -102,6 +119,10 @@ class GameSelectScene extends Phaser.Scene {
         if (this._starting) return;
         if (kind === 'local-advanced') {
             fxGoTo(this, 'LocalAdvancedGameScene', undefined, { flash: true });
+            return;
+        }
+        if (kind === 'results') {
+            this.onResultsClick();
             return;
         }
         this._starting = true;

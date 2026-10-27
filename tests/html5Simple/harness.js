@@ -63,7 +63,8 @@ const HEAT_SCRIPTS = [
     'js/ui/HotMapUiPaper.js',
     'js/ui/HotMapUiNewPaper.js',
     'js/ui/HotMapUiPaperPrime.js',
-    'js/ui/HotMapUiCross.js'
+    'js/ui/HotMapUiCross.js',
+    'js/ui/ResultBar.js'
 ];
 
 const EXPORTED = [
@@ -140,6 +141,18 @@ const EXPORTED = [
     'hotMapActivePartCount',
     'HotMapUiPaperPrime',
     'HotMapUiCross',
+    'ResultBar',
+    'RoundsResultBar',
+    'StonesResultBar',
+    'createResultBarHighlight',
+    'resultBarCaptionText',
+    'resultBarCaptionPoint',
+    'resultBarSeekRise',
+    'resultBarLabel',
+    'resultBarLabelX',
+    'resultBarLeftShare',
+    'resultBarPanels',
+    'resultBarProgress',
     'HorisontalPulse',
     'VerticalPulse',
     'VictoryPulse',

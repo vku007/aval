@@ -10,6 +10,7 @@
  * That Core's round starts bright and fades once. Clearing SIZE removes the Core and shows the normal composite again.
  * Sending an NA turn keeps that prime up and the selected stack hidden. The result takes the gesture item off the prime.
  * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
+ * A finished match opens AdvancedGameResultsScene. OK there returns to the main menu.
  */
 class LocalAdvancedGameScene extends Phaser.Scene {
     constructor() {
@@ -197,6 +198,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         const field = this.heatMap && this.heatMap.field;
         const abort = this.abortOnShutdown();
         this._sending = true;
+        this._openResults = false;
         this.refreshMoveButtons();
         this.setStatus(`Sending ${selection.moveType} ${selection.size}...`);
         try {
@@ -220,6 +222,9 @@ class LocalAdvancedGameScene extends Phaser.Scene {
                 return;
             }
             this.selectedEffects = [];
+            if (this.isMatchOver()) {
+                this._openResults = true;
+            }
         } catch (error) {
             if (!this.fieldLive(field)) {
                 return;
@@ -239,7 +244,14 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             }
             this.refreshMoveButtons();
             this.refreshEffectButtons();
+            if (this._openResults) {
+                this.openAdvancedResults();
+            }
         }
+    }
+
+    openAdvancedResults() {
+        fxGoTo(this, 'AdvancedGameResultsScene', { gameData: this.gameData }, { flash: true });
     }
 
     latestExchange(userId) {
