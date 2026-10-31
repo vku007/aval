@@ -16,6 +16,7 @@ class TestsScene extends Phaser.Scene {
         enterTestsCanvas(this);
         console.log('[TestsScene] create() started');
         fxEnter(this);
+        this._starting = false;
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
@@ -30,18 +31,17 @@ class TestsScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         const buttons = [
-            { label: 'UI EDITOR', onClick: () => this.onUiEditorClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'SIMPLE GAME', onClick: (btn) => this.onSelectKind('classic', btn), height: UI.menuPrimaryH, strong: true },
+            { label: 'EXTENDED GAME', onClick: (btn) => this.onSelectKind('extended', btn), height: UI.menuPrimaryH, strong: true },
+            { label: 'RESULTS', onClick: () => this.onResultsClick(), height: UI.menuBtnH, strong: false },
+            { label: 'OLD UI TESTS', onClick: () => this.onOldUiTestsClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BUTTONS', onClick: () => this.onButtonsClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'SKINNED BUTTON', onClick: () => this.onSkinnedButtonClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'COMPOSITE UI EDITOR', onClick: () => this.onCompositeUiEditorClick(), height: UI.menuPrimaryH, strong: true },
-            { label: 'UI PLAZMA BALL', onClick: () => this.onPlasmaClick(), height: UI.menuPrimaryH, strong: true },
-            { label: 'HOT MAP BALL', onClick: () => this.onHotMapClick(), height: UI.menuPrimaryH, strong: true },
-            { label: 'ROTATED HOT MAP BALL', onClick: () => this.onRotatedHotMapClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'MOVE HOT ROD', onClick: () => this.onMoveHotRodClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BACK HIGHLIGHT', onClick: () => this.onBackHighlightClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'SHARD', onClick: () => this.onShardClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'ALTER SHEET', onClick: () => this.onAlterSheetClick(), height: UI.menuPrimaryH, strong: true },
-            { label: 'SHEET', onClick: () => this.onSheetClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'MOVE HOT CIRCLE', onClick: () => this.onMoveHotCircleClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BACK', onClick: () => this.onBackClick(), height: UI.menuBtnH, strong: false }
         ];
@@ -59,11 +59,11 @@ class TestsScene extends Phaser.Scene {
         columns.forEach((column, index) => {
             let y = top;
             column.forEach((btn) => {
-                this.createMenuButton(
+                const made = this.createMenuButton(
                     xs[index],
                     y + btn.height / 2,
                     btn.label,
-                    btn.onClick,
+                    () => btn.onClick(made),
                     btn.height,
                     {
                         strong: btn.strong,
@@ -76,9 +76,85 @@ class TestsScene extends Phaser.Scene {
         });
     }
 
-    onUiEditorClick() {
-        console.log('[TestsScene] UI Editor clicked');
-        fxGoTo(this, 'UIEditorScene');
+    onResultsClick() {
+        if (this._starting) {
+            return;
+        }
+        const user = this.registry.get('currentUser');
+        const playerId = user && user.id ? user.id : 'you';
+        fxGoTo(this, 'AdvancedGameResultsScene', {
+            gameData: SimpleGameSceneUtil.finishedAdvancedGameStub(playerId),
+            returnTo: 'TestsScene'
+        }, { flash: true });
+    }
+
+    async onSelectKind(kind, clickedBtn) {
+        console.log('[TestsScene] Selected kind:', kind);
+        if (this._starting) {
+            return;
+        }
+        this._starting = true;
+        if (clickedBtn && clickedBtn.buttonText) {
+            clickedBtn.buttonText.setText('STARTING...');
+        }
+
+        try {
+            if (typeof gameClient === 'undefined') {
+                console.error('[TestsScene] gameClient not available');
+                this.resetStarting(clickedBtn);
+                this.showErrorModal('Game client not initialized', 'Please reload and try again.');
+                return;
+            }
+
+            const gameContext = {
+                gameType: 'PVE',
+                rounds: 'BO3',
+                kind,
+                level: {
+                    name: 'Level1'
+                },
+                episode: {
+                    name: 'Episode1'
+                }
+            };
+
+            console.log('[TestsScene] Creating new game...', gameContext);
+            const response = await gameClient.createGame(gameContext);
+            console.log('[TestsScene] Game created:', response);
+
+            if (response.gameId) {
+                this.registry.set('currentGameKind', kind);
+                const sceneKey = kind === 'extended' ? 'ExtendedGameScene' : 'ClassicGameScene';
+                fxGoTo(this, sceneKey, { gameId: response.gameId }, { flash: true });
+            } else {
+                console.error('[TestsScene] No gameId in response');
+                this.resetStarting(clickedBtn);
+                this.showErrorModal('Failed to create game', 'No game ID returned');
+            }
+        } catch (error) {
+            console.error('[TestsScene] Failed to create game:', error);
+            this.resetStarting(clickedBtn);
+            this.showErrorModal('Failed to create game', error.message || 'An unexpected error occurred.');
+        }
+    }
+
+    resetStarting(clickedBtn) {
+        this._starting = false;
+        if (clickedBtn && clickedBtn.buttonText) {
+            clickedBtn.buttonText.setText(clickedBtn.baseLabel || 'SIMPLE GAME');
+        }
+    }
+
+    showErrorModal(title, message) {
+        this.scene.launch('ErrorModalScene', {
+            errorTitle: title,
+            errorMessage: message
+        });
+    }
+
+    onOldUiTestsClick() {
+        console.log('[TestsScene] Old UI tests clicked');
+        fxGoTo(this, 'OldUiScenes');
     }
 
     onButtonsClick() {
@@ -94,21 +170,6 @@ class TestsScene extends Phaser.Scene {
     onCompositeUiEditorClick() {
         console.log('[TestsScene] Composite UI Editor clicked');
         fxGoTo(this, 'CompositeUIEditorScene');
-    }
-
-    onPlasmaClick() {
-        console.log('[TestsScene] UI plazma ball clicked');
-        fxGoTo(this, 'UITestScene');
-    }
-
-    onHotMapClick() {
-        console.log('[TestsScene] Hot map ball clicked');
-        fxGoTo(this, 'HotMapBallScene');
-    }
-
-    onRotatedHotMapClick() {
-        console.log('[TestsScene] Rotated hot map ball clicked');
-        fxGoTo(this, 'RotatedHotMapBallScene');
     }
 
     onMoveHotRodClick() {
@@ -129,11 +190,6 @@ class TestsScene extends Phaser.Scene {
     onAlterSheetClick() {
         console.log('[TestsScene] Alter sheet clicked');
         fxGoTo(this, 'AlterSheetScene');
-    }
-
-    onSheetClick() {
-        console.log('[TestsScene] Sheet clicked');
-        fxGoTo(this, 'SheetScene');
     }
 
     onMoveHotCircleClick() {
@@ -161,6 +217,7 @@ class TestsScene extends Phaser.Scene {
 
         btn.add([bg, text]);
         btn.buttonText = text;
+        btn.baseLabel = label;
 
         const hitArea = new Phaser.Geom.Rectangle(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight);
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });

@@ -13,8 +13,6 @@ class GameSelectScene extends Phaser.Scene {
         fxEnter(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        this._starting = false;
-
         const user = this.registry.get('currentUser');
         const displayName = user?.name || 'Not Logged In';
 
@@ -24,7 +22,7 @@ class GameSelectScene extends Phaser.Scene {
             wordWrap: { width: width - UI.pad * 2 }
         }).setOrigin(0, 0);
 
-        this.add.text(width / 2, 56, 'Sweet Adventure', {
+        this.add.text(width / 2, 56, 'Warm Adventure', {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);
@@ -36,28 +34,10 @@ class GameSelectScene extends Phaser.Scene {
 
         const buttons = [
             {
-                label: 'SIMPLE GAME',
-                kind: 'classic',
+                label: 'BLITZ GAME',
+                kind: 'blitz',
                 height: UI.menuPrimaryH,
                 strong: true
-            },
-            {
-                label: 'EXTENDED GAME',
-                kind: 'extended',
-                height: UI.menuPrimaryH,
-                strong: true
-            },
-            {
-                label: 'NEW LOCAL ADVANCED GAME',
-                kind: 'local-advanced',
-                height: UI.menuPrimaryH,
-                strong: true
-            },
-            {
-                label: 'RESULTS',
-                kind: 'results',
-                height: UI.menuBtnH,
-                strong: false
             },
             {
                 label: 'BACK',
@@ -70,7 +50,6 @@ class GameSelectScene extends Phaser.Scene {
         const totalHeight = buttons.reduce((sum, btn) => sum + btn.height, 0) + gap * (buttons.length - 1);
         let y = 140 + (height - 140 - 24 - totalHeight) / 2;
 
-        this.kindButtons = {};
         buttons.forEach((btn) => {
             const made = this.createMenuButton(
                 width / 2,
@@ -90,99 +69,20 @@ class GameSelectScene extends Phaser.Scene {
                     particles: true
                 }
             );
-            if (btn.kind) {
-                this.kindButtons[btn.kind] = made;
-            }
             y += btn.height + gap;
         });
     }
 
-    onResultsClick() {
-        if (this._starting) {
-            return;
-        }
-        const user = this.registry.get('currentUser');
-        const playerId = user && user.id ? user.id : 'you';
-        fxGoTo(this, 'AdvancedGameResultsScene', {
-            gameData: SimpleGameSceneUtil.finishedAdvancedGameStub(playerId)
-        }, { flash: true });
-    }
-
     onBackClick() {
-        if (this._starting) return;
         console.log('[GameSelectScene] Back clicked');
         fxGoTo(this, 'MenuScene');
     }
 
-    async onSelectKind(kind, clickedBtn) {
+    onSelectKind(kind) {
         console.log('[GameSelectScene] Selected kind:', kind);
-        if (this._starting) return;
-        if (kind === 'local-advanced') {
-            fxGoTo(this, 'LocalAdvancedGameScene', undefined, { flash: true });
-            return;
+        if (kind === 'blitz') {
+            fxGoTo(this, 'BlitzGameScene', undefined, { flash: true });
         }
-        if (kind === 'results') {
-            this.onResultsClick();
-            return;
-        }
-        this._starting = true;
-        if (clickedBtn && clickedBtn.buttonText) {
-            clickedBtn.buttonText.setText('STARTING...');
-        }
-
-        try {
-            if (typeof gameClient === 'undefined') {
-                console.error('[GameSelectScene] gameClient not available');
-                this.resetStarting(clickedBtn);
-                this.showErrorModal('Game client not initialized', 'Please reload and try again.');
-                return;
-            }
-
-            const gameContext = {
-                gameType: 'PVE',
-                rounds: 'BO3',
-                kind,
-                level: {
-                    name: 'Level1'
-                },
-                episode: {
-                    name: 'Episode1'
-                }
-            };
-
-            console.log('[GameSelectScene] Creating new game...', gameContext);
-            const response = await gameClient.createGame(gameContext);
-            console.log('[GameSelectScene] Game created:', response);
-
-            if (response.gameId) {
-                this.registry.set('currentGameKind', kind);
-                const sceneKey = kind === 'extended' ? 'ExtendedGameScene' : 'ClassicGameScene';
-                fxGoTo(this, sceneKey, { gameId: response.gameId }, { flash: true });
-            } else {
-                console.error('[GameSelectScene] No gameId in response');
-                this.resetStarting(clickedBtn);
-                this.showErrorModal('Failed to create game', 'No game ID returned');
-            }
-        } catch (error) {
-            console.error('[GameSelectScene] Failed to create game:', error);
-            this.resetStarting(clickedBtn);
-            this.showErrorModal('Failed to create game', error.message || 'An unexpected error occurred.');
-        }
-    }
-
-    resetStarting(clickedBtn) {
-        this._starting = false;
-        if (clickedBtn && clickedBtn.buttonText) {
-            const kind = Object.keys(this.kindButtons).find((k) => this.kindButtons[k] === clickedBtn);
-            clickedBtn.buttonText.setText(kind === 'extended' ? 'EXTENDED GAME' : 'SIMPLE GAME');
-        }
-    }
-
-    showErrorModal(title, message) {
-        this.scene.launch('ErrorModalScene', {
-            errorTitle: title,
-            errorMessage: message
-        });
     }
 
     createMenuButton(x, y, label, callback, btnHeight = UI.menuBtnH, options = {}) {

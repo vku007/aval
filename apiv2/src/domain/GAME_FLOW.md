@@ -68,7 +68,7 @@ classDiagram
 - `id`, `usersIds` (player + `NPC_1` on create)
 - `status`: `created` | `started` | `finished` | `broken`
 - `createContext`: how the player asked to play
-- `inventories`: one `GamePlayerInventory` per `usersIds` entry (items, currencies, `time`). Create may pass them. Otherwise a classic game gives every amount as 1000, and an extended game gives both players 20 stones, 12 scissors, 10 papers, 2 `NA_effect_stone`, 5 `NA_effect_scissors`, 3 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. Classic play and surrender leave them unchanged. An extended move spends the thrower's row (see Play).
+- `inventories`: one `GamePlayerInventory` per `usersIds` entry (items, currencies, `time`). Create may pass them. Otherwise a classic game gives every amount as 1000, and an extended game gives both players 21 stones, 12 scissors, 12 papers, 3 `NA_effect_stone`, 2 `NA_effect_scissors`, 5 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. Classic play and surrender leave them unchanged. An extended move spends the thrower's row (see Play).
 - `outcome`: rewards map, filled at game end
 - `endTime` when finished
 

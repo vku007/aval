@@ -40,14 +40,14 @@ Drive `site/html5Simple` in a browser. Confirm the action, not only the first fr
 
 - Composite editor: ADD, REMOVE, and POP (where that group has it) for stone, scissor, paper, and new paper.
 - Menu: skin on, then skin off. Leave the menu and come back with the skin still on.
-- A full LocalAdvanced best-of-5 match.
-- Leave LocalAdvanced during `playMoveResult` (during the reveal wait, during a pulse, and during the staggered remove) and come back. The new visit should show no rods or disks left by the old chain.
+- A full Blitz game best-of-5 match.
+- Leave Blitz game during `playMoveResult` (during the reveal wait, during a pulse, and during the staggered remove) and come back. The new visit should show no rods or disks left by the old chain.
 
 ## Cause of the rebinding guards
 
 Phaser reuses the scene instance. `attachRotatedHeatField`'s shutdown handler destroys the view, the hit zone, and the texture. It leaves `balls`, `rods`, and `highlighters` on the old field object. Anything still stored on `this` keeps stamping that dead field.
 
-`LocalAdvancedGameScene.create` increments `_visit`, nulls the six composites, and nulls the health bars, because a length check would keep those dead emitters. `syncSceneComposites` then builds new groups. It also runs every frame: `bindToField` puts parts back on the list, and `liveOn` failing rebuilds the group. `bindSceneHeatObjects` does the same re-add for `scene.balls`, `rods`, `highlighters`, `shards`, `sheets`, and the named groups. `MenuScene` does not call it. `menuSkinLive` remounts the skin when the host's heat map scene is not this scene, or when an item is missing from the field. `create` sets `skinHost = null` first, so a restart remounts from that, and a skin toggle off only calls `setVisible(false)`.
+`BlitzGameScene.create` increments `_visit`, nulls the six composites, and nulls the health bars, because a length check would keep those dead emitters. `syncSceneComposites` then builds new groups. It also runs every frame: `bindToField` puts parts back on the list, and `liveOn` failing rebuilds the group. `bindSceneHeatObjects` does the same re-add for `scene.balls`, `rods`, `highlighters`, `shards`, `sheets`, and the named groups. `MenuScene` does not call it. `menuSkinLive` remounts the skin when the host's heat map scene is not this scene, or when an item is missing from the field. `create` sets `skinHost = null` first, so a restart remounts from that, and a skin toggle off only calls `setVisible(false)`.
 
 Seven sandboxes call `bindSceneHeatObjects` with a standalone `attachHeatMap` / `attachRotatedHeatMap` / `attachHotRod` / `attachBackHighlight` / `attachSheet` / `attachHotCircle` field (`HotMapBallScene`, `RotatedHotMapBallScene`, `MoveHotRodScene`, `BackHighlightScene`, `ShardScene`, `SheetScene`, `MoveHotCircleScene`). Those scenes do not keep the lists the binder walks, so the call does nothing. The three callers that use `UiHeatMap` are `UIEditorScene`, `CompositeUIEditorScene`, and `AlterSheetScene`. Their `create` methods already build new objects and register them. The binder matters there only if an object stays on the scene after it has been removed from the field list. The harness covers that re-add, and the no-op sandbox case.
 
@@ -115,7 +115,7 @@ The animator is in and nothing in a scene calls `play` yet. Lifecycle coverage i
 
 ## Slice 1h
 
-LocalAdvanced's move sequence waits on the field clock. `reveal`, the fight pulses, `clear` (0.32 s stagger), and the post-mortem and victory pulses are runs. `heatFieldWait` is the 5 s reveal pause and the 2 s clash pause. Each board is built once per visit with `specCount` 0, and `reset({ items: 'spec' })` empties the enemy boards at the start of the exchange and the winner's board after the post-mortem pulse.
+Blitz game's move sequence waits on the field clock. `reveal`, the fight pulses, `clear` (0.32 s stagger), and the post-mortem and victory pulses are runs. `heatFieldWait` is the 5 s reveal pause and the 2 s clash pause. Each board is built once per visit with `specCount` 0, and `reset({ items: 'spec' })` empties the enemy boards at the start of the exchange and the winner's board after the post-mortem pulse.
 
 Pulses are a `HotRod` plus `sweep` (move, and `clip` on a victory strike) and `call detach`. They advance only when the field ticks, so STOP freezes them. `field.destroy()` on scene shutdown cancels every run. `finish()` marks the run completing before the end `detach`, so that call resolves `finished` instead of cancelling itself.
 

@@ -35,7 +35,7 @@ class MenuScene extends Phaser.Scene {
 
         this.currentDisplayName = displayName;
 
-        this.titleText = this.add.text(width / 2, 56, 'Sweet Adventure', {
+        this.titleText = this.add.text(width / 2, 56, 'Warm Adventure', {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);

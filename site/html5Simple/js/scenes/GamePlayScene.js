@@ -8,6 +8,10 @@ class GamePlayScene extends Phaser.Scene {
         super(config);
     }
 
+    init() {
+        exitTestsCanvas(this);
+    }
+
     initializeSceneState(data) {
         this.currentGameId = data.gameId || null;
         this.gameData = null;
@@ -29,6 +33,7 @@ class GamePlayScene extends Phaser.Scene {
     }
 
     create(data) {
+        exitTestsCanvas(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
         this.initializeSceneState(data);
@@ -1108,7 +1113,7 @@ class GamePlayScene extends Phaser.Scene {
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
         bindPress(this, btn, {
             tapFx: 'none',
-            onClick: () => fxGoTo(this, 'MenuScene')
+            onClick: () => fxGoTo(this, 'TestsScene')
         });
         return btn;
     }

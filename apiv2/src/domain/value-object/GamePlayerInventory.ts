@@ -30,12 +30,12 @@ const NA_EFFECT_BY_GESTURE: Record<GestureItemKey, NaEffectItemKey> = {
 
 /** Starting item stacks for an extended game. Coins stay at the default amount. */
 export const ADVANCED_INVENTORY_ITEMS: InventoryItems = {
-  stones: 20,
+  stones: 21,
   scissors: 12,
-  papers: 10,
-  NA_effect_stone: 2,
-  NA_effect_scissors: 5,
-  NA_effect_papers: 3,
+  papers: 12,
+  NA_effect_stone: 3,
+  NA_effect_scissors: 2,
+  NA_effect_papers: 5,
   NT_effect: 3
 };
 

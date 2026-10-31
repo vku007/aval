@@ -232,7 +232,7 @@ class SimpleGameSceneUtil {
      * Rounds are finished rounds. Items and effects are what this player spent.
      * @param {object} gameData
      * @param {string} currentUserId
-     * @returns {{ winner: string, playerScore: number, enemyScore: number, rounds: number, items: object, enemyItems: object, effects: object }}
+     * @returns {{ winner: string, playerScore: number, enemyScore: number, rounds: number, items: object, enemyItems: object, effects: object, enemyEffects: object }}
      */
     static summarizeAdvancedResult(gameData, currentUserId) {
         const scores = this.calculateScore(gameData, currentUserId);
@@ -249,7 +249,8 @@ class SimpleGameSceneUtil {
             rounds: this.finishedRoundCount(gameData),
             items: spend.items,
             enemyItems: enemy.items,
-            effects: spend.effects
+            effects: spend.effects,
+            enemyEffects: enemy.effects
         };
     }
 
@@ -350,7 +351,7 @@ class SimpleGameSceneUtil {
     }
 
     /**
-     * Finished advanced match for the choose-game RESULTS button.
+     * Finished advanced match for the Tests RESULTS button.
      * Scores, items, and effects follow the current player id.
      * @param {string} playerId
      * @returns {object}

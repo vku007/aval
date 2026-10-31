@@ -84,7 +84,7 @@ Durations:
 
 - Exponential follow (`k = 1 - exp(-speed * dt)` in `stepRotatedMotion`) becomes duration `3 / speed` seconds and ease `expOut`. `3 / speed` is `-ln(0.05) / speed`, so it covers 95% of the old path. Tune by eye after the tests pass. Stone's default `spawnSpeed` is 1.2, so the starting duration is 2.5 s.
 - New Paper drama keeps the current rate. In `UiNewSheet.advanceDrama`, `rate = speed / 100`, so a step lasts `100 / speed` seconds. Defaults 400 / 900 / 160 are 0.25 s, 100/900 s, and 0.625 s. The step-1 file's 0.11 and 0.63 are those values rounded. Derive the duration from the speed the editor still edits. Do not hardcode the rounded numbers.
-- Pulses: horizontal 1.5 s, vertical 1.5 s, victory 0.75 s, sine ease, then `call detach`. Constants today: `HORISONTAL_PULSE_MS = 1500` and the matching vertical and victory constants.
+- Pulses: horizontal 1.125 s, vertical 1.125 s, victory 0.5625 s, sine ease, then `call detach`. Constants today: `HORISONTAL_PULSE_MS = 1125` and the matching vertical and victory constants.
 - Health loss and menu hover: `pose` on slot `hover` for the menu, slot `life` or a dedicated held run for the lost bar, fill `hold`, policy `replace` from `'current'`.
 
 ### Composites

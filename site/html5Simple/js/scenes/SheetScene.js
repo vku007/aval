@@ -362,7 +362,7 @@ class SheetScene extends Phaser.Scene {
 
     onBackClick() {
         console.log('[SheetScene] Back clicked');
-        fxGoTo(this, 'TestsScene');
+        fxGoTo(this, 'OldUiScenes');
     }
 
     createMenuButton(x, y, label, callback, btnHeight = UI.menuBtnH) {

@@ -178,6 +178,30 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             rowH: 24,
             active: false
         });
+        this.amountProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'amount-indicator'
+                ? this.selectedObject
+                : null,
+            tabs: HmHorisontalAmountIndicator.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
+        this.verticalAmountProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'vertical-amount-indicator'
+                ? this.selectedObject
+                : null,
+            tabs: HmVerticalAmountIndicator.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
+        this.tableAmountProps = new UiPropEditor(this, this.propsPanel, {
+            getTarget: () => this.selectedObject && this.selectedObject.kind === 'vertical-table-amount-indicator'
+                ? this.selectedObject
+                : null,
+            tabs: HmVerticalTableAmountIndicator.PROP_TABS,
+            rowH: 24,
+            active: false
+        });
         this.newSheetProps = new UiPropEditor(this, this.propsPanel, {
             getTarget: () => this.selectedObject && this.selectedObject.kind === 'new-sheet'
                 ? this.selectedObject
@@ -345,6 +369,15 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         if (kind === 'hot-map-cross') {
             return this.crossProps;
         }
+        if (kind === 'amount-indicator') {
+            return this.amountProps;
+        }
+        if (kind === 'vertical-amount-indicator') {
+            return this.verticalAmountProps;
+        }
+        if (kind === 'vertical-table-amount-indicator') {
+            return this.tableAmountProps;
+        }
         if (kind === 'new-sheet') {
             return this.newSheetProps;
         }
@@ -406,6 +439,15 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         }
         if (this.crossProps) {
             this.crossProps.setActive(kind === 'hot-map-cross');
+        }
+        if (this.amountProps) {
+            this.amountProps.setActive(kind === 'amount-indicator');
+        }
+        if (this.verticalAmountProps) {
+            this.verticalAmountProps.setActive(kind === 'vertical-amount-indicator');
+        }
+        if (this.tableAmountProps) {
+            this.tableAmountProps.setActive(kind === 'vertical-table-amount-indicator');
         }
         if (this.newSheetProps) {
             this.newSheetProps.setActive(kind === 'new-sheet');
@@ -1051,6 +1093,41 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             created = new UiNewSheet(this.heatMap, { ownField: false, name: data.name });
         } else if (kind === 'hot-map-cross') {
             created = new HotMapUiCross(this.heatMap, { name: data.name });
+        } else if (kind === 'vertical-table-amount-indicator') {
+            created = new HmVerticalTableAmountIndicator(this.heatMap, {
+                name: data && data.name,
+                center: data && data.center,
+                width: data && data.width,
+                height: data && data.height,
+                maxAmount: data && data.maxAmount,
+                columns: data && data.columns,
+                stored: data && data.stored,
+                selected: data && data.selected,
+                duration: data && data.duration,
+                direction: data && data.direction
+            });
+        } else if (kind === 'vertical-amount-indicator') {
+            created = new HmVerticalAmountIndicator(this.heatMap, {
+                name: data && data.name,
+                center: data && data.center,
+                width: data && data.width,
+                height: data && data.height,
+                maxAmount: data && data.maxAmount,
+                stored: data && data.stored,
+                selected: data && data.selected,
+                duration: data && data.duration
+            });
+        } else if (kind === 'amount-indicator') {
+            created = new HmHorisontalAmountIndicator(this.heatMap, {
+                name: data && data.name,
+                center: data && data.center,
+                width: data && data.width,
+                height: data && data.height,
+                maxAmount: data && data.maxAmount,
+                stored: data && data.stored,
+                selected: data && data.selected,
+                duration: data && data.duration
+            });
         }
         if (created && typeof created.applySerialized === 'function') {
             created.applySerialized(data);
@@ -1059,7 +1136,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             this.bindCross(created);
             return created;
         }
-        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core' || kind === 'prime' || kind === 'hot-map-stone-prime' || kind === 'hot-map-scissors-prime' || kind === 'hot-map-paper-prime')) {
+        if (created && (kind === 'pointer' || kind === 'round' || kind === 'circle' || kind === 'core' || kind === 'prime' || kind === 'hot-map-stone-prime' || kind === 'hot-map-scissors-prime' || kind === 'hot-map-paper-prime' || kind === 'amount-indicator' || kind === 'vertical-amount-indicator' || kind === 'vertical-table-amount-indicator')) {
             return created;
         }
         if (created && kind === 'new-sheet' && this.host.newPaper && typeof this.host.newPaper.add === 'function') {
@@ -1076,6 +1153,26 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
 
     releaseObject(object) {
         if (!object) {
+            return;
+        }
+        if (object.kind === 'amount-indicator' || object.kind === 'vertical-amount-indicator' || object.kind === 'vertical-table-amount-indicator') {
+            const parts = object.parts.map((part) => part.object);
+            parts.forEach((part) => {
+                this.releaseObject(part);
+                this.dropFrom(this.objects, part);
+            });
+            if (typeof object.detach === 'function') {
+                object.detach();
+            }
+            if (this.host && this.host.amount === object) {
+                this.host.amount = null;
+            }
+            if (this.host && this.host.verticalAmount === object) {
+                this.host.verticalAmount = null;
+            }
+            if (this.host && this.host.tableAmount === object) {
+                this.host.tableAmount = null;
+            }
             return;
         }
         if (object.kind === 'hot-map-cross') {
@@ -1805,7 +1902,7 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
 
     clearSceneObjects() {
         const keep = new Set(
-            [this.host && this.host.stone, this.host && this.host.stonePrime, this.host && this.host.scissor, this.host && this.host.scissorsPrime, this.host && this.host.paper, this.host && this.host.newPaper, this.host && this.host.paperPrime, this.host && this.host.cross].filter(Boolean)
+            [this.host && this.host.stone, this.host && this.host.stonePrime, this.host && this.host.scissor, this.host && this.host.scissorsPrime, this.host && this.host.paper, this.host && this.host.newPaper, this.host && this.host.paperPrime, this.host && this.host.cross, this.host && this.host.amount, this.host && this.host.verticalAmount, this.host && this.host.tableAmount].filter(Boolean)
         );
         const listed = this.objects.filter((object) => !keep.has(object));
         listed.forEach((object) => {
@@ -1859,12 +1956,129 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         });
     }
 
+    ensureAmountListed() {
+        const amount = this.host && this.host.amount;
+        if (!amount) {
+            return;
+        }
+        if (this.objects.indexOf(amount) < 0) {
+            this.objects.push(amount);
+        }
+    }
+
+    restoreAmounts(entries) {
+        if (!this.host) {
+            return;
+        }
+        if (!Array.isArray(entries)) {
+            this.ensureAmountListed();
+            return;
+        }
+        const keep = this.host.amount;
+        if (keep && !entries.length) {
+            this.releaseObject(keep);
+            this.dropFrom(this.objects, keep);
+            return;
+        }
+        if (keep && entries[0]) {
+            keep.applySerialized(entries[0]);
+        } else if (!keep && entries[0]) {
+            this.host.amount = this.spawnObject('amount-indicator', entries[0]);
+        }
+        this.ensureAmountListed();
+        entries.slice(1).forEach((entry) => {
+            const created = this.spawnObject('amount-indicator', entry || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        });
+    }
+
+    ensureVerticalAmountListed() {
+        const amount = this.host && this.host.verticalAmount;
+        if (!amount) {
+            return;
+        }
+        if (this.objects.indexOf(amount) < 0) {
+            this.objects.push(amount);
+        }
+    }
+
+    restoreVerticalAmounts(entries) {
+        if (!this.host) {
+            return;
+        }
+        if (!Array.isArray(entries)) {
+            this.ensureVerticalAmountListed();
+            return;
+        }
+        const keep = this.host.verticalAmount;
+        if (keep && !entries.length) {
+            this.releaseObject(keep);
+            this.dropFrom(this.objects, keep);
+            return;
+        }
+        if (keep && entries[0]) {
+            keep.applySerialized(entries[0]);
+        } else if (!keep && entries[0]) {
+            this.host.verticalAmount = this.spawnObject('vertical-amount-indicator', entries[0]);
+        }
+        this.ensureVerticalAmountListed();
+        entries.slice(1).forEach((entry) => {
+            const created = this.spawnObject('vertical-amount-indicator', entry || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        });
+    }
+
+    ensureTableAmountListed() {
+        const amount = this.host && this.host.tableAmount;
+        if (!amount) {
+            return;
+        }
+        if (this.objects.indexOf(amount) < 0) {
+            this.objects.push(amount);
+        }
+    }
+
+    restoreTableAmounts(entries) {
+        if (!this.host) {
+            return;
+        }
+        if (!Array.isArray(entries)) {
+            this.ensureTableAmountListed();
+            return;
+        }
+        const keep = this.host.tableAmount;
+        if (keep && !entries.length) {
+            this.releaseObject(keep);
+            this.dropFrom(this.objects, keep);
+            return;
+        }
+        if (keep && entries[0]) {
+            keep.applySerialized(entries[0]);
+        } else if (!keep && entries[0]) {
+            this.host.tableAmount = this.spawnObject('vertical-table-amount-indicator', entries[0]);
+        }
+        this.ensureTableAmountListed();
+        entries.slice(1).forEach((entry) => {
+            const created = this.spawnObject('vertical-table-amount-indicator', entry || {});
+            if (created && this.objects.indexOf(created) < 0) {
+                this.objects.push(created);
+            }
+        });
+    }
+
     serializeCompositePreset() {
         const stone = this.host && this.host.stone;
         const scissor = this.host && this.host.scissor;
         const paper = this.host && this.host.paper;
         const newPaper = this.host && this.host.newPaper;
         const cross = this.host && this.host.cross;
+        const amounts = (this.objects || []).filter((item) => item && item.kind === 'amount-indicator' && typeof item.serialize === 'function');
+        const verticalAmounts = (this.objects || []).filter((item) => item && item.kind === 'vertical-amount-indicator' && typeof item.serialize === 'function');
+        const tableAmounts = (this.objects || []).filter((item) => item && item.kind === 'vertical-table-amount-indicator' && typeof item.serialize === 'function');
         return {
             kind: UI_EDITOR_PRESET_KIND,
             version: 6,
@@ -1876,6 +2090,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
             paper: paper && typeof paper.serialize === 'function' ? paper.serialize() : null,
             newPaper: newPaper && typeof newPaper.serialize === 'function' ? newPaper.serialize() : null,
             cross: cross && typeof cross.serialize === 'function' ? cross.serialize() : null,
+            amounts: amounts.map((item) => item.serialize()),
+            verticalAmounts: verticalAmounts.map((item) => item.serialize()),
+            tableAmounts: tableAmounts.map((item) => item.serialize()),
             pointers: (this.pointers || []).map((item) => item.serialize()),
             rounds: (this.rounds || []).map((item) => item.serialize()),
             circles: (this.circles || []).map((item) => item.serialize()),
@@ -2000,6 +2217,9 @@ class CompositeUIEditorToolsScene extends Phaser.Scene {
         this.ensureStonePrimeListed();
         this.ensureScissorsPrimeListed();
         this.ensurePaperPrimeListed();
+        this.restoreAmounts(data && data.amounts);
+        this.restoreVerticalAmounts(data && data.verticalAmounts);
+        this.restoreTableAmounts(data && data.tableAmounts);
         if (this.objects.indexOf(this.selectedObject) < 0) {
             this.selectedObject = (this.host && this.host.stone) || this.objects[0] || null;
         }

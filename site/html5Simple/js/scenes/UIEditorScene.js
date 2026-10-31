@@ -95,13 +95,17 @@ class UIEditorScene extends Phaser.Scene {
         }
     }
 
+    hubSceneKey() {
+        return 'OldUiScenes';
+    }
+
     leave() {
         if (this._left) {
             return;
         }
         this._left = true;
         closeEditorTools();
-        fxGoTo(this, 'TestsScene');
+        fxGoTo(this, this.hubSceneKey());
     }
 }
 
@@ -231,6 +235,15 @@ function uiObjectTypeLabel(object) {
     if (kind === 'hot-map-cross') {
         return 'Cross';
     }
+    if (kind === 'amount-indicator') {
+        return 'Amount';
+    }
+    if (kind === 'vertical-amount-indicator') {
+        return 'Amount V';
+    }
+    if (kind === 'vertical-table-amount-indicator') {
+        return 'Amount Table';
+    }
     if (kind === 'new-sheet') {
         return 'New Sheet';
     }
@@ -295,7 +308,7 @@ function shiftUiObjectCopy(kind, data, field) {
         data.target = shiftUiObjectPoint(field, data.target || data.center);
         return;
     }
-    if ((kind === 'hot-map-cross' || kind === 'hot-map-stone-prime' || kind === 'hot-map-scissors-prime' || kind === 'hot-map-paper-prime') && data.center) {
+    if ((kind === 'hot-map-cross' || kind === 'hot-map-stone-prime' || kind === 'hot-map-scissors-prime' || kind === 'hot-map-paper-prime' || kind === 'amount-indicator' || kind === 'vertical-amount-indicator' || kind === 'vertical-table-amount-indicator') && data.center) {
         data.center = shiftUiObjectPoint(field, data.center);
     }
 }

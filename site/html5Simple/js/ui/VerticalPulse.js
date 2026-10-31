@@ -4,7 +4,7 @@
  * It starts on a panel edge and slides off the heat map on the field clock.
  * The line is clipped to that panel, from its top to its bottom.
  */
-const VERTICAL_PULSE_MS = 1500;
+const VERTICAL_PULSE_MS = 1125;
 const VERTICAL_PULSE_EXIT = -0.3;
 
 class VerticalPulse {

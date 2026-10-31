@@ -7,16 +7,28 @@
  * A white edge frames both, with a line between them.
  * The line starts in the middle. As the scores count, it moves so each panel
  * takes its share of the total: 2 and 1 finish at 67% and 33%.
+ * It stops before the right digit, so that digit stays on the black panel
+ * even when its score is 0.
  * The left label is solid black on the left edge of the left panel.
  * The right label is knocked out of the right edge of the right panel, so the
  * highlight shows through it. Over `duration` seconds (default 3) the labels count
  * from startLeftValue / startRightValue (default 0) to endLeftValue /
  * endRightValue, and the highlight heat doubles.
  * A caption sits outside the panel, at its upper left. It is empty unless given.
+ * The face is four fifths of a menu button's height.
  * RoundsResultBar is this bar with the caption "Rounds".
- * StonesResultBar is this bar with the caption "Stones". A small stone picture,
- * scaled like the stone on HmSkinnedStoneButton, sits outside the bar on the left.
- * The bar is shorter by that picture and the gap, so the pair matches the rounds bar.
+ * StonesResultBar has no caption. A small stone picture, scaled like the stone
+ * on HmSkinnedStoneButton, sits outside the bar on the left. The bar is shorter
+ * by that picture and the gap, so the pair matches the rounds bar.
+ * StonePrimeResultBar is the same shape with no caption. Its picture is a stone
+ * prime, counted from spent stone NEG effects.
+ * ScissorsResultBar and PaperResultBar use the same shape. Their pictures match
+ * HmSkinnedScissorsButton and HmSkinnedPaperButton.
+ * ScissorsPrimeResultBar and PaperPrimeResultBar match StonePrimeResultBar.
+ * Their pictures are a scissors prime and a paper prime, counted from spent
+ * scissors NEG and paper NEG effects.
+ * CoreResultBar is the same shape. Its picture is a core of four balls, scaled
+ * like HmSkinnedCoreButton, counted from spent NT effects.
  */
 const RESULT_BAR_HEAT = 0.1;
 const RESULT_BAR_DURATION = 3;
@@ -31,7 +43,7 @@ class ResultBar {
         const opts = options || {};
         this.scene = scene;
         this.width = resultBarNumber(opts.width, UI.menuBtnW);
-        this.height = UI.menuBtnH;
+        this.height = resultBarNumber(opts.height, Math.round(UI.menuBtnH * 0.8));
         this.startLeftValue = resultBarNumber(opts.startLeftValue, 0);
         this.startRightValue = resultBarNumber(opts.startRightValue, 0);
         this.endLeftValue = resultBarNumber(opts.endLeftValue, this.startLeftValue);
@@ -106,22 +118,22 @@ class ResultBar {
             this.endRightValue,
             u
         );
-        const split = resultBarSplit(this.width, share);
         const labelChanged = left !== this.leftText || right !== this.rightText || !this.face;
-        const splitChanged = split !== this.split;
-        if (!labelChanged && !splitChanged) {
+        if (labelChanged) {
+            this.leftText = left;
+            this.rightText = right;
+            this.leftLabel.setText(left);
+            this.redrawLabel();
+        }
+        const labelWidth = this.labelBox && this.labelBox.w ? this.labelBox.w : 0;
+        const split = resultBarSplitForLabel(this.width, share, labelWidth);
+        if (!labelChanged && split === this.split) {
             return;
         }
         this.leftText = left;
         this.rightText = right;
         this.split = split;
-        if (labelChanged) {
-            this.leftLabel.setText(left);
-            this.redrawLabel();
-        }
-        if (labelChanged || splitChanged) {
-            this.redrawEdge(split);
-        }
+        this.redrawEdge(split);
     }
 
     redrawEdge(split) {
@@ -199,7 +211,6 @@ class StonesResultBar extends ResultBar {
         const icon = STONES_RESULT_ICON;
         const gap = STONES_RESULT_ICON_GAP;
         const opts = Object.assign({
-            caption: 'Stones',
             width: UI.menuBtnW - icon - gap
         }, options || {});
         super(scene, x, y, opts);
@@ -222,10 +233,25 @@ class StonesResultBar extends ResultBar {
         this.paintStoneIcon(time, delta);
     }
 
+    composeMark(field) {
+        const scale = HM_SKINNED_LENGTH_SCALE;
+        this.stone = createComposite('stone', this.stoneMap, {
+            name: 'Stones',
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2
+            }
+        });
+        this.stone.ballInit.orbitRadius *= scale;
+        this.stone.ballInit.radius *= scale;
+        for (let i = 0; i < 3; i += 1) {
+            this.stone.addItem({ animate: false });
+        }
+    }
+
     installStoneIcon() {
         const scene = this.scene;
         const source = HM_SKINNED_HEAT_SIZE;
-        const scale = HM_SKINNED_LENGTH_SCALE;
         STONES_RESULT_SEQ += 1;
         this.stoneMap = new UiHeatMap(scene, {
             x: 0,
@@ -239,26 +265,17 @@ class StonesResultBar extends ResultBar {
             minCols: 1,
             minRows: 1
         });
-        applyCompositeHeatMapDefault({
-            heatMap: this.stoneMap,
-            cache: scene.cache
-        });
+        if (typeof applyCompositeHeatMapDefault === 'function') {
+            applyCompositeHeatMapDefault({
+                heatMap: this.stoneMap,
+                cache: scene.cache
+            });
+        }
         const field = this.stoneMap.field;
         if (field.view) {
             field.view.setVisible(false);
         }
-        this.stone = createComposite('stone', this.stoneMap, {
-            name: 'Stones',
-            center: {
-                col: (field.cols - 1) / 2,
-                row: (field.rows - 1) / 2
-            }
-        });
-        this.stone.ballInit.orbitRadius *= scale;
-        this.stone.ballInit.radius *= scale;
-        for (let i = 0; i < 3; i += 1) {
-            this.stone.addItem({ animate: false });
-        }
+        this.composeMark(field);
         const size = this.iconSize;
         this.stoneKey = `stones-result-${STONES_RESULT_SEQ}`;
         this.stoneCanvas = uiStageButtonFaceCanvas(scene, this.stoneKey, size, size);
@@ -311,6 +328,137 @@ class StonesResultBar extends ResultBar {
         if (scene && scene.textures && key && scene.textures.exists(key)) {
             scene.textures.remove(key);
         }
+    }
+}
+
+class StonePrimeResultBar extends StonesResultBar {
+    constructor(scene, x, y, options) {
+        super(scene, x, y, options);
+    }
+
+    composeMark(field) {
+        const scale = (HM_SKINNED_HEAT_SIZE / 2) / 48;
+        this.stone = createComposite('stonePrime', this.stoneMap, {
+            name: 'Stone Prime',
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2
+            },
+            animate: false
+        });
+        hmFitCoreLengths(this.stone, scale);
+        const ball = (this.stone.items || []).find((item) => item && item.kind === 'hot-ball');
+        const params = ball && ball.motion && ball.motion.params;
+        if (params) {
+            params.orbitRadius *= scale;
+            params.radius *= scale;
+        }
+    }
+}
+
+class ScissorsResultBar extends StonesResultBar {
+    composeMark(field) {
+        const scale = HM_SKINNED_LENGTH_SCALE;
+        this.stone = createComposite('scissor', this.stoneMap, {
+            name: 'Scissors',
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2
+            }
+        });
+        this.stone.shardInit.from.width *= scale;
+        this.stone.shardInit.from.height = 12 * scale;
+        this.stone.shardInit.to.width *= scale;
+        this.stone.shardInit.to.height = 8 * scale;
+        for (let i = 0; i < 2; i += 1) {
+            this.stone.addItem({ animate: false });
+        }
+    }
+}
+
+class ScissorsPrimeResultBar extends StonesResultBar {
+    composeMark(field) {
+        const scale = (HM_SKINNED_HEAT_SIZE / 2) / 48;
+        this.stone = createComposite('scissorsPrime', this.stoneMap, {
+            name: 'Scissors Prime',
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2
+            },
+            animate: false
+        });
+        hmFitCoreLengths(this.stone, scale);
+        const shard = (this.stone.items || []).find((item) => item && item.kind === 'shard');
+        const emitter = shard && shard.emitter;
+        if (emitter && typeof emitter.setParam === 'function' && emitter.from && emitter.to) {
+            emitter.setParam('fromWidth', emitter.from.width * scale);
+            emitter.setParam('fromHeight', emitter.from.height * scale);
+            emitter.setParam('toWidth', emitter.to.width * scale);
+            emitter.setParam('toHeight', emitter.to.height * scale);
+        }
+    }
+}
+
+class PaperResultBar extends StonesResultBar {
+    composeMark(field) {
+        const scale = HM_SKINNED_LENGTH_SCALE;
+        this.stone = createComposite('diskStack', this.stoneMap, {
+            name: 'Paper',
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2 + 20 * scale
+            }
+        });
+        this.stone.distance = 14 * scale;
+        this.stone.sheetInit.radFrom = 24 * scale;
+        this.stone.sheetInit.radTo = 36 * scale;
+        this.stone.sheetInit.ballRadius = 40 * scale;
+        this.stone.sheetInit.ballSize = 3.2 * scale;
+        for (let i = 0; i < 3; i += 1) {
+            this.stone.addItem({ animate: false });
+        }
+    }
+}
+
+class PaperPrimeResultBar extends StonesResultBar {
+    composeMark(field) {
+        const scale = (HM_SKINNED_HEAT_SIZE / 2) / 48;
+        this.stone = createComposite('paperPrime', this.stoneMap, {
+            name: 'Paper Prime',
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2
+            },
+            animate: false
+        });
+        hmFitCoreLengths(this.stone, scale);
+        const sheet = (this.stone.items || []).find((item) => item && item.kind === 'new-sheet');
+        if (sheet && typeof sheet.setParam === 'function') {
+            sheet.setParam('radFrom', sheet.radFrom * scale);
+            sheet.setParam('radTo', sheet.radTo * scale);
+            sheet.setParam('ballRadius', sheet.ballRadius * scale);
+            sheet.setParam('ballSize', sheet.ballSize * scale);
+        }
+    }
+}
+
+class CoreResultBar extends StonesResultBar {
+    composeMark(field) {
+        this.stone = new UiCore(this.stoneMap, {
+            name: 'Core',
+            animate: false,
+            center: {
+                col: (field.cols - 1) / 2,
+                row: (field.rows - 1) / 2
+            }
+        });
+        hmFitCoreLengths(this.stone, (HM_SKINNED_HEAT_SIZE / 2) / 48);
+        while (this.stone.balls().length < 4) {
+            if (!this.stone.addItem({ animate: false })) {
+                break;
+            }
+        }
+        hmSeatCoreBalls(this.stone);
     }
 }
 
@@ -435,6 +583,13 @@ function resultBarPanels(width, height, leftShare) {
 
 function resultBarSplit(width, leftShare) {
     return Math.round(width * resultBarClampShare(leftShare));
+}
+
+function resultBarSplitForLabel(width, leftShare, labelWidth) {
+    const split = resultBarSplit(width, leftShare);
+    const reserve = Math.max(0, labelWidth || 0) + RESULT_BAR_PAD;
+    const limit = Math.max(0, width - reserve);
+    return Math.min(split, limit);
 }
 
 function resultBarClampShare(leftShare) {

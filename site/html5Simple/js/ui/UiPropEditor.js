@@ -82,6 +82,8 @@ class UiPropEditor {
             const value = target && target.params ? target.params[key] : 0;
             if (slot.type === 'bool') {
                 this.redrawBoolToggle(slot.toggle, !!value);
+            } else if (slot.type === 'enum') {
+                slot.text.setText(value == null ? '' : String(value));
             } else {
                 slot.text.setText(Number(value).toFixed(slot.decimals));
             }
@@ -247,7 +249,7 @@ class UiPropEditor {
             font: `${UI.body}px monospace`,
             fill: '#000000'
         }).setOrigin(1, 0.5);
-        this.propValues[row.key] = { text: value, decimals: row.decimals };
+        this.propValues[row.key] = { text: value, decimals: row.decimals, type: row.type || 'number' };
 
         const minus = this.createStepButton(minusX, y + height / 2, btnW, btnH, '−', () => {
             this.nudgeParam(row.key, -1);
@@ -261,6 +263,9 @@ class UiPropEditor {
     formatParam(row) {
         const target = this.getTarget();
         const value = target && target.params ? target.params[row.key] : 0;
+        if (row.type === 'enum') {
+            return value == null ? '' : String(value);
+        }
         return Number(value).toFixed(row.decimals);
     }
 
@@ -276,6 +281,9 @@ class UiPropEditor {
         }
         if (slot.type === 'bool') {
             this.redrawBoolToggle(slot.toggle, !!target.params[key]);
+        } else if (slot.type === 'enum') {
+            const shown = target.params[key];
+            slot.text.setText(shown == null ? '' : String(shown));
         } else {
             slot.text.setText(Number(target.params[key]).toFixed(slot.decimals));
         }

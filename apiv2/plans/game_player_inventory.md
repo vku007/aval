@@ -23,7 +23,7 @@ One inventory per participant, stored on `Game` as `inventories`. Moves stay `us
 
 Every count and `time` is a non-negative integer. A provided row includes every item and currency key. `userId` must be one of the game's `usersIds`. Duplicates and unknown ids are `400`.
 
-`GamePlayerInventory.defaultFor` sets every amount to 1000. `advancedFor` is the extended-game start: 20 stones, 12 scissors, 10 papers, 2 `NA_effect_stone`, 5 `NA_effect_scissors`, 3 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. `ensureForUsers` keeps provided rows and fills anyone missing. Create uses `Date.now()` for those new rows. A classic create fills with `defaultFor`. An extended create fills with `advancedFor`. A stored game with no `inventories` field loads as defaults with `time: 0`, and the next save persists that fill.
+`GamePlayerInventory.defaultFor` sets every amount to 1000. `advancedFor` is the extended-game start: 21 stones, 12 scissors, 12 papers, 3 `NA_effect_stone`, 2 `NA_effect_scissors`, 5 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. `ensureForUsers` keeps provided rows and fills anyone missing. Create uses `Date.now()` for those new rows. A classic create fills with `defaultFor`. An extended create fills with `advancedFor`. A stored game with no `inventories` field loads as defaults with `time: 0`, and the next save persists that fill.
 
 ## HTTP
 

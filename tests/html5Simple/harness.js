@@ -39,6 +39,7 @@ const HEAT_SCRIPTS = [
     'js/heat/composites/paper.js',
     'js/heat/composites/diskStack.js',
     'js/heat/composites/cross.js',
+    'js/heat/composites/amountIndicator.js',
     'js/ui/UiHeatMap.js',
     'js/ui/UiEditorPreset.js',
     'js/ui/UiHotBall.js',
@@ -64,6 +65,12 @@ const HEAT_SCRIPTS = [
     'js/ui/HotMapUiNewPaper.js',
     'js/ui/HotMapUiPaperPrime.js',
     'js/ui/HotMapUiCross.js',
+    'js/ui/HmHorisontalAmountIndicator.js',
+    'js/ui/HmVerticalAmountIndicator.js',
+    'js/ui/HmVerticalTableAmountIndicator.js',
+    'js/ui/UiStageButton.js',
+    'js/ui/HmSkinnedButton.js',
+    'js/ui/HmSkinnedCoreButton.js',
     'js/ui/ResultBar.js'
 ];
 
@@ -141,16 +148,36 @@ const EXPORTED = [
     'hotMapActivePartCount',
     'HotMapUiPaperPrime',
     'HotMapUiCross',
+    'HmHorisontalAmountIndicator',
+    'HmVerticalAmountIndicator',
+    'HmVerticalTableAmountIndicator',
+    'amountIndicatorMeasure',
+    'amountIndicatorRole',
+    'amountIndicatorHeat',
+    'layoutAmountIndicator',
+    'AMOUNT_INDICATOR_CAP',
+    'AMOUNT_INDICATOR_COLD',
+    'AMOUNT_INDICATOR_HOT',
+    'AMOUNT_INDICATOR_HOTTEST',
+    'AMOUNT_INDICATOR_HEAT_DURATION',
     'ResultBar',
     'RoundsResultBar',
     'StonesResultBar',
+    'StonePrimeResultBar',
+    'ScissorsResultBar',
+    'ScissorsPrimeResultBar',
+    'PaperResultBar',
+    'PaperPrimeResultBar',
+    'CoreResultBar',
     'createResultBarHighlight',
+    'rotatedOrbitOffset',
     'resultBarCaptionText',
     'resultBarCaptionPoint',
     'resultBarSeekRise',
     'resultBarLabel',
     'resultBarLabelX',
     'resultBarLeftShare',
+    'resultBarSplitForLabel',
     'resultBarPanels',
     'resultBarProgress',
     'HorisontalPulse',
@@ -166,12 +193,6 @@ const PRIME_PRESET_FILE = JSON.parse(
 );
 
 function createSceneStub() {
-    const image = {
-        setDisplaySize() { return this; },
-        setDepth() { return this; },
-        setVisible() { return this; },
-        destroy() {}
-    };
     const zone = {
         setOrigin() { return this; },
         setInteractive() { return this; },
@@ -213,7 +234,22 @@ function createSceneStub() {
             }
         },
         add: {
-            image() { return image; },
+            image() {
+                return {
+                    setDisplaySize() { return this; },
+                    setPosition(x, y) {
+                        this.x = x;
+                        this.y = y;
+                        return this;
+                    },
+                    setDepth() { return this; },
+                    setVisible(on) {
+                        this.visible = on !== false;
+                        return this;
+                    },
+                    destroy() {}
+                };
+            },
             zone() { return zone; }
         },
         events: {

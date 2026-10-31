@@ -54,8 +54,15 @@ describe('UiCore', () => {
 
     it('holds a fitted core round at heat 0 and leaves a fitted prime round cycling', () => {
         const ctx = loadHeat();
-        ctx.HmSkinnedButton = class HmSkinnedButton {};
+        if (!ctx.HmSkinnedButton) {
+            ctx.HmSkinnedButton = class HmSkinnedButton {};
+        }
         ['js/ui/HmSkinnedCoreButton.js', 'js/ui/HmSkinnedPrimeButton.js'].forEach((file) => {
+            const name = path.basename(file, '.js');
+            const loaded = vm.runInContext(`typeof ${name} !== 'undefined'`, ctx);
+            if (loaded) {
+                return;
+            }
             vm.runInContext(fs.readFileSync(path.join(SITE_ROOT, file), 'utf8'), ctx, { filename: file });
         });
         const heatMap = createHeatMap(ctx);

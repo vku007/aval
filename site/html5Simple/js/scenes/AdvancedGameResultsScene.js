@@ -1,7 +1,7 @@
 /**
  * AdvancedGameResultsScene
- * Shown when a local advanced match finishes.
- * OK returns to the main menu.
+ * Shown when a blitz match finishes.
+ * OK returns to the scene that opened it, or the main menu.
  */
 class AdvancedGameResultsScene extends Phaser.Scene {
     constructor() {
@@ -11,6 +11,7 @@ class AdvancedGameResultsScene extends Phaser.Scene {
     init(data) {
         exitTestsCanvas(this);
         this.gameData = data && data.gameData ? data.gameData : null;
+        this.returnTo = data && data.returnTo ? data.returnTo : 'MenuScene';
         this._leaving = false;
     }
 
@@ -25,9 +26,8 @@ class AdvancedGameResultsScene extends Phaser.Scene {
         this.resultButtons = [];
         const user = this.registry.get('currentUser');
         const summary = SimpleGameSceneUtil.summarizeAdvancedResult(this.gameData, user && user.id);
-        const rows = this.resultRows(summary, user);
 
-        const title = this.add.text(width / 2, 88, this.resultTitle(summary), {
+        const title = this.add.text(width / 2, 60, this.resultTitle(summary), {
             font: `${UI.heading}px monospace`,
             fill: '#000000',
             align: 'center'
@@ -41,7 +41,6 @@ class AdvancedGameResultsScene extends Phaser.Scene {
         this.skinValues.push(title);
         styleUiSkinText(title, isUiSkinOn());
 
-        const barH = UI.menuBtnH;
         this.resultBar = new RoundsResultBar(this, width / 2, 0, {
             endLeftValue: summary.playerScore,
             endRightValue: summary.enemyScore
@@ -50,45 +49,37 @@ class AdvancedGameResultsScene extends Phaser.Scene {
             endLeftValue: summary.items.stones,
             endRightValue: summary.enemyItems.stones
         });
-        [this.resultBar, this.stonesBar].forEach((bar) => {
+        this.stonePrimeBar = new StonePrimeResultBar(this, width / 2, 0, {
+            endLeftValue: summary.effects.NA_effect_stone,
+            endRightValue: summary.enemyEffects.NA_effect_stone
+        });
+        this.scissorsBar = new ScissorsResultBar(this, width / 2, 0, {
+            endLeftValue: summary.items.scissors,
+            endRightValue: summary.enemyItems.scissors
+        });
+        this.scissorPrimeBar = new ScissorsPrimeResultBar(this, width / 2, 0, {
+            endLeftValue: summary.effects.NA_effect_scissors,
+            endRightValue: summary.enemyEffects.NA_effect_scissors
+        });
+        this.paperBar = new PaperResultBar(this, width / 2, 0, {
+            endLeftValue: summary.items.papers,
+            endRightValue: summary.enemyItems.papers
+        });
+        this.paperPrimeBar = new PaperPrimeResultBar(this, width / 2, 0, {
+            endLeftValue: summary.effects.NA_effect_papers,
+            endRightValue: summary.enemyEffects.NA_effect_papers
+        });
+        this.coreResultBar = new CoreResultBar(this, width / 2, 0, {
+            endLeftValue: summary.effects.NT_effect,
+            endRightValue: summary.enemyEffects.NT_effect
+        });
+        this.resultBars().forEach((bar) => {
             if (bar.captionText) {
                 this.skinLabels.push(bar.captionText);
                 this.styleResultLabel(bar.captionText, isUiSkinOn());
             }
         });
-        const above = this.resultBar.spaceAbove();
-        const barGap = above > 0 ? above + 12 : 20;
-        const barY = title.y + title.height + barGap + barH / 2;
-        this.resultBar.root.y = barY;
-        const stonesY = barY + barH / 2 + 12 + this.stonesBar.spaceAbove() + barH / 2;
-        this.stonesBar.root.y = stonesY;
-
-        let y = stonesY + barH / 2 + 24;
-        rows.forEach((row) => {
-            const label = this.add.text(width / 2, y, row.label, {
-                font: `${UI.small}px monospace`,
-                fill: '#666666'
-            }).setOrigin(0.5, 0);
-            this.skinLabels.push(label);
-            y += UI.small + 6;
-            const value = this.add.text(width / 2, y, row.value, {
-                font: `${UI.heading}px monospace`,
-                fill: '#000000',
-                align: 'center',
-                wordWrap: { width: width - UI.pad * 2 }
-            }).setOrigin(0.5, 0);
-            this.skinValues.push(value);
-            y += UI.heading + 6;
-            (row.details || []).forEach((line) => {
-                const detail = this.add.text(width / 2, y, line, {
-                    font: `${UI.body}px monospace`,
-                    fill: '#000000'
-                }).setOrigin(0.5, 0);
-                this.skinValues.push(detail);
-                y += UI.body + 4;
-            });
-            y += 16;
-        });
+        const y = this.placeResultBars(title);
 
         const skinH = 28;
         const skinY = height - 16 - skinH / 2;
@@ -101,13 +92,36 @@ class AdvancedGameResultsScene extends Phaser.Scene {
         this.setResultsSkin(isUiSkinOn());
     }
 
+    resultBars() {
+        return [
+            this.resultBar,
+            this.stonesBar,
+            this.stonePrimeBar,
+            this.scissorsBar,
+            this.scissorPrimeBar,
+            this.paperBar,
+            this.paperPrimeBar,
+            this.coreResultBar
+        ].filter(Boolean);
+    }
+
+    placeResultBars(title) {
+        const bars = this.resultBars();
+        const barH = bars[0].height;
+        const above = bars[0].spaceAbove();
+        const barGap = above > 0 ? above + 12 : 20;
+        let y = title.y + title.height + barGap + barH / 2;
+        bars.forEach((bar, index) => {
+            if (index > 0) {
+                y += barH / 2 + 6 + bar.spaceAbove() + barH / 2;
+            }
+            bar.root.y = y;
+        });
+        return y + barH / 2 + 10;
+    }
+
     update(time, delta) {
-        if (this.resultBar) {
-            this.resultBar.update(time, delta);
-        }
-        if (this.stonesBar) {
-            this.stonesBar.update(time, delta);
-        }
+        this.resultBars().forEach((bar) => bar.update(time, delta));
         if (this.skinHost && isUiSkinOn()) {
             this.skinHost.update(time, delta);
         }
@@ -156,7 +170,7 @@ class AdvancedGameResultsScene extends Phaser.Scene {
         if (!host || !host.heatMap) {
             return;
         }
-        [this.resultBar, this.stonesBar].forEach((bar) => {
+        this.resultBars().forEach((bar) => {
             if (!bar) {
                 return;
             }
@@ -202,41 +216,6 @@ class AdvancedGameResultsScene extends Phaser.Scene {
         return lists.every((list) => (list || []).every((item) => heatMapOwns(host.heatMap, item)));
     }
 
-    resultRows(summary, user) {
-        const items = summary.items;
-        const effects = summary.effects;
-        return [
-            {
-                label: 'Winner',
-                value: this.winnerName(summary, user),
-                details: [`you ${summary.playerScore}  —  enemy ${summary.enemyScore}`]
-            },
-            {
-                label: 'Rounds',
-                value: String(summary.rounds)
-            },
-            {
-                label: 'Items spent',
-                value: String(items.total),
-                details: [
-                    `stones  ${items.stones}`,
-                    `scissors  ${items.scissors}`,
-                    `papers  ${items.papers}`
-                ]
-            },
-            {
-                label: 'Effects spent',
-                value: String(effects.total),
-                details: [
-                    `stone NEG  ${effects.NA_effect_stone}`,
-                    `scissors NEG  ${effects.NA_effect_scissors}`,
-                    `paper NEG  ${effects.NA_effect_papers}`,
-                    `NT  ${effects.NT_effect}`
-                ]
-            }
-        ];
-    }
-
     resultTitle(summary) {
         if (summary.winner === 'you') {
             return 'Victory!';
@@ -247,22 +226,12 @@ class AdvancedGameResultsScene extends Phaser.Scene {
         return 'Draw';
     }
 
-    winnerName(summary, user) {
-        if (summary.winner === 'you') {
-            return (user && user.name) || 'You';
-        }
-        if (summary.winner === 'enemy') {
-            return SimpleGameSceneUtil.getEnemyName(this.gameData);
-        }
-        return 'Draw';
-    }
-
     onOkClick() {
         if (this._leaving) {
             return;
         }
         this._leaving = true;
-        fxGoTo(this, 'MenuScene');
+        fxGoTo(this, this.returnTo || 'MenuScene');
     }
 
     createOkButton(x, y) {

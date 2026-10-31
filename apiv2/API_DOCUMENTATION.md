@@ -242,7 +242,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 | `kind` | string | Yes | `classic` (same type is a draw; `size` and `effects` unused), `extended` (same type compares `size`; different types ignore `size`; optional `effects` on one throw) |
 | `level.name` | string | Yes | non-empty |
 | `episode.name` | string | Yes | non-empty |
-| `inventories` | object[] | No | One row per player. Omit on classic and both players get 1000 of every amount. Omit on extended and both get the advanced start: 20 stones, 12 scissors, 10 papers, 2 `NA_effect_stone`, 5 `NA_effect_scissors`, 3 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. `time` = now |
+| `inventories` | object[] | No | One row per player. Omit on classic and both players get 1000 of every amount. Omit on extended and both get the advanced start: 21 stones, 12 scissors, 12 papers, 3 `NA_effect_stone`, 2 `NA_effect_scissors`, 5 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. `time` = now |
 | `max_stone_per_turn` | number | No | Extended only. Largest Stone `size` in one throw. Omit for `9`. Integer >= 1 |
 | `max_scissors_per_turn` | number | No | Extended only. Largest Scissors `size` in one throw. Omit for `4`. Integer >= 1 |
 | `max_paper_per_turn` | number | No | Extended only. Largest Paper `size` in one throw. Omit for `7`. Integer >= 1 |

@@ -76,7 +76,35 @@ class CompositeUIEditorScene extends Phaser.Scene {
             center: { col: 36, row: 250 },
             animate: false
         });
-        this.objects = [this.stone, this.scissor, this.newPaper, this.core, this.prime, this.stonePrime, this.scissorsPrime, this.paperPrime];
+        this.amount = new HmHorisontalAmountIndicator(this.heatMap, {
+            name: 'Amount',
+            width: 100,
+            height: 16,
+            maxAmount: 8,
+            stored: 5,
+            selected: 2,
+            center: { col: 65, row: 36 }
+        });
+        this.verticalAmount = new HmVerticalAmountIndicator(this.heatMap, {
+            name: 'Amount V',
+            width: 16,
+            height: 100,
+            maxAmount: 8,
+            stored: 5,
+            selected: 2,
+            center: { col: 22, row: 160 }
+        });
+        this.tableAmount = new HmVerticalTableAmountIndicator(this.heatMap, {
+            name: 'Amount Table',
+            width: 44,
+            height: 80,
+            maxAmount: 8,
+            columns: 2,
+            stored: 5,
+            selected: 2,
+            center: { col: 108, row: 148 }
+        });
+        this.objects = [this.stone, this.scissor, this.newPaper, this.core, this.prime, this.stonePrime, this.scissorsPrime, this.paperPrime, this.amount, this.verticalAmount, this.tableAmount];
         this.selectedObject = this.stone;
         this.stageMarkup = createUiStageMarkup(this, width, height);
         this.menuMarkup = createUiMenuMarkup(this, width, height);

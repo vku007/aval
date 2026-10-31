@@ -2,10 +2,10 @@
 name: heat-ui
 description: >-
   Work on html5Simple Game UI and HotMap UI: heat items, composites, channels,
-  behaviours, transitions, pulses, LocalAdvanced, and the game FPS overlay.
+  behaviours, transitions, pulses, the Blitz game, and the game FPS overlay.
   Use when editing site/html5Simple/js/heat, js/ui heat objects, HotMap
-  composites, pulses, UiHeatMap, or scenes that stamp a heat field, and when
-  Chrome shows 30 FPS on html5Simple.
+  composites, pulses, UiHeatMap, BlitzGameScene, or scenes that stamp a heat
+  field, and when Chrome shows 30 FPS on html5Simple.
 ---
 
 # Game UI and HotMap UI
@@ -46,7 +46,7 @@ Step 1 (slices 1a–1h) is implemented. Do not reintroduce the mechanisms it rem
 
 `createItem` names: `hot-ball`, `hot-rod`, `heat-rect` / `back-highlight`, `shard`, `pointer`, `round`, `circle`, `core`, `sheet` / `heat-sheet`, `disk` / `new-sheet` / `heat-disk`.
 
-`createComposite` names: `stone`, `scissor`, `paper`, `diskStack`, `cross`, `prime`, `stonePrime`, `scissorsPrime`, `paperPrime`.
+`createComposite` names: `stone`, `scissor`, `paper`, `diskStack`, `cross`, `prime`, `stonePrime`, `scissorsPrime`, `paperPrime`, `amountIndicator`, `verticalAmountIndicator`, `verticalTableAmountIndicator`.
 
 ## Run contract
 

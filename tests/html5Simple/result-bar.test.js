@@ -115,7 +115,7 @@ describe('result bar', () => {
         const source = fs.readFileSync(path.join(SITE_ROOT, 'js/ui/ResultBar.js'), 'utf8');
 
         expect(source).toContain('UI.menuBtnW');
-        expect(source).toContain('UI.menuBtnH');
+        expect(source).toContain('UI.menuBtnH * 0.8');
         expect(source).not.toContain('setInteractive');
         expect(source).toContain('0xffffff');
         expect(source).toContain('panels.left.alpha');
@@ -133,11 +133,29 @@ describe('result bar', () => {
         expect(source).toContain('class RoundsResultBar');
         expect(source).toContain("caption: 'Rounds'");
         expect(source).toContain('class StonesResultBar');
-        expect(source).toContain("caption: 'Stones'");
+        expect(source).toContain('class StonePrimeResultBar');
+        expect(source).toContain('class ScissorsResultBar');
+        expect(source).toContain('class ScissorsPrimeResultBar');
+        expect(source).toContain('class PaperResultBar');
+        expect(source).toContain('class PaperPrimeResultBar');
+        expect(source).toContain('class CoreResultBar');
+        expect(source).toContain('new UiCore');
+        expect(source).toContain('hmSeatCoreBalls');
+        expect(source).toContain('this.stone.balls().length < 4');
+        expect(source).not.toContain("caption: 'Stone NEG'");
+        expect(source).toContain("createComposite('stonePrime'");
+        expect(source).toContain("createComposite('scissor'");
+        expect(source).toContain("createComposite('scissorsPrime'");
+        expect(source).toContain("createComposite('diskStack'");
+        expect(source).toContain("createComposite('paperPrime'");
+        expect(source).toContain('hmFitCoreLengths');
+        expect(source).not.toContain("caption: 'Stones'");
         expect(source).toContain("createComposite('stone'");
         expect(source).toContain('HM_SKINNED_LENGTH_SCALE');
         expect(source).toContain('this.stone.ballInit.orbitRadius *= scale');
         expect(source).toContain('this.stone.ballInit.radius *= scale');
+        expect(source).toContain('uiStageButtonFaceCanvas');
+        expect(source).toContain('ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)');
         expect(source).toContain('UI.menuBtnW - icon - gap');
         expect(source).toContain('this.root.x += (icon + gap) / 2');
         expect(source).toContain('- this.iconGap - size / 2');
@@ -180,5 +198,14 @@ describe('result bar', () => {
         expect(end.right.alpha).toBe(1);
         expect(end.left.x).toBe(0);
         expect(end.right.x).toBe(213);
+    });
+
+    it('keeps a black strip behind the right digit when that score is 0', () => {
+        const ctx = loadHeat();
+        const width = 320;
+        const label = 22;
+
+        expect(ctx.resultBarSplitForLabel(width, 1, label)).toBe(width - 18 - label);
+        expect(ctx.resultBarSplitForLabel(width, 2 / 3, label)).toBe(213);
     });
 });

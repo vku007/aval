@@ -195,19 +195,23 @@ Layout fractions live in [`js/frameSize.js`](js/frameSize.js) (`UI.layouts`). Sh
 
 ## MenuScene
 
-Main menu. Title **Sweet Adventure**. Bottom **SKIN** switch above the Layout/FX chips: **IN** fills the background with the heat-map preset in [`resources/ui-editor-init.json`](resources/ui-editor-init.json) (UiHeatMap + UiHotBall + UiHotRod + UiBackHighlighter) and punches the menu button labels through a black fill so the heat map shows in the letters. The seven visible highlights sit on LOGIN, REGISTER, LOGOUT, INVENTORY, START GAME, UI TESTS, and EXIT. **OFF** leaves the background blank (default) with outline buttons. The choice is stored in `localStorage`.
+Main menu. Title **Warm Adventure**. Bottom **SKIN** switch above the Layout/FX chips: **IN** fills the background with the heat-map preset in [`resources/ui-editor-init.json`](resources/ui-editor-init.json) (UiHeatMap + UiHotBall + UiHotRod + UiBackHighlighter) and punches the menu button labels through a black fill so the heat map shows in the letters. The seven visible highlights sit on LOGIN, REGISTER, LOGOUT, INVENTORY, START GAME, UI TESTS, and EXIT. **OFF** leaves the background blank (default) with outline buttons. The choice is stored in `localStorage`.
 
 ## TestsScene
 
-Hub from the menu **UI TESTS** button. Not a play layout. Buttons sit in two columns. Left: **UI EDITOR**, **COMPOSITE UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**, **ROTATED HOT MAP BALL**, **MOVE HOT ROD**. Right: **BACK HIGHLIGHT**, **SHARD**, **SHEET**, **MOVE HOT CIRCLE**, **BACK**.
+Hub from the menu **UI TESTS** button. Not a play layout. Buttons sit in two columns. Left: **SIMPLE GAME**, **EXTENDED GAME**, **RESULTS**, **OLD UI TESTS**, **BUTTONS**, **SKINNED BUTTON**, **COMPOSITE UI EDITOR**. Right: **MOVE HOT ROD**, **BACK HIGHLIGHT**, **SHARD**, **ALTER SHEET**, **MOVE HOT CIRCLE**, **BACK**. **SIMPLE GAME** and **EXTENDED GAME** create a match and open that play scene. **RESULTS** opens a finished-match preview; OK returns here.
+
+## OldUiScenes
+
+Hub from Tests **OLD UI TESTS**. Same wide canvas. Buttons sit in two columns. Left: **UI EDITOR**, **UI PLAZMA BALL**, **HOT MAP BALL**. Right: **ROTATED HOT MAP BALL**, **SHEET**, **BACK**. BACK returns to Tests.
 
 ## CompositeUIEditorScene
 
-Copy of **UIEditorScene** opened from Tests **COMPOSITE UI EDITOR**. Same stage and tools layout. The tools canvas is [`CompositeUIEditorToolsScene`](js/scenes/CompositeUIEditorToolsScene.js). BACK returns to Tests.
+Copy of **UIEditorScene** opened from Tests **COMPOSITE UI EDITOR**. Same stage and tools layout. The tools canvas is [`CompositeUIEditorToolsScene`](js/scenes/CompositeUIEditorToolsScene.js). The stage includes an **Amount** indicator (`HmHorisontalAmountIndicator`), an **Amount V** indicator (`HmVerticalAmountIndicator`), and an **Amount Table** indicator (`HmVerticalTableAmountIndicator`). Each has eight slots, five stored, the last two of those selected. Amount is a row. Amount V is a column. Amount Table splits that column into `columns` (default 2), added left to right. Props are center, width, height, max, stored, selected, and shape (`rectangle` or `round`). Amount V and Amount Table also have direction: `asc` begins at the top, `desc` at the bottom. Amount Table also has columns. BACK returns to Tests.
 
 ## UIEditorScene
 
-Sandbox from Tests **UI EDITOR**. Not a play layout. Two canvases. The stage canvas is the main game frame (**390×844**, same on-screen size and scale as the main screen). The tools canvas beside it holds **EFFECTS** above **PROPS**, with **OBJECTS** on the right.
+Sandbox from Old UI tests **UI EDITOR**. Not a play layout. Two canvases. The stage canvas is the main game frame (**390×844**, same on-screen size and scale as the main screen). The tools canvas beside it holds **EFFECTS** above **PROPS**, with **OBJECTS** on the right.
 
 ```
 ┌────────────┬──────────────────┬──────────────────┐
@@ -228,39 +232,39 @@ Sandbox from Tests **UI EDITOR**. Not a play layout. Two canvases. The stage can
 | **OBJECTS** | `createObjectsList` | Scrollable list of each object’s name and type (**Ball**, **Rod**, **Highlight**). Each row has **COPY** and **DEL**. **COPY** adds the same type with the same props, shifts **START X/Y** (rod) or **CENTER X/Y** (ball, highlight), and suffixes the name with **copy**. **DEL** removes that object. Click the row to show its props. Wheel or drag scrolls. Bottom **SAVE** / **LOAD** stay fixed. |
 | **PROPS** | `UiPropEditor` on selected object | **Ball**: **HEAT** VISIBLE, DOT SIZE, DOT HEAT. **GEO** ANG SPEED, PHASE, RADIUS, CENTER X/Y, TILT X/Y/Z. **Rod**: **HEAT** VISIBLE, LINE HEAT. **GEO** THICKNESS, NOISE, GRAIN, FLICKER. **MOVE** SPEED, DELAY (hold at end, seconds), GAP (hold at start after snap, seconds), START/END X% Y% (−200 to 200, panel = 100%), START ANG, END ANG. The rod eases start pose → end pose, waits DELAY, snaps to start, waits GAP, then repeats. **Back highlight**: **FIELD** VISIBLE, CYCLING, SPEED, DELAY, GAP, CENTER X% Y%. **FROM** / **TO** WIDTH, HEIGHT, ANGLE, HEAT. It eases FROM → TO, pauses DELAY, eases back when CYCLING is on, pauses GAP, then repeats. Tap Stage sets the selected rod’s end point or the selected highlight’s center. |
 
-BACK on the tools canvas returns to Tests and restores the Tests canvas width. The left box in the diagram is the stage canvas. EFFECTS, PROPS, OBJECTS, and BACK are the second canvas.
+BACK on the tools canvas returns to Old UI tests and restores the Tests canvas width. The left box in the diagram is the stage canvas. EFFECTS, PROPS, OBJECTS, and BACK are the second canvas.
 
 ## UITestScene
 
-Sandbox from Tests **UI PLAZMA BALL**. Not a play layout.
+Sandbox from Old UI tests **UI PLAZMA BALL**. Not a play layout.
 
 | Panel | Function | What it shows |
 |---|---|---|
 | **TestPanel** | `createTestPanel` | Deep blue field with a moving yellow plasma ball (`attachPlasmaBall`). Tap to orbit around that point (radius = 3 ball sizes). The orbit center eases to the new tap so the ball flies. |
 
-BACK under the panel returns to Tests.
+BACK under the panel returns to Old UI tests.
 
 ## HotMapBallScene
 
-Sandbox from Tests **HOT MAP BALL**. Not a play layout.
+Sandbox from Old UI tests **HOT MAP BALL**. Not a play layout.
 
 | Panel | Function | What it shows |
 |---|---|---|
 | **TestPanel** | `createTestPanel` | Starts black. Tap drops a hot dot (`attachHeatMap`). Heat diffuses into neighboring pixels; hotter cells are brighter (black → red → yellow → white). |
 | **SettingsPanel** | `createSettingsPanel` | Live **− / +** steppers: **DIFFUSE** (spread), **COOL** (fade), **DOT SIZE** (click radius), **DOT HEAT** (click energy). Changes apply to the running field immediately. |
 
-BACK under the panel returns to Tests.
+BACK under the panel returns to Old UI tests.
 
 ## RotatedHotMapBallScene
 
-Sandbox from Tests **ROTATED HOT MAP BALL**. Not a play layout.
+Sandbox from Old UI tests **ROTATED HOT MAP BALL**. Not a play layout.
 
 | Panel | Function | What it shows |
 |---|---|---|
 | **TestPanel** | `createTestPanel` | Heat field with a moving hot ball (`attachRotatedHeatMap`). The ball wanders until a tap, then orbits that point in a plane tilted with **TILT X / Y / Z** (path looks like an ellipse). The orbit center eases like plasma. Heat trails from the path. |
 | **SettingsPanel** | `createSettingsPanel` | Two tabs. **HEAT**: DIFFUSE, COOL, DOT SIZE, DOT HEAT. **GEO**: ANG SPEED, RADIUS, TILT X, TILT Y, TILT Z (degrees). Live **− / +** steppers. |
 
-BACK under the panel returns to Tests.
+BACK under the panel returns to Old UI tests.
 
 ## MoveHotRodScene
 
@@ -279,7 +283,7 @@ Opened from Tests **SHARD**. Title **Shard**. Same heat field as Back Highlight,
 
 ## SheetScene
 
-Opened from Tests **SHEET**. Title **Sheet**. The ribbon follows cos from 0 to 2π. **BEND** on **FROM** and **TO** is the wave height. **PHASE** on **FROM** and **TO** is the cosine angle in degrees and eases with the pose. **WIDTH**, **HEIGHT**, and **SKEW** ease with the heat. The wave stays horizontal. **GLISTEN** on **FIELD** is an on/off switch. When on, a hot band sweeps along the curve on **GL SPEED**, pauses **GL DELAY**, and repeats. **GL POWER** is how much heat that band stamps into the field. **BALL** places two hot dots on the curve. One runs start to end, **DELTA** cells below. The other runs end to start, **DELTA** cells above. **DOT SIZE** and **DOT HEAT** match a hot ball. **SPEED** runs both, and they repeat. BACK returns to Tests.
+Opened from Old UI tests **SHEET**. Title **Sheet**. The ribbon follows cos from 0 to 2π. **BEND** on **FROM** and **TO** is the wave height. **PHASE** on **FROM** and **TO** is the cosine angle in degrees and eases with the pose. **WIDTH**, **HEIGHT**, and **SKEW** ease with the heat. The wave stays horizontal. **GLISTEN** on **FIELD** is an on/off switch. When on, a hot band sweeps along the curve on **GL SPEED**, pauses **GL DELAY**, and repeats. **GL POWER** is how much heat that band stamps into the field. **BALL** places two hot dots on the curve. One runs start to end, **DELTA** cells below. The other runs end to start, **DELTA** cells above. **DOT SIZE** and **DOT HEAT** match a hot ball. **SPEED** runs both, and they repeat. BACK returns to Old UI tests.
 
 ## BackHighlightScene
 

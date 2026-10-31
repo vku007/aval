@@ -1,5 +1,5 @@
 /**
- * LocalAdvancedGameScene
+ * BlitzGameScene
  * Full-scene heat map with four stacked green frames.
  * Starts an extended best-of-5 match and sends the current stack as the move.
  * Item count is the extended size. Paper is a New Paper stack. NEG and SIZE are one toggle.
@@ -11,10 +11,15 @@
  * Sending an NA turn keeps that prime up and the selected stack hidden. The result takes the gesture item off the prime.
  * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
  * A finished match opens AdvancedGameResultsScene. OK there returns to the main menu.
+ * Each gesture storage panel shows two tables. The items sit on the left: 21 descending
+ * rectangles in three columns. That gesture's NA effects sit on the right: one column of eight
+ * ascending rounds. The NT panel shows one centered column of six ascending rounds.
+ * A move result replaces those counts with the spent inventory. Until the player adds an item
+ * for the next move, every occupied slot stays stored. Nothing is shown selected.
  */
-class LocalAdvancedGameScene extends Phaser.Scene {
+class BlitzGameScene extends Phaser.Scene {
     constructor() {
-        super({ key: 'LocalAdvancedGameScene' });
+        super({ key: 'BlitzGameScene' });
     }
 
     init() {
@@ -23,7 +28,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
 
     create() {
         exitTestsCanvas(this);
-        console.log('[LocalAdvancedGameScene] create() started');
+        console.log('[BlitzGameScene] create() started');
         fxEnter(this);
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
@@ -135,7 +140,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             if (!this.fieldLive(field)) {
                 return;
             }
-            console.error('[LocalAdvancedGameScene] Failed to create game:', error);
+            console.error('[BlitzGameScene] Failed to create game:', error);
             this.setStatus('Could not start match');
             this.showErrorModal('Failed to create game', error.message || 'An unexpected error occurred.');
         }
@@ -214,7 +219,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             if (statusLower === 'failed' || statusLower === 'error') {
                 throw new Error(response.message || response.detail || 'The move could not be processed.');
             }
-            this.gameData = response;
+            this.acceptMoveInventory(response);
             this._deferHealth = true;
             this.refreshMatchReadout();
             await this.playMoveResult(user.id);
@@ -229,7 +234,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
             if (!this.fieldLive(field)) {
                 return;
             }
-            console.error('[LocalAdvancedGameScene] Failed to send move:', error);
+            console.error('[BlitzGameScene] Failed to send move:', error);
             this.setStatus('Move failed');
             this.showErrorModal('Move Failed', error.message || 'An unexpected error occurred.');
             this.refreshMoveButtons();
@@ -913,7 +918,113 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         ).setOrigin(0.5).setDepth(1100);
         this.ntEffectText.panelBox = nt;
         this.fitInventoryPanelLabels(boxes);
+        this.createStoneStorageIndicators(stone);
+        this.createStorageIndicators(scissors, inventoryStorageSpec('Scissors'));
+        this.createStorageIndicators(paper, inventoryStorageSpec('Paper'));
+        this.createNtEffectsIndicator(nt);
         this.refreshInventoryReadout();
+    }
+
+    createStoneStorageIndicators(panel) {
+        this.createStorageIndicators(panel, inventoryStorageSpec('Stone'));
+    }
+
+    createStorageIndicators(panel, spec) {
+        if (!panel || !spec || !this.heatMap || typeof HmVerticalTableAmountIndicator !== 'function') {
+            return;
+        }
+        const frames = stoneStorageIndicatorFrames(panel);
+        const left = heatMapIndicatorOptions(this.heatMap, frames.left);
+        const right = heatMapIndicatorOptions(this.heatMap, frames.right);
+        this[spec.itemsName] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
+            name: spec.itemsLabel,
+            maxAmount: GESTURE_ITEM_INDICATOR_MAX,
+            columns: 3,
+            direction: 'desc',
+            shape: 'rectangle'
+        }, left));
+        this[spec.effectsName] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
+            name: spec.effectsLabel,
+            maxAmount: GESTURE_EFFECT_INDICATOR_MAX,
+            columns: GESTURE_EFFECT_INDICATOR_COLUMNS,
+            direction: 'asc',
+            shape: 'round'
+        }, right));
+        if (this[spec.countText]) {
+            this[spec.countText].setVisible(false);
+        }
+        if (this[spec.naText]) {
+            this[spec.naText].setVisible(false);
+        }
+    }
+
+    createNtEffectsIndicator(panel) {
+        if (!panel || !this.heatMap || typeof HmVerticalTableAmountIndicator !== 'function') {
+            return;
+        }
+        const placed = heatMapIndicatorOptions(this.heatMap, ntEffectsIndicatorFrame(panel));
+        this.ntEffectsIndicator = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
+            name: 'NT Effects',
+            maxAmount: NT_EFFECT_INDICATOR_MAX,
+            columns: NT_EFFECT_INDICATOR_COLUMNS,
+            direction: 'asc',
+            shape: 'round'
+        }, placed));
+        if (this.ntEffectText) {
+            this.ntEffectText.setVisible(false);
+        }
+    }
+
+    showsInventorySelection() {
+        return this._showInventorySelection !== false;
+    }
+
+    acceptMoveInventory(response) {
+        this.gameData = response;
+        this._showInventorySelection = false;
+    }
+
+    beginNextInventorySelection() {
+        if (this._sending) {
+            return;
+        }
+        this._showInventorySelection = true;
+    }
+
+    syncStoneStorageIndicators() {
+        const items = readInventoryItems(this.gameData);
+        const showSelection = this.showsInventorySelection();
+        const selection = showSelection ? this.currentSelection() : null;
+        const pickedEffects = showSelection ? this.selectedEffects : [];
+        ['Stone', 'Scissors', 'Paper'].forEach((moveType) => {
+            const spec = inventoryStorageSpec(moveType);
+            const storedItems = this[spec.itemsName];
+            const effects = this[spec.effectsName];
+            if (!storedItems && !effects) {
+                return;
+            }
+            const count = items && Number.isFinite(items[spec.itemKey]) ? items[spec.itemKey] : null;
+            const naCount = items && Number.isFinite(items[spec.effectKey]) ? items[spec.effectKey] : null;
+            const picked = selection && selection.moveType === moveType
+                ? activePartCount(this[spec.compositeKey])
+                : 0;
+            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, 3, count, picked);
+            syncTableAmountIndicator(
+                effects,
+                GESTURE_EFFECT_INDICATOR_MAX,
+                GESTURE_EFFECT_INDICATOR_COLUMNS,
+                naCount,
+                naEffectPicked(moveType, selection, pickedEffects)
+            );
+        });
+        const ntCount = items && Number.isFinite(items.NT_effect) ? items.NT_effect : null;
+        syncTableAmountIndicator(
+            this.ntEffectsIndicator,
+            NT_EFFECT_INDICATOR_MAX,
+            NT_EFFECT_INDICATOR_COLUMNS,
+            ntCount,
+            ntEffectPicked(pickedEffects)
+        );
     }
 
     createInventorySideText(box, side, style) {
@@ -949,17 +1060,20 @@ class LocalAdvancedGameScene extends Phaser.Scene {
     }
 
     refreshInventoryReadout() {
+        this.syncStoneStorageIndicators();
         if (!this.stoneCountText) {
             return;
         }
         const items = readInventoryItems(this.gameData);
-        const selection = this.currentSelection();
-        const effects = this.selectedEffects;
-        this.stoneCountText.setText(inventorySelectedCountText(items && items.stones, activePartCount(this.stone)));
+        const showSelection = this.showsInventorySelection();
+        const selection = showSelection ? this.currentSelection() : null;
+        const effects = showSelection ? this.selectedEffects : [];
+        const picked = (composite) => (showSelection ? activePartCount(composite) : 0);
+        this.stoneCountText.setText(inventorySelectedCountText(items && items.stones, picked(this.stone)));
         this.stoneNaText.setText(inventorySelectedCountText(items && items.NA_effect_stone, naEffectPicked('Stone', selection, effects)));
-        this.scissorsCountText.setText(inventorySelectedCountText(items && items.scissors, activePartCount(this.scissor)));
+        this.scissorsCountText.setText(inventorySelectedCountText(items && items.scissors, picked(this.scissor)));
         this.scissorsNaText.setText(inventorySelectedCountText(items && items.NA_effect_scissors, naEffectPicked('Scissors', selection, effects)));
-        this.paperCountText.setText(inventorySelectedCountText(items && items.papers, activePartCount(this.paper)));
+        this.paperCountText.setText(inventorySelectedCountText(items && items.papers, picked(this.paper)));
         this.paperNaText.setText(inventorySelectedCountText(items && items.NA_effect_papers, naEffectPicked('Paper', selection, effects)));
         this.ntEffectText.setText(inventorySelectedCountText(items && items.NT_effect, ntEffectPicked(effects)));
         fitInventoryCountPair(this.stoneCountText, this.stoneNaText);
@@ -1002,6 +1116,7 @@ class LocalAdvancedGameScene extends Phaser.Scene {
         if (!composite || activePartCount(composite) >= maxItems) {
             return;
         }
+        this.beginNextInventorySelection();
         composite.addItem();
         if (composite._naHidden) {
             setCompositeShown(composite, false);
@@ -1854,6 +1969,113 @@ function pointerInsideStageButton(scene, button) {
     }
     const bounds = root.getBounds();
     return Phaser.Geom.Rectangle.Contains(bounds, pointer.worldX, pointer.worldY);
+}
+
+function inventoryStorageSpec(moveType) {
+    if (moveType === 'Scissors') {
+        return {
+            itemKey: 'scissors',
+            effectKey: 'NA_effect_scissors',
+            compositeKey: 'scissor',
+            countText: 'scissorsCountText',
+            naText: 'scissorsNaText',
+            itemsName: 'scissorsIndicator',
+            effectsName: 'scissorsNaIndicator',
+            itemsLabel: 'Scissors',
+            effectsLabel: 'NA Scissors'
+        };
+    }
+    if (moveType === 'Paper') {
+        return {
+            itemKey: 'papers',
+            effectKey: 'NA_effect_papers',
+            compositeKey: 'paper',
+            countText: 'paperCountText',
+            naText: 'paperNaText',
+            itemsName: 'paperIndicator',
+            effectsName: 'paperNaIndicator',
+            itemsLabel: 'Papers',
+            effectsLabel: 'NA Papers'
+        };
+    }
+    return {
+        itemKey: 'stones',
+        effectKey: 'NA_effect_stone',
+        compositeKey: 'stone',
+        countText: 'stoneCountText',
+        naText: 'stoneNaText',
+        itemsName: 'stonesIndicator',
+        effectsName: 'stoneNaIndicator',
+        itemsLabel: 'Stones',
+        effectsLabel: 'NA Stones'
+    };
+}
+
+const GESTURE_ITEM_INDICATOR_MAX = 21;
+const GESTURE_EFFECT_INDICATOR_MAX = 8;
+const GESTURE_EFFECT_INDICATOR_COLUMNS = 1;
+const NT_EFFECT_INDICATOR_MAX = 6;
+const NT_EFFECT_INDICATOR_COLUMNS = 1;
+
+function ntEffectsIndicatorFrame(panel) {
+    const pad = 8;
+    const labelReserve = 26;
+    const width = Math.max(8, (panel.width - pad * 2) * 0.5);
+    return {
+        x: panel.x + (panel.width - width) / 2,
+        y: panel.y + labelReserve,
+        width: width,
+        height: Math.max(8, panel.height - labelReserve - pad)
+    };
+}
+
+function stoneStorageIndicatorFrames(panel) {
+    const pad = 8;
+    const labelReserve = 26;
+    const innerY = panel.y + labelReserve;
+    const innerH = Math.max(8, panel.height - labelReserve - pad);
+    const leftW = panel.width * 0.45;
+    const rightW = panel.width * 0.3 * 0.5;
+    return {
+        left: {
+            x: panel.x + pad,
+            y: innerY,
+            width: leftW,
+            height: innerH
+        },
+        right: {
+            x: panel.x + panel.width - pad - rightW,
+            y: innerY,
+            width: rightW,
+            height: innerH
+        }
+    };
+}
+
+function heatMapIndicatorOptions(heatMap, frame) {
+    return {
+        center: heatMapCellAt(heatMap, frame.x + frame.width / 2, frame.y + frame.height / 2),
+        width: Math.max(1, heatMapCellSpan(heatMap, frame.width, 'col')),
+        height: Math.max(1, heatMapCellSpan(heatMap, frame.height, 'row'))
+    };
+}
+
+function syncTableAmountIndicator(indicator, max, columns, stored, selected) {
+    if (!indicator) {
+        return;
+    }
+    const cap = Math.max(1, Math.round(Number.isFinite(max) && max > 0 ? max : indicator.maxAmount));
+    if (indicator.maxAmount !== cap) {
+        indicator.set('maxAmount', cap);
+    }
+    if (indicator.columns !== columns) {
+        indicator.set('columns', columns);
+    }
+    const held = Math.max(0, Math.min(cap, Number.isFinite(stored) ? Math.round(stored) : 0));
+    const picked = Math.max(0, Math.min(held, Number.isFinite(selected) ? Math.round(selected) : 0));
+    if (indicator.stored !== held || indicator.selected !== picked) {
+        indicator.setAmount(held, picked);
+    }
 }
 
 function heatMapCellAt(heatMap, x, y) {

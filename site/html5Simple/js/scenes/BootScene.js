@@ -18,7 +18,7 @@ class BootScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        this.add.text(width / 2, height / 2 - 40, 'Sweet Adventure', {
+        this.add.text(width / 2, height / 2 - 40, 'Warm Adventure', {
             font: `${UI.title}px monospace`,
             fill: '#000000'
         }).setOrigin(0.5);

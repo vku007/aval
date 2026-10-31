@@ -6,7 +6,7 @@
  * The rim falls off over a few cells. Each end lies on the straight line
  * from that side's start corner to its end corner.
  */
-const VICTORY_PULSE_MS = 750;
+const VICTORY_PULSE_MS = 562.5;
 const VICTORY_PULSE_EDGE = 8;
 
 function victoryEdgeAngle(dx, dy) {

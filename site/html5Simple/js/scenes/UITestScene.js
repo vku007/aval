@@ -72,7 +72,7 @@ class UITestScene extends Phaser.Scene {
 
     onBackClick() {
         console.log('[UITestScene] Back clicked');
-        fxGoTo(this, 'TestsScene');
+        fxGoTo(this, 'OldUiScenes');
     }
 
     createMenuButton(x, y, label, callback, btnHeight = UI.menuBtnH) {

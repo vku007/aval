@@ -7,13 +7,13 @@ import { createHeatMap, loadHeat, SITE_ROOT } from './harness.js';
 function loadScene(ctx) {
     ctx.Phaser.Scene = class Scene {};
     const source = fs.readFileSync(
-        path.join(SITE_ROOT, 'js/scenes/LocalAdvancedGameScene.js'),
+        path.join(SITE_ROOT, 'js/scenes/BlitzGameScene.js'),
         'utf8'
     );
     vm.runInContext(
-        `${source}\n;globalThis.LocalAdvancedGameScene = LocalAdvancedGameScene;`,
+        `${source}\n;globalThis.BlitzGameScene = BlitzGameScene;`,
         ctx,
-        { filename: 'LocalAdvancedGameScene.js' }
+        { filename: 'BlitzGameScene.js' }
     );
 }
 
@@ -44,7 +44,7 @@ function fill(group, count) {
 }
 
 function sceneFor(ctx, heatMap, activeKey) {
-    const scene = Object.create(ctx.LocalAdvancedGameScene.prototype);
+    const scene = Object.create(ctx.BlitzGameScene.prototype);
     scene.heatMap = heatMap;
     scene.stone = new ctx.HotMapUiStone(heatMap);
     scene.scissor = new ctx.HotMapUiScissor(heatMap);

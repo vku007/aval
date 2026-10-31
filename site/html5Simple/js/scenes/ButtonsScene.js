@@ -11,6 +11,10 @@ class ButtonsScene extends UIEditorScene {
         return ButtonsToolsScene;
     }
 
+    hubSceneKey() {
+        return 'TestsScene';
+    }
+
     seedObjects() {
         this.balls = [];
         this.rods = [];

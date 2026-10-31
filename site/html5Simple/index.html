@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sweet Adventure - HTML5</title>
+    <title>Warm Adventure - HTML5</title>
     <link rel="stylesheet" href="css/style.css?v=86">
     <!-- Phaser 3 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
@@ -19,18 +19,18 @@
     <!-- Game Scripts -->
     <script src="js/api.js?v=81"></script>
     <script src="js/gameClient.js?v=82"></script>
-    <script src="js/utils/SimpleGameSceneUtil.js?v=85"></script>
-    <script src="js/scenes/BootScene.js?v=128"></script>
-    <script src="js/scenes/MenuScene.js?v=126"></script>
-    <script src="js/scenes/GameSelectScene.js?v=136"></script>
+    <script src="js/utils/SimpleGameSceneUtil.js?v=86"></script>
+    <script src="js/scenes/BootScene.js?v=130"></script>
+    <script src="js/scenes/MenuScene.js?v=128"></script>
+    <script src="js/scenes/GameSelectScene.js?v=139"></script>
     <script src="js/scenes/LoginModalScene.js?v=80"></script>
     <script src="js/scenes/RegisterModalScene.js?v=80"></script>
     <script src="js/scenes/ErrorModalScene.js?v=80"></script>
-    <script src="js/scenes/GamePlayScene.js?v=81"></script>
+    <script src="js/scenes/GamePlayScene.js?v=82"></script>
     <script src="js/scenes/ClassicGameScene.js?v=80"></script>
     <script src="js/scenes/ExtendedGameScene.js?v=81"></script>
-    <script src="js/scenes/LocalAdvancedGameScene.js?v=220"></script>
-    <script src="js/scenes/AdvancedGameResultsScene.js?v=13"></script>
+    <script src="js/scenes/BlitzGameScene.js?v=231"></script>
+    <script src="js/scenes/AdvancedGameResultsScene.js?v=22"></script>
     <script src="js/fx/PlasmaBallFx.js?v=80"></script>
     <script src="js/fx/HeatMapFx.js?v=81"></script>
     <script src="js/fx/RotatedHeatMapFx.js?v=137"></script>
@@ -38,7 +38,7 @@
     <script src="js/fx/BackHighlightFx.js?v=124"></script>
     <script src="js/fx/PointerFx.js?v=1"></script>
     <script src="js/fx/RoundFx.js?v=3"></script>
-    <script src="js/fx/CircleFx.js?v=2"></script>
+    <script src="js/fx/CircleFx.js?v=4"></script>
     <script src="js/fx/SheetFx.js?v=123"></script>
     <script src="js/fx/HotCircleFx.js?v=104"></script>
     <script src="js/heat/anim/easing.js?v=1"></script>
@@ -57,14 +57,15 @@
     <script src="js/heat/composites/paper.js?v=1"></script>
     <script src="js/heat/composites/diskStack.js?v=1"></script>
     <script src="js/heat/composites/cross.js?v=2"></script>
-    <script src="js/ui/UiPropEditor.js?v=120"></script>
+    <script src="js/heat/composites/amountIndicator.js?v=6"></script>
+    <script src="js/ui/UiPropEditor.js?v=121"></script>
     <script src="js/ui/UiHeatMap.js?v=133"></script>
     <script src="js/ui/UiEditorPreset.js?v=128"></script>
     <script src="js/ui/UiHotBall.js?v=121"></script>
     <script src="js/ui/UiHotRod.js?v=123"></script>
-    <script src="js/ui/HorisontalPulse.js?v=109"></script>
-    <script src="js/ui/VictoryPulse.js?v=106"></script>
-    <script src="js/ui/VerticalPulse.js?v=105"></script>
+    <script src="js/ui/HorisontalPulse.js?v=110"></script>
+    <script src="js/ui/VictoryPulse.js?v=107"></script>
+    <script src="js/ui/VerticalPulse.js?v=106"></script>
     <script src="js/ui/UiBackHighlighter.js?v=113"></script>
     <script src="js/ui/UiShard.js?v=103"></script>
     <script src="js/ui/UiPointer.js?v=1"></script>
@@ -83,8 +84,10 @@
     <script src="js/ui/HotMapUiNewPaper.js?v=123"></script>
     <script src="js/ui/HotMapUiPaperPrime.js?v=2"></script>
     <script src="js/ui/HotMapUiCross.js?v=2"></script>
+    <script src="js/ui/HmHorisontalAmountIndicator.js?v=4"></script>
+    <script src="js/ui/HmVerticalAmountIndicator.js?v=2"></script>
+    <script src="js/ui/HmVerticalTableAmountIndicator.js?v=1"></script>
     <script src="js/ui/UiSkin.js?v=133"></script>
-    <script src="js/ui/ResultBar.js?v=9"></script>
     <script src="js/ui/UiStageMarkup.js?v=129"></script>
     <script src="js/ui/UiStageButton.js?v=7"></script>
     <script src="js/ui/HmSkinnedButton.js?v=8"></script>
@@ -94,26 +97,28 @@
     <script src="js/ui/HmSkinnedCrossButton.js?v=2"></script>
     <script src="js/ui/HmSkinnedPointerButton.js?v=1"></script>
     <script src="js/ui/HmSkinnedCoreButton.js?v=6"></script>
+    <script src="js/ui/ResultBar.js?v=19"></script>
     <script src="js/ui/HmSkinnedPrimeButton.js?v=3"></script>
-    <script src="js/scenes/TestsScene.js?v=114"></script>
-    <script src="js/scenes/UIEditorScene.js?v=149"></script>
+    <script src="js/scenes/TestsScene.js?v=116"></script>
+    <script src="js/scenes/OldUiScenes.js?v=1"></script>
+    <script src="js/scenes/UIEditorScene.js?v=153"></script>
     <script src="js/scenes/UIEditorToolsScene.js?v=127"></script>
     <script src="js/scenes/ButtonsToolsScene.js?v=3"></script>
-    <script src="js/scenes/ButtonsScene.js?v=3"></script>
+    <script src="js/scenes/ButtonsScene.js?v=4"></script>
     <script src="js/scenes/SkinnedButtonScene.js?v=6"></script>
-    <script src="js/scenes/CompositeUIEditorScene.js?v=120"></script>
-    <script src="js/scenes/CompositeUIEditorToolsScene.js?v=135"></script>
-    <script src="js/scenes/UITestScene.js?v=105"></script>
-    <script src="js/scenes/HotMapBallScene.js?v=107"></script>
-    <script src="js/scenes/RotatedHotMapBallScene.js?v=107"></script>
+    <script src="js/scenes/CompositeUIEditorScene.js?v=124"></script>
+    <script src="js/scenes/CompositeUIEditorToolsScene.js?v=139"></script>
+    <script src="js/scenes/UITestScene.js?v=106"></script>
+    <script src="js/scenes/HotMapBallScene.js?v=108"></script>
+    <script src="js/scenes/RotatedHotMapBallScene.js?v=108"></script>
     <script src="js/scenes/MoveHotRodScene.js?v=107"></script>
     <script src="js/scenes/BackHighlightScene.js?v=111"></script>
     <script src="js/scenes/ShardScene.js?v=105"></script>
     <script src="js/scenes/AlterSheetScene.js?v=113"></script>
-    <script src="js/scenes/SheetScene.js?v=110"></script>
+    <script src="js/scenes/SheetScene.js?v=111"></script>
     <script src="js/scenes/MoveHotCircleScene.js?v=107"></script>
     <script src="js/frameSize.js?v=108"></script>
     <script src="js/uiFx.js?v=80"></script>
-    <script src="js/game.js?v=140"></script>
+    <script src="js/game.js?v=142"></script>
 </body>
 </html>

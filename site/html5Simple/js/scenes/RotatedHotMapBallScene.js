@@ -247,7 +247,7 @@ class RotatedHotMapBallScene extends Phaser.Scene {
 
     onBackClick() {
         console.log('[RotatedHotMapBallScene] Back clicked');
-        fxGoTo(this, 'TestsScene');
+        fxGoTo(this, 'OldUiScenes');
     }
 
     createMenuButton(x, y, label, callback, btnHeight = UI.menuBtnH) {

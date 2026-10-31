@@ -22,12 +22,12 @@ describe('GamePlayerInventory', () => {
     const inventory = GamePlayerInventory.advancedFor('user-1', 7);
     expect(inventory.items).toEqual(ADVANCED_INVENTORY_ITEMS);
     expect(inventory.items).toEqual({
-      stones: 20,
+      stones: 21,
       scissors: 12,
-      papers: 10,
-      NA_effect_stone: 2,
-      NA_effect_scissors: 5,
-      NA_effect_papers: 3,
+      papers: 12,
+      NA_effect_stone: 3,
+      NA_effect_scissors: 2,
+      NA_effect_papers: 5,
       NT_effect: 3
     });
     expect(inventory.currencies.gold).toBe(DEFAULT_INVENTORY_AMOUNT);
