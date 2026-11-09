@@ -12,8 +12,8 @@
  * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
  * A finished match opens AdvancedGameResultsScene. OK there returns to the main menu.
  * Each gesture storage panel shows two tables. The items sit on the left: 21 descending
- * rectangles in three columns. That gesture's NA effects sit on the right: one column of eight
- * ascending rounds. The NT panel shows one centered column of six ascending rounds.
+ * rectangles in four columns. That gesture's NA effects sit on the right: eight ascending
+ * rounds in two columns. The NT panel shows six ascending rounds in two columns.
  * A move result replaces those counts with the spent inventory. Until the player adds an item
  * for the next move, every occupied slot stays stored. Nothing is shown selected.
  * The enemy_inventory band matches that inventory band. Its tables show the NPC stacks
@@ -969,7 +969,7 @@ class BlitzGameScene extends Phaser.Scene {
         this[spec.itemsName] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
             name: spec.itemsLabel,
             maxAmount: GESTURE_ITEM_INDICATOR_MAX,
-            columns: 3,
+            columns: GESTURE_ITEM_INDICATOR_COLUMNS,
             direction: 'desc',
             shape: 'rectangle'
         }, left));
@@ -1039,7 +1039,7 @@ class BlitzGameScene extends Phaser.Scene {
             const picked = selection && selection.moveType === moveType
                 ? activePartCount(this[spec.compositeKey])
                 : 0;
-            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, 3, count, picked);
+            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, GESTURE_ITEM_INDICATOR_COLUMNS, count, picked);
             syncTableAmountIndicator(
                 effects,
                 GESTURE_EFFECT_INDICATOR_MAX,
@@ -1069,7 +1069,7 @@ class BlitzGameScene extends Phaser.Scene {
             }
             const count = items && Number.isFinite(items[spec.itemKey]) ? items[spec.itemKey] : null;
             const naCount = items && Number.isFinite(items[spec.effectKey]) ? items[spec.effectKey] : null;
-            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, 3, count, 0);
+            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, GESTURE_ITEM_INDICATOR_COLUMNS, count, 0);
             syncTableAmountIndicator(
                 effects,
                 GESTURE_EFFECT_INDICATOR_MAX,
@@ -1126,6 +1126,9 @@ class BlitzGameScene extends Phaser.Scene {
             const text = layer.list.find((item) => item.text === label);
             if (!box || !text || typeof text.setWordWrapWidth !== 'function') {
                 return;
+            }
+            if (typeof text.setText === 'function') {
+                text.setText(INVENTORY_FRAME_TITLES[label]);
             }
             text.setWordWrapWidth(Math.max(8, box.width - 8), true);
         });
@@ -1597,10 +1600,10 @@ class BlitzGameScene extends Phaser.Scene {
 function localAdvancedPanelBoxes(width, height) {
     const panels = [
         { label: 'score', share: 0.10 },
-        { label: 'enemy_inventory', share: 0.15 },
-        { label: 'enemy_data', share: 0.25 },
+        { label: 'enemy_inventory', share: 0.075 },
+        { label: 'enemy_data', share: 0.40 },
         { label: 'current turn', share: 0.35 },
-        { label: 'inventory', share: 0.15 }
+        { label: 'inventory', share: 0.075 }
     ];
     const boxes = [];
     let y = 0;
@@ -2129,15 +2132,31 @@ function inventoryStorageSpec(moveType) {
 }
 
 const GESTURE_ITEM_INDICATOR_MAX = 21;
+const GESTURE_ITEM_INDICATOR_COLUMNS = 4;
+// 18 heat cells: four bars at 3 cells (75% of the old 4-cell bar) with the gap cap of 2.
+// A storage panel is 0.3 of the 390 stage, and that stage is 129 cells across.
+const GESTURE_ITEM_FRAME_SHARE = 18 / (0.3 * 129);
 const GESTURE_EFFECT_INDICATOR_MAX = 8;
-const GESTURE_EFFECT_INDICATOR_COLUMNS = 1;
+const GESTURE_EFFECT_INDICATOR_COLUMNS = 2;
 const NT_EFFECT_INDICATOR_MAX = 6;
-const NT_EFFECT_INDICATOR_COLUMNS = 1;
+const NT_EFFECT_INDICATOR_COLUMNS = 2;
+const INVENTORY_LABEL_RESERVE = 14;
+const INVENTORY_SLOT_PAD = 4;
+const INVENTORY_FRAME_TITLES = {
+    stone_storage_panel: 'Stone',
+    scissors_storage_panel: 'Scissors',
+    paper_storage_panel: 'Paper',
+    NT_effects_panel: 'Core',
+    enemy_stone_storage_panel: 'Stone',
+    enemy_scissors_storage_panel: 'Scissors',
+    enemy_paper_storage_panel: 'Paper',
+    enemy_NT_effects_panel: 'Core'
+};
 
 function ntEffectsIndicatorFrame(panel) {
-    const pad = 8;
-    const labelReserve = 26;
-    const width = Math.max(8, (panel.width - pad * 2) * 0.5);
+    const pad = INVENTORY_SLOT_PAD;
+    const labelReserve = INVENTORY_LABEL_RESERVE;
+    const width = Math.max(8, panel.width - pad * 2);
     return {
         x: panel.x + (panel.width - width) / 2,
         y: panel.y + labelReserve,
@@ -2147,12 +2166,12 @@ function ntEffectsIndicatorFrame(panel) {
 }
 
 function stoneStorageIndicatorFrames(panel) {
-    const pad = 8;
-    const labelReserve = 26;
+    const pad = INVENTORY_SLOT_PAD;
+    const labelReserve = INVENTORY_LABEL_RESERVE;
     const innerY = panel.y + labelReserve;
     const innerH = Math.max(8, panel.height - labelReserve - pad);
-    const leftW = panel.width * 0.45;
-    const rightW = panel.width * 0.3 * 0.5;
+    const leftW = panel.width * GESTURE_ITEM_FRAME_SHARE;
+    const rightW = panel.width * 0.24;
     return {
         left: {
             x: panel.x + pad,

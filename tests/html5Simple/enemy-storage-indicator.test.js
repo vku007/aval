@@ -69,7 +69,10 @@ describe('enemy storage indicators', () => {
         const playerBand = box(boxes, 'inventory');
         const reveal = box(boxes, 'enemy_data');
         expect(enemyBand.height).toBe(playerBand.height);
+        expect(playerBand.height).toBeCloseTo(844 * 0.075, 5);
         expect(reveal.y).toBe(enemyBand.y + enemyBand.height);
+        expect(reveal.height).toBeCloseTo(844 * 0.4, 5);
+        expect(box(boxes, 'current turn').height).toBeCloseTo(844 * 0.35, 5);
         [
             ['enemy_stone_storage_panel', 'stone_storage_panel'],
             ['enemy_scissors_storage_panel', 'scissors_storage_panel'],
@@ -102,30 +105,40 @@ describe('enemy storage indicators', () => {
         const stones = scene.enemyStonesIndicator;
         const effects = scene.enemyStoneNaIndicator;
         expect(stones).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
-        expect(stones.columns).toBe(3);
+        expect(stones.columns).toBe(4);
         expect(stones.direction).toBe('desc');
         expect(stones.shape).toBe('rectangle');
         expect(stones.maxAmount).toBe(21);
         expect(stones.stored).toBe(21);
         expect(stones.selected).toBe(0);
         expect(stones.name).toBe('Enemy Stones');
+        expect(stones.items[0].emitter.current.height).toBeCloseTo(1, 5);
+        expect(stones.items[0].emitter.current.width).toBeCloseTo(3, 5);
+        expect(scene.stonesIndicator.items[0].emitter.current.height).toBeCloseTo(1, 5);
+        expect(scene.stonesIndicator.items[0].emitter.current.width).toBeCloseTo(3, 5);
 
-        expect(effects.columns).toBe(1);
+        const span = heatMap.field.cols - 1;
+        const cells = (pixels) => (pixels / heatMap.bounds.width) * span;
+        const stonePanel = box(boxes, 'enemy_stone_storage_panel');
+        expect(effects.columns).toBe(2);
         expect(effects.direction).toBe('asc');
         expect(effects.shape).toBe('round');
         expect(effects.maxAmount).toBe(8);
         expect(effects.stored).toBe(3);
         expect(effects.selected).toBe(0);
         expect(effects.name).toBe('Enemy NA Stones');
+        expect(effects.width).toBeCloseTo(cells(stonePanel.width * 0.24), 5);
+        expect(effects.items[0].emitter.center.col).toBeCloseTo(effects.items[1].emitter.center.col, 5);
+        expect(effects.items[4].emitter.center.col).toBeGreaterThan(effects.items[0].emitter.center.col);
 
         expect(scene.enemyScissorsIndicator.stored).toBe(12);
         expect(scene.enemyScissorsIndicator.selected).toBe(0);
         expect(scene.enemyScissorsIndicator.shape).toBe('rectangle');
         expect(scene.enemyScissorsNaIndicator.stored).toBe(2);
-        expect(scene.enemyScissorsNaIndicator.columns).toBe(1);
+        expect(scene.enemyScissorsNaIndicator.columns).toBe(2);
         expect(scene.enemyScissorsNaIndicator.maxAmount).toBe(8);
         expect(scene.enemyPapersIndicator.stored).toBe(12);
-        expect(scene.enemyPapersIndicator.columns).toBe(3);
+        expect(scene.enemyPapersIndicator.columns).toBe(4);
         expect(scene.enemyPapersNaIndicator.stored).toBe(5);
         expect(scene.enemyPapersNaIndicator.shape).toBe('round');
         expect(scene.enemyScissorsIndicator.center.col).toBeGreaterThan(stones.center.col);
@@ -134,12 +147,16 @@ describe('enemy storage indicators', () => {
         const nt = scene.enemyNtEffectsIndicator;
         expect(nt).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
         expect(nt.name).toBe('Enemy NT Effects');
-        expect(nt.columns).toBe(1);
+        expect(nt.columns).toBe(2);
         expect(nt.direction).toBe('asc');
         expect(nt.shape).toBe('round');
         expect(nt.maxAmount).toBe(6);
         expect(nt.stored).toBe(3);
         expect(nt.selected).toBe(0);
+        const ntPanel = box(boxes, 'enemy_NT_effects_panel');
+        expect(nt.width).toBeCloseTo(cells(ntPanel.width - 8), 5);
+        expect(nt.items[0].emitter.center.col).toBeCloseTo(nt.items[2].emitter.center.col, 5);
+        expect(nt.items[3].emitter.center.col).toBeGreaterThan(nt.items[0].emitter.center.col);
 
         fill(scene.stone, 3);
         scene.selectedEffects = ['NegateSize'];

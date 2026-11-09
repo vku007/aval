@@ -84,7 +84,7 @@ describe('stone storage indicators', () => {
         const stones = scene.stonesIndicator;
         const effects = scene.stoneNaIndicator;
         expect(stones).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
-        expect(stones.columns).toBe(3);
+        expect(stones.columns).toBe(4);
         expect(stones.direction).toBe('desc');
         expect(stones.shape).toBe('rectangle');
         expect(stones.maxAmount).toBe(21);
@@ -95,12 +95,13 @@ describe('stone storage indicators', () => {
         expect(stones.center.col).toBeLessThan(effects.center.col);
         const span = heatMap.field.cols - 1;
         const cells = (pixels) => (pixels / heatMap.bounds.width) * span;
-        expect(stones.width).toBeCloseTo(cells(54), 5);
-        expect(effects.width).toBeCloseTo(cells(18), 5);
-        expect(stones.center.col).toBeCloseTo(cells(8 + 27), 5);
-        expect(effects.center.col).toBeCloseTo(cells(120 - 8 - 9), 5);
+        const itemFrame = 120 * (18 / (0.3 * 129));
+        expect(stones.width).toBeCloseTo(cells(itemFrame), 5);
+        expect(effects.width).toBeCloseTo(cells(120 * 0.24), 5);
+        expect(stones.center.col).toBeCloseTo(cells(4 + itemFrame / 2), 5);
+        expect(effects.center.col).toBeCloseTo(cells(120 - 4 - (120 * 0.24) / 2), 5);
 
-        expect(effects.columns).toBe(1);
+        expect(effects.columns).toBe(2);
         expect(effects.direction).toBe('asc');
         expect(effects.shape).toBe('round');
         expect(effects.maxAmount).toBe(8);
@@ -108,6 +109,7 @@ describe('stone storage indicators', () => {
         expect(effects.selected).toBe(0);
         expect(effects.items[0].kind).toBe('round');
         expect(effects.items[0].emitter.center.col).toBeCloseTo(effects.items[1].emitter.center.col, 5);
+        expect(effects.items[4].emitter.center.col).toBeGreaterThan(effects.items[0].emitter.center.col);
         expect(effects.items[0].emitter.center.row).toBeLessThan(effects.items[1].emitter.center.row);
 
         scene.selectedEffects = ['NegateSize'];
@@ -131,10 +133,10 @@ describe('stone storage indicators', () => {
         expect(scene.paperIndicator.selected).toBe(0);
         expect(scene.scissorsIndicator.shape).toBe('rectangle');
         expect(scene.scissorsNaIndicator.shape).toBe('round');
-        expect(scene.paperIndicator.columns).toBe(3);
-        expect(scene.scissorsNaIndicator.columns).toBe(1);
+        expect(scene.paperIndicator.columns).toBe(4);
+        expect(scene.scissorsNaIndicator.columns).toBe(2);
         expect(scene.scissorsNaIndicator.maxAmount).toBe(8);
-        expect(scene.paperNaIndicator.columns).toBe(1);
+        expect(scene.paperNaIndicator.columns).toBe(2);
         expect(scene.paperNaIndicator.maxAmount).toBe(8);
         expect(scene.scissorsNaIndicator.width).toBeCloseTo(effects.width, 5);
         expect(scene.scissorsIndicator.center.col).toBeGreaterThan(stones.center.col);
@@ -154,7 +156,7 @@ describe('stone storage indicators', () => {
         const nt = scene.ntEffectsIndicator;
         expect(ntTextVisible).toBe(false);
         expect(nt).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
-        expect(nt.columns).toBe(1);
+        expect(nt.columns).toBe(2);
         expect(nt.direction).toBe('asc');
         expect(nt.shape).toBe('round');
         expect(nt.maxAmount).toBe(6);
@@ -162,8 +164,9 @@ describe('stone storage indicators', () => {
         expect(nt.selected).toBe(0);
         expect(nt.items[0].kind).toBe('round');
         expect(nt.items[0].emitter.center.row).toBeLessThan(nt.items[1].emitter.center.row);
-        expect(nt.items[0].emitter.center.col).toBeCloseTo(nt.items[5].emitter.center.col, 5);
-        expect(nt.width).toBeCloseTo(cells((ntPanel.width - 16) * 0.5), 5);
+        expect(nt.items[0].emitter.center.col).toBeCloseTo(nt.items[2].emitter.center.col, 5);
+        expect(nt.items[3].emitter.center.col).toBeGreaterThan(nt.items[0].emitter.center.col);
+        expect(nt.width).toBeCloseTo(cells(ntPanel.width - 8), 5);
         expect(nt.center.col).toBeCloseTo(cells(ntPanel.x + ntPanel.width / 2), 5);
 
         scene.gameData.payload.playerContext.inventory.items.NT_effect = 2;
