@@ -113,7 +113,7 @@ class TestsScene extends Phaser.Scene {
                 level: {
                     name: 'Level1'
                 },
-                episode: {
+                campaign: {
                     name: 'Episode1'
                 }
             };

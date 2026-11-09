@@ -1,4 +1,5 @@
 import { ValidationError } from '../../shared/errors/index.js';
+import { Campaign } from '../campaign/Campaign.js';
 import { JsonEntity } from './JsonEntity.js';
 import { UserProfile } from './UserProfile.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
@@ -7,6 +8,7 @@ import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
 interface UserData {
   name: string;
   externalId: number;
+  campaigns: unknown[];
 }
 
 /**
@@ -29,13 +31,18 @@ export class UserEntity {
     name: string,
     externalId: number,
     etag?: string,
-    metadata?: EntityMetadata
+    metadata?: EntityMetadata,
+    campaigns: Campaign[] = []
   ) {
     this.validateId(id);
     this.validateUserData(name, externalId);
     
     // Store all values in the backed JsonEntity with proper typing
-    const userData: UserData = { name, externalId };
+    const userData: UserData = {
+      name,
+      externalId,
+      campaigns: campaigns.map(campaign => campaign.toJSON())
+    };
     this._backed = new JsonEntity(id, userData as unknown as JsonValue, etag, metadata);
   }
 
@@ -50,6 +57,25 @@ export class UserEntity {
 
   get externalId(): number {
     return this.getUserData().externalId;
+  }
+
+  get campaigns(): Campaign[] {
+    const stored = this.getUserData().campaigns;
+    if (!Array.isArray(stored)) {
+      return [];
+    }
+    return stored.map(item => Campaign.fromJSON(item));
+  }
+
+  withCampaigns(campaigns: Campaign[]): UserEntity {
+    return new UserEntity(
+      this.id,
+      this.name,
+      this.externalId,
+      this._backed.etag,
+      this._backed.metadata,
+      campaigns
+    );
   }
 
   // Read-only access to entity metadata (etag, size, lastModified)
@@ -69,12 +95,26 @@ export class UserEntity {
 
   internalCreateFromBackingStore(backed: JsonEntity): UserEntity {
     const userData = backed.data as unknown as UserData;
-    return new UserEntity(backed.id, userData.name, userData.externalId, backed.etag, backed.metadata);
+    return new UserEntity(
+      backed.id,
+      userData.name,
+      userData.externalId,
+      backed.etag,
+      backed.metadata,
+      readCampaigns(userData.campaigns)
+    );
   }
 
   // Factory method
-  static create(id: string, name: string, externalId: number, etag?: string, metadata?: EntityMetadata): UserEntity {
-    return new UserEntity(id, name, externalId, etag, metadata);
+  static create(
+    id: string,
+    name: string,
+    externalId: number,
+    etag?: string,
+    metadata?: EntityMetadata,
+    campaigns: Campaign[] = []
+  ): UserEntity {
+    return new UserEntity(id, name, externalId, etag, metadata, campaigns);
   }
 
   // Immutable operations that delegate to UserProfile class
@@ -121,7 +161,8 @@ export class UserEntity {
       profile.name,
       profile.externalId,
       this._backed.etag,
-      this._backed.metadata
+      this._backed.metadata,
+      this.campaigns
     );
   }
 
@@ -151,7 +192,7 @@ export class UserEntity {
       throw new ValidationError('User entity externalId must be a number');
     }
 
-    return new UserEntity(data.id, data.name, data.externalId);
+    return new UserEntity(data.id, data.name, data.externalId, undefined, undefined, readCampaigns(data.campaigns));
   }
 
   // Validation methods
@@ -189,6 +230,13 @@ export class UserEntity {
       throw new ValidationError('External ID must be a positive integer');
     }
   }
+}
+
+function readCampaigns(stored: unknown): Campaign[] {
+  if (!Array.isArray(stored)) {
+    return [];
+  }
+  return stored.map(item => Campaign.fromJSON(item));
 }
 
 // Export UserEntity as User for backward compatibility

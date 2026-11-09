@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { NpcActor } from './NpcActor.js';
+import { NPC_GREED_1, NpcActor } from './NpcActor.js';
 import { Game } from '../../domain/entity/Game.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { Round } from '../../domain/value-object/Round.js';
@@ -18,7 +18,7 @@ import { GameType } from '../../domain/value-object/GameType.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { GameLevel } from '../../domain/value-object/GameLevel.js';
-import { EpisodeContext } from '../../domain/value-object/EpisodeContext.js';
+import { CampaignContext } from '../../domain/value-object/CampaignContext.js';
 import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 
 describe('NpcActor.nextAction', () => {
@@ -37,7 +37,7 @@ describe('NpcActor.nextAction', () => {
       RoundsLength.BO3,
       kind,
       new GameLevel('Level1'),
-      new EpisodeContext('Episode1'),
+      new CampaignContext('Episode1'),
       caps?.stone,
       caps?.scissors,
       caps?.paper
@@ -247,6 +247,55 @@ describe('NpcActor.nextAction', () => {
 
     expect(action!.context.move!.context.moveType).toBe(MoveType.Scissors);
     expect(action!.context.move!.context.size).toBe(10);
+  });
+
+  it('NPC_greed_1 throws size 1 even when stock and the turn cap allow more', () => {
+    const game = createGame([USER_1, NPC_GREED_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_GREED_1, 0, 10, 0);
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    const action = actor.nextAction(game);
+    const move = action!.context.move!;
+
+    expect(move.userId).toBe(NPC_GREED_1);
+    expect(move.context.moveType).toBe(MoveType.Scissors);
+    expect(move.context.size).toBe(1);
+    expect(move.context.effects).toEqual([]);
+  });
+
+  it('NPC_greed_1 still skips an empty type', () => {
+    const game = createGame([USER_1, NPC_GREED_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_GREED_1, 9, 0, 7);
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.type).toBe(ActionType.Move);
+    expect(action!.context.move!.context.moveType).toBe(MoveType.Paper);
+    expect(action!.context.move!.context.size).toBe(1);
+  });
+
+  it('NPC_greed_1 surrenders when every gesture stack is empty', () => {
+    const game = createGame([USER_1, NPC_GREED_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_GREED_1, 0, 0, 0);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.type).toBe(ActionType.Surrender);
+    expect(action!.context.move).toBeUndefined();
+  });
+
+  it('NPC_greed_1 uses size 0 on a classic game', () => {
+    const game = createGame([USER_1, NPC_GREED_1], KindOfGame.Classic);
+    addOpenSubRound(game, [playerMove()]);
+
+    const action = actor.nextAction(game);
+
+    expect(action!.context.move!.userId).toBe(NPC_GREED_1);
+    expect(action!.context.move!.context.size).toBe(0);
   });
 
   it('can throw first when the sub-round is init', () => {

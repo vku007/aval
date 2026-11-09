@@ -12,17 +12,26 @@ import { Logger } from '../../shared/logging/Logger.js';
 
 const MOVE_TYPES = [MoveType.Stone, MoveType.Paper, MoveType.Scissors];
 
+/** Random extended size, 1 through min(turn cap, stock). */
+export const NPC_1 = 'NPC_1';
+/** Extended size is always 1. */
+export const NPC_GREED_1 = 'NPC_greed_1';
+
 /**
  * Decides the NPC's next action.
- * Extended throws use size 1 or more and only a type the inventory can pay for.
+ * Extended throws use only a type the inventory can pay for.
+ * `NPC_1` picks a size from 1 through min(turn cap, stock).
+ * `NPC_greed_1` always throws size 1.
  * An empty extended inventory is a Surrender. Classic still throws size 0.
  * Does not apply the action — GameProcessor.processAction does.
  */
 export class NpcActor {
   private readonly logger: Logger;
+  private readonly random: () => number;
 
-  constructor(logger?: Logger) {
+  constructor(logger?: Logger, random?: () => number) {
     this.logger = logger ?? new Logger();
+    this.random = random ?? (() => Math.random());
   }
 
   /**
@@ -112,7 +121,7 @@ export class NpcActor {
       return this.extendedAction(game, npcId, currentRound.id, lastSubRound.idNum);
     }
 
-    const randomMoveType = MOVE_TYPES[Math.floor(Math.random() * MOVE_TYPES.length)];
+    const randomMoveType = MOVE_TYPES[Math.floor(this.random() * MOVE_TYPES.length)];
     this.logger.info('Generating NPC move', {
       gameId: game.id,
       npcId,
@@ -126,8 +135,9 @@ export class NpcActor {
   }
 
   /**
-   * Size is 1..min(turn cap, stock) on a type that has at least one item and a cap of at least 1.
+   * A playable type has at least one item and a turn cap of at least 1.
    * No such type means Surrender.
+   * `NPC_greed_1` spends the minimum, size 1. `NPC_1` spends 1..min(cap, stock).
    */
   private extendedAction(game: Game, npcId: string, roundId: string, subRoundIdNum: number): Action {
     const playable = MOVE_TYPES.filter(moveType =>
@@ -143,7 +153,7 @@ export class NpcActor {
       return new Action(ActionType.Surrender, new ActionContext());
     }
 
-    const moveType = playable[Math.floor(Math.random() * playable.length)];
+    const moveType = playable[Math.floor(this.random() * playable.length)];
     const npcSize = this.moveSize(game, npcId, moveType);
     this.logger.info('Generating NPC move', {
       gameId: game.id,
@@ -158,11 +168,14 @@ export class NpcActor {
     return new Action(ActionType.Move, new ActionContext(npcMove));
   }
 
-  /** `available` and the turn cap are at least 1. Result is 1..min(cap, available). */
+  /** Playable types already have stock and a cap of at least 1. */
   private moveSize(game: Game, npcId: string, moveType: MoveType): number {
+    if (npcId === NPC_GREED_1) {
+      return 1;
+    }
     const available = this.gestureCount(game, npcId, moveType);
     const maxSize = Math.min(this.turnCap(game, moveType), available);
-    return 1 + Math.floor(Math.random() * maxSize);
+    return 1 + Math.floor(this.random() * maxSize);
   }
 
   private turnCap(game: Game, moveType: MoveType): number {

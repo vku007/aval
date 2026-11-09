@@ -87,6 +87,20 @@ class SimpleGameSceneUtil {
     }
 
     /**
+     * Campaign battles also leave the play scene when the match breaks.
+     * Lobby and tests play keep using isGameFinished, which leaves broken in play.
+     * @param {object} gameData
+     * @returns {boolean}
+     */
+    static isCampaignMatchOver(gameData) {
+        const status = this.getGameStatus(gameData).toLowerCase();
+        return status === 'finished' ||
+            status === 'completed' ||
+            status === 'ended' ||
+            status === 'broken';
+    }
+
+    /**
      * Last completed subround in the match (draws open a new empty subround).
      * @param {object} gameData
      * @returns {object|null}

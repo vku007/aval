@@ -50,6 +50,13 @@ describe('LocalJsonStore', () => {
     expect((await store.get('json/a.json'))?.data).toEqual({ n: 2 });
   });
 
+  it('accepts a weak etag produced when a response is compressed', async () => {
+    const created = await store.put('json/a.json', { n: 1 });
+    const updated = await store.put('json/a.json', { n: 2 }, { ifMatch: `W/"${created.etag}"` });
+    expect((await store.get('json/a.json'))?.data).toEqual({ n: 2 });
+    expect(updated.etag).not.toBe(created.etag);
+  });
+
   it('returns 304 semantics when ifNoneMatch matches on get', async () => {
     const created = await store.put('json/a.json', { n: 1 });
     await expect(store.get('json/a.json', created.etag)).rejects.toBeInstanceOf(NotModifiedError);

@@ -128,6 +128,16 @@ export class ExternalController {
 
       this.logger.info('Creating game', { userId });
 
+      const raw = request.body as Record<string, unknown>;
+      for (const key of ['campaignId', 'campaignTile', 'campaignAttackId', 'campaignBattleSeed', 'campaignNpcAlgorithmId']) {
+        if (raw[key] !== undefined) {
+          throw new ValidationError(`${key} cannot be set on this route`);
+        }
+      }
+      if (raw.episode !== undefined && raw.campaign === undefined) {
+        throw new ValidationError('campaign is required');
+      }
+
       // Parse request body to create GameCreateContext
       const gameCreateContext = GameCreateContext.fromJSON(request.body);
       const inventories = this.parseCreateInventories(request.body, userId);
@@ -196,7 +206,7 @@ export class ExternalController {
           roundStates: response.payload.playerContext.roundStates.map(rs => rs.toJSON()),
           inventory: response.payload.playerContext.inventory.toJSON()
         },
-        enemyContext: {}
+        enemyContext: response.payload.enemyContext.toJSON()
       };
 
       return HttpResponse.ok({
@@ -262,7 +272,7 @@ export class ExternalController {
           roundStates: response.payload.playerContext.roundStates.map(rs => rs.toJSON()),
           inventory: response.payload.playerContext.inventory.toJSON()
         },
-        enemyContext: {}
+        enemyContext: response.payload.enemyContext.toJSON()
       };
 
       return HttpResponse.ok({

@@ -63,6 +63,8 @@ Slots (`life`, `react`, `layout`, `hover`, `move`) run together. A busy slot use
 
 ## Tests
 
+Canvas clicks in the Cursor browser follow [html5-scene-check](../html5-scene-check/SKILL.md). `browser_snapshot` has no button refs on this game.
+
 From `tests/html5Simple`:
 
 ```bash

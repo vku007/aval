@@ -52,6 +52,10 @@ The API supports CORS with the following configuration:
 | Current user | `/apiv2/external/me` | GET | any JWT |
 | Promote guest | `/apiv2/external/promote` | POST | JWT guest |
 | Player games | `/apiv2/external/games`, `/apiv2/external/games/{gameId}` | POST, GET, PUT, PATCH | any JWT |
+| Campaigns | `/apiv2/external/campaigns` | GET, POST | any JWT |
+| Campaign | `/apiv2/external/campaigns/{id}` | GET | any JWT |
+| Campaign actions | `/apiv2/external/campaigns/{id}/actions` | POST | any JWT |
+| Finish campaign | `/apiv2/internal/users/{userId}/campaigns/{id}/finish` | POST | admin |
 | **Files** | `/apiv2/internal/files` | GET, POST | admin |
 | **File** | `/apiv2/internal/files/{id}` | GET, PUT, PATCH, DELETE | admin |
 | **File Meta** | `/apiv2/internal/files/{id}/meta` | GET | admin |
@@ -231,7 +235,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
   "rounds": "BO7",
   "kind": "classic",
   "level": { "name": "1" },
-  "episode": { "name": "intro" }
+  "campaign": { "name": "intro" }
 }
 ```
 
@@ -241,7 +245,7 @@ Processor API (`GameProcessorService`). Not the admin CRUD body. Opponent is `NP
 | `rounds` | string | Yes | `BO1`, `BO3`, `BO5`, `BO7` |
 | `kind` | string | Yes | `classic` (same type is a draw; `size` and `effects` unused), `extended` (same type compares `size`; different types ignore `size`; optional `effects` on one throw) |
 | `level.name` | string | Yes | non-empty |
-| `episode.name` | string | Yes | non-empty |
+| `campaign.name` | string | Yes | non-empty. A body that sends only `episode` is `400`. A stored game that still has `episode` loads as `campaign`, and `campaign` wins when both keys are present. Responses write `campaign` only |
 | `inventories` | object[] | No | One row per player. Omit on classic and both players get 1000 of every amount. Omit on extended and both get the advanced start: 21 stones, 12 scissors, 12 papers, 3 `NA_effect_stone`, 2 `NA_effect_scissors`, 5 `NA_effect_papers`, 3 `NT_effect`, and 1000 of each coin. `time` = now |
 | `max_stone_per_turn` | number | No | Extended only. Largest Stone `size` in one throw. Omit for `9`. Integer >= 1 |
 | `max_scissors_per_turn` | number | No | Extended only. Largest Scissors `size` in one throw. Omit for `4`. Integer >= 1 |
@@ -266,7 +270,7 @@ Each inventory row:
 }
 ```
 
-Every count and `time` is a non-negative integer, and a provided row must include every item and currency key. `userId` must be the caller or `NPC_1`. A missing player gets the same fill as an omitted list: 1000 of every amount on classic, the advanced start on extended. Unknown or duplicate ids are `400`.
+Every count and `time` is a non-negative integer, and a provided row must include every item and currency key. `userId` must be the caller or `NPC_1`. A missing player gets the same fill as an omitted list: 1000 of every amount on classic, the advanced start on extended. Unknown or duplicate ids are `400`. `campaignId`, `campaignTile`, `campaignAttackId`, `campaignBattleSeed`, and `campaignNpcAlgorithmId` are rejected with `400`. Only a campaign Attack writes those fields onto the game.
 
 **Success (200)**:
 
@@ -289,7 +293,7 @@ Every count and `time` is a non-negative integer, and a provided row must includ
         "rounds": "BO7",
         "kind": "classic",
         "level": { "name": "1" },
-        "episode": { "name": "intro" }
+        "campaign": { "name": "intro" }
       }
     },
     "playerContext": {
@@ -333,7 +337,26 @@ Every count and `time` is a non-negative integer, and a provided row must includ
 }
 ```
 
-`playerContext.inventory` is only the caller's `GamePlayerInventory`. The opponent's inventory is not returned.
+`playerContext.inventory` is only the caller's `GamePlayerInventory`. On an extended game, `enemyContext.inventory` is the seated NPC's row in that same shape, when the other participant id starts with `NPC_`. A person's inventory is still withheld. A classic game leaves `enemyContext` as `{}`, which is what the example above shows.
+
+```json
+"enemyContext": {
+  "inventory": {
+    "userId": "NPC_1",
+    "items": {
+      "stones": 21,
+      "scissors": 12,
+      "papers": 12,
+      "NA_effect_stone": 3,
+      "NA_effect_scissors": 2,
+      "NA_effect_papers": 5,
+      "NT_effect": 3
+    },
+    "currencies": { "gold": 1000, "silver": 1000, "copper": 1000 },
+    "time": 1697123456789
+  }
+}
+```
 
 An extended game adds the turn caps on `payload.gameContext`: `max_stone_per_turn` (default 9), `max_scissors_per_turn` (default 4), and `max_paper_per_turn` (default 7). Classic games omit them.
 
@@ -368,6 +391,57 @@ Classic moves and surrender do not change inventories. An extended move (`kind: 
 If any of those counts is too small, the move is `400` (`Not enough <item> in inventory`) and nothing is saved. A throw whose `size` is above that type's turn cap is also `400` (`exceeds max_*_per_turn`) and nothing is saved. `NPC_1` throws no effects. On an extended game its size is `1` through `min(turn cap, stock)` of a type that still has items. When no type can be paid for, `NPC_1` surrenders and the opponent wins.
 
 ---
+
+### Campaigns
+
+Chapter I (`chapter-i`) is the only definition. Instances are stored on the user document (`users/{id}.json`) in `campaigns`. There is no `campaigns/` prefix. The ETag is that user document. Catalog `GET` creates the user row when it is missing, the same way `GET /apiv2/external/me` does, and returns that ETag so Start can send it as `If-Match`.
+
+A missing `If-Match` on Start, on an action, or on internal finish is `428`. A mismatch is `412`. Success responses send the user ETag.
+
+**GET** `/apiv2/external/campaigns` — catalog. One row per definition: `id`, `title`, `goal`, `currentStatus` (`not_started` or `started`), `instanceId` when a run is started, `bestScore` (highest victory `total`, or null), and `history` of finished runs newest first (`instanceId`, `finishedAt`, `finishReason`, `score` or null).
+
+**POST** `/apiv2/external/campaigns`
+
+```json
+{ "definitionId": "chapter-i" }
+```
+
+Starts a new instance. A second `started` run of the same definition is `409`. An unknown definition is `404`.
+
+**GET** `/apiv2/external/campaigns/{id}` — the instance view. An id that is not in the caller's user file is `404`. This read repairs a battle whose game already finished, or refunds an attack whose `gameId` was never stored.
+
+**POST** `/apiv2/external/campaigns/{id}/actions`
+
+```json
+{ "type": "end_turn" }
+{ "type": "attack", "q": 0, "r": -1, "from": { "q": 0, "r": 0 } }
+{ "type": "autobattle" }
+{ "type": "cancel_attack" }
+{ "type": "dig", "q": 0, "r": 0 }
+{ "type": "search", "q": 0, "r": 1 }
+{ "type": "increase_mines", "q": 0, "r": 0 }
+{ "type": "buy", "item": "stones", "amount": 2 }
+{ "type": "leave" }
+```
+
+`from` on attack is optional. `sell` and any other `type` are `400`. Buying silver, gold, or an unpriced key is `400`.
+
+Success body:
+
+```json
+{
+  "campaign": { "id": "campaign-1730000000000-ab12cd", "status": "started", "turns": 1 },
+  "gameId": "game-1730000000000-abc",
+  "battleOutcome": { "result": "victory", "q": 0, "r": -1, "captured": true },
+  "found": { "items": { "scissors": 4 }, "currencies": { "silver": 2, "copper": 6 } }
+}
+```
+
+`gameId` is present on Attack. `battleOutcome` is present on Autobattle when the match finished as a win or a loss. A defeat adds `battleOutcome.garrison` as `{ npcAlgorithmId, inventory }`, the NPC stock left on that tile. A victory omits it. `found` is present on Search and is not repeated on later reads. `campaign` is the instance view: rules (`digCost`, `searchCost`, `increaseMinesCost`, `battleKit`, `marketplace`, `scoreWeights`), inventory, 19 tile views, `activeBattle` as `{ gameId, q, r }` or null, `blockedReasons`, the last 20 log entries newest first, and `score` only after victory. A seen tile includes `garrison` only after a lost battle there; that object is the stock the next attack uses. `turns` is `turnNumber + 1`.
+
+Map commands, Buy, and Leave during an open battle are `409` and include `gameId` when the linked game id is known. A command on a finished instance is `409`. Autobattle with no open battle, or after a throw exists, is `409`.
+
+**POST** `/apiv2/internal/users/{userId}/campaigns/{id}/finish` — admin. Body `{ "reason": "external" }`. Any other reason is `400`. Rejected while a battle is open (`409`) and when the instance is already finished (`409`). No score is stored.
 
 ## Files API (`/apiv2/internal/files`)
 
@@ -1767,6 +1841,7 @@ All errors follow the RFC 7807 problem+json format.
 | 404 | Not Found | Resource doesn't exist |
 | 409 | Conflict | Resource already exists (POST with If-None-Match: *) |
 | 412 | Precondition Failed | ETag mismatch (If-Match) |
+| 428 | Precondition Required | If-Match missing on a campaign write |
 | 413 | Payload Too Large | Request body exceeds size limit |
 | 415 | Unsupported Media Type | Missing or invalid Content-Type |
 | 500 | Internal Server Error | Unexpected server error |
@@ -1898,7 +1973,7 @@ Currently, no rate limiting is implemented. All requests are processed immediate
 ### File Locations
 
 - **Regular JSON files**: Stored in `json/{id}.json`
-- **User files**: Stored in `json/users/{id}.json`
+- **User files**: Stored in `json/users/{id}.json`. Campaign instances are the `campaigns` array on this file, not a separate prefix
 - **Game files**: Stored in `json/games/{id}.json`
 - **Files API**: Can read from all locations automatically
 

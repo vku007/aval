@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { etagsEqual } from '../../shared/etag.js';
 import { ConflictError, NotFoundError, NotModifiedError, PreconditionFailedError } from '../../shared/errors/index.js';
 
 export interface StoredObject {
@@ -228,9 +229,7 @@ function md5(body: string): string {
   return createHash('md5').update(body, 'utf8').digest('hex');
 }
 
-export function etagsEqual(a: string, b: string): boolean {
-  return a.replace(/"/g, '') === b.replace(/"/g, '');
-}
+export { etagsEqual } from '../../shared/etag.js';
 
 function encodeCursor(offset: number): string {
   return Buffer.from(String(offset), 'utf8').toString('base64url');

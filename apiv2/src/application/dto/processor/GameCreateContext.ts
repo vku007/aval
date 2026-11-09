@@ -2,7 +2,7 @@ import { GameType } from '../../../domain/value-object/GameType.js';
 import { RoundsLength } from '../../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../../domain/value-object/KindOfGame.js';
 import { GameLevel } from '../../../domain/value-object/GameLevel.js';
-import { EpisodeContext } from '../../../domain/value-object/EpisodeContext.js';
+import { CampaignContext } from '../../../domain/value-object/CampaignContext.js';
 import { MoveType } from '../../../domain/value-object/Move.js';
 import { ValidationError } from '../../../shared/errors/index.js';
 
@@ -26,7 +26,7 @@ export class GameCreateContext {
     public readonly rounds: RoundsLength,
     public readonly kind: KindOfGame,
     public readonly level: GameLevel,
-    public readonly episode: EpisodeContext,
+    public readonly campaign: CampaignContext,
     maxStonePerTurn?: number,
     maxScissorsPerTurn?: number,
     maxPaperPerTurn?: number
@@ -35,7 +35,7 @@ export class GameCreateContext {
     this.validateRounds(rounds);
     this.validateKind(kind);
     this.validateLevel(level);
-    this.validateEpisode(episode);
+    this.validateCampaign(campaign);
     if (kind === KindOfGame.Extended) {
       this.maxStonePerTurn = GameCreateContext.readCap(
         maxStonePerTurn,
@@ -92,7 +92,7 @@ export class GameCreateContext {
       rounds: this.rounds,
       kind: this.kind,
       level: this.level.toJSON(),
-      episode: this.episode.toJSON()
+      campaign: this.campaign.toJSON()
     };
     if (this.kind === KindOfGame.Extended) {
       json.max_stone_per_turn = this.maxStonePerTurn;
@@ -136,10 +136,11 @@ export class GameCreateContext {
     }
     const level = GameLevel.fromJSON(data.level);
 
-    if (!data.episode || typeof data.episode !== 'object') {
-      throw new ValidationError('GameCreateContext episode is required and must be an object');
+    const campaignData = data.campaign ?? data.episode;
+    if (!campaignData || typeof campaignData !== 'object') {
+      throw new ValidationError('GameCreateContext campaign is required and must be an object');
     }
-    const episode = EpisodeContext.fromJSON(data.episode);
+    const campaign = CampaignContext.fromJSON(campaignData);
 
     const kind = data.kind as KindOfGame;
     return new GameCreateContext(
@@ -147,7 +148,7 @@ export class GameCreateContext {
       data.rounds as RoundsLength,
       kind,
       level,
-      episode,
+      campaign,
       kind === KindOfGame.Extended ? data.max_stone_per_turn : undefined,
       kind === KindOfGame.Extended ? data.max_scissors_per_turn : undefined,
       kind === KindOfGame.Extended ? data.max_paper_per_turn : undefined
@@ -178,9 +179,9 @@ export class GameCreateContext {
     }
   }
 
-  private validateEpisode(episode: EpisodeContext): void {
-    if (!episode || !(episode instanceof EpisodeContext)) {
-      throw new ValidationError('episode is required and must be an instance of EpisodeContext');
+  private validateCampaign(campaign: CampaignContext): void {
+    if (!campaign || !(campaign instanceof CampaignContext)) {
+      throw new ValidationError('campaign is required and must be an instance of CampaignContext');
     }
   }
 

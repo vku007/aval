@@ -12,7 +12,7 @@ describe('User Entity - Backing Store Pattern with Property Facade', () => {
       const backingStore = user.internalGetBackingStore();
       expect(backingStore).toBeInstanceOf(JsonEntity);
       expect(backingStore.id).toBe('user-123');
-      expect(backingStore.data).toEqual({ name: 'John Doe', externalId: 1001 });
+      expect(backingStore.data).toEqual({ name: 'John Doe', externalId: 1001, campaigns: [] });
     });
 
     it('should have immutable backing store after construction', () => {

@@ -267,7 +267,7 @@ classDiagram
         +rounds: RoundsLength
         +kind: KindOfGame
         +level: GameLevel
-        +episode: EpisodeContext
+        +campaign: CampaignContext
     }
 
     class GameOutcome {
@@ -354,7 +354,7 @@ classDiagram
         +name: string
     }
 
-    class EpisodeContext {
+    class CampaignContext {
         +name: string
     }
 
@@ -378,7 +378,7 @@ classDiagram
     GameCreateContext --> RoundsLength
     GameCreateContext --> KindOfGame
     GameCreateContext --> GameLevel
-    GameCreateContext --> EpisodeContext
+    GameCreateContext --> CampaignContext
 ```
 
 `RoundsLength` is the create-context field (`BO1` / `BO3` / `BO7`) used for victory. `GameTypeLength` is used by `Medal.gameLength`, not stored on `Game`.

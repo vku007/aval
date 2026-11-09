@@ -23,3 +23,5 @@ class NpcActor {
 `null` means skip. `GameProcessor` never lets `NpcActor` call `processAction` (avoids a cycle).
 
 Classic/Extended size stays on the actor, not a second processor.
+
+The seated id selects the extended size. `NPC_1` uses `1..min(turn cap, stock)`. `NPC_greed_1` always uses `1`. Both pick a random type that the inventory can pay for, and both surrender when none can.

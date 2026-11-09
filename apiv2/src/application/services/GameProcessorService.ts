@@ -1,4 +1,5 @@
 import { CreateGameRequest } from '../dto/processor/CreateGameRequest.js';
+import { GameCreateContext } from '../dto/processor/GameCreateContext.js';
 import { CreateGameResponse } from '../dto/processor/CreateGameResponse.js';
 import { GameResponse } from '../dto/processor/response/GameResponse.js';
 import { UpdateGameResponse } from '../dto/processor/UpdateGameResponse.js';
@@ -11,17 +12,21 @@ import { Game } from '../../domain/entity/Game.js';
 import { Action } from '../../domain/value-object/Action.js';
 import { Logger } from '../../shared/logging/Logger.js';
 import { GameProcessor } from '../utils/GameProcessor.js';
-import { ClassicGameResolver } from '../utils/ClassicGameResolver.js';
-import { ExtendedGameResolver } from '../utils/ExtendedGameResolver.js';
-import { SimpleGameOutcomeResolver } from '../utils/SimpleGameOutcomeResolver.js';
-import type { GameResolver } from '../utils/GameResolver.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import type { IGameRepository } from './GameService.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { NotFoundError, ValidationError } from '../../shared/errors/index.js';
 import { RoundState } from '../dto/processor/RoundState.js';
 import { SubRoundState } from '../dto/processor/SubRoundState.js';
-import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
+import { CURRENCY_KEYS, GamePlayerInventory, ITEM_KEYS, type InventoryItems } from '../../domain/value-object/GamePlayerInventory.js';
+import { GameType } from '../../domain/value-object/GameType.js';
+import { GameLevel } from '../../domain/value-object/GameLevel.js';
+import { CampaignContext } from '../../domain/value-object/CampaignContext.js';
+import type { CurrencyStack, ItemStack } from '../../domain/campaign/CampaignInventory.js';
+import { assertSupportedNpcAlgorithm } from '../../domain/campaign/Garrison.js';
+import type { BattleGameSpec, CampaignBattleSink } from './CampaignGamePort.js';
+import { campaignProcessor } from '../campaign/npcSeed.js';
+import type { EntityMetadata } from '../../shared/types/common.js';
 
 /**
  * Service for processing game creation operations.
@@ -29,23 +34,19 @@ import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInvento
 export class GameProcessorService {
   private readonly logger: Logger;
   private readonly gameRepository?: IGameRepository;
-  private readonly outcomeResolver: SimpleGameOutcomeResolver;
+  private battleSink?: CampaignBattleSink;
 
   constructor(gameRepository?: IGameRepository) {
     this.logger = new Logger();
     this.gameRepository = gameRepository;
-    this.outcomeResolver = new SimpleGameOutcomeResolver();
   }
 
-  private resolverFor(kind?: KindOfGame): GameResolver {
-    if (kind === KindOfGame.Extended) {
-      return new ExtendedGameResolver(this.outcomeResolver);
-    }
-    return new ClassicGameResolver(this.outcomeResolver);
+  setBattleSink(sink: CampaignBattleSink): void {
+    this.battleSink = sink;
   }
 
   private processorFor(game: Game): GameProcessor {
-    return new GameProcessor(this.resolverFor(game.createContext?.kind), this.logger);
+    return campaignProcessor(game, this.logger);
   }
 
   /**
@@ -59,8 +60,8 @@ export class GameProcessorService {
       gameType: request.gameCreateContext.gameType,
       rounds: request.gameCreateContext.rounds,
       kind: request.gameCreateContext.kind,
-      level: request.gameCreateContext.level.name,
-      episode: request.gameCreateContext.episode.name
+      levelName: request.gameCreateContext.level.name,
+      campaign: request.gameCreateContext.campaign.name
     });
 
     const usersIds = [request.userId, 'NPC_1'];
@@ -127,6 +128,63 @@ export class GameProcessorService {
   }
 
   /**
+   * Creates a linked campaign battle and throws when the game is not stored.
+   * Inventories are the rows given to this method. Coins are 0.
+   */
+  async createBattle(spec: BattleGameSpec): Promise<{ gameId: string }> {
+    if (!this.gameRepository) {
+      throw new Error('Game repository is required to create a battle');
+    }
+    assertSupportedNpcAlgorithm(spec.npcAlgorithmId);
+    const usersIds = [spec.userId, 'NPC_1'];
+    const now = Date.now();
+    const gameId = `game-${now}-${Math.random().toString(36).substring(2, 9)}`;
+    const game = new Game(
+      gameId,
+      usersIds,
+      GameStatus.Created,
+      new GameCreateContext(
+        GameType.PVE,
+        spec.rounds,
+        KindOfGame.Extended,
+        new GameLevel(spec.levelName),
+        new CampaignContext(spec.title)
+      )
+    );
+    game.inventories = [
+      zeroCoinInventory(spec.userId, spec.humanItems, now),
+      stackedInventory('NPC_1', spec.npcItems, spec.npcCurrencies, now)
+    ];
+    game.assignCampaignLink({
+      campaignId: spec.campaignId,
+      campaignTile: { ...spec.tile },
+      campaignAttackId: spec.attackId,
+      campaignBattleSeed: spec.seed,
+      campaignNpcAlgorithmId: spec.npcAlgorithmId
+    });
+    await this.gameRepository.save(this.toEntity(game), { ifNoneMatch: '*' });
+    return { gameId };
+  }
+
+  async load(gameId: string): Promise<{ game: Game; etag?: string } | null> {
+    if (!this.gameRepository) {
+      return null;
+    }
+    const entity = await this.gameRepository.findById(gameId);
+    if (!entity) {
+      return null;
+    }
+    return { game: entity.toGame(), etag: entity.internalGetBackingStore().etag };
+  }
+
+  async save(game: Game, ifMatch: string | undefined): Promise<void> {
+    if (!this.gameRepository) {
+      throw new Error('Game repository is required to save a battle');
+    }
+    await this.gameRepository.save(this.toEntity(game, ifMatch), { ifMatch });
+  }
+
+  /**
    * Gets a game by userId and gameId.
    * @param userId - The user identifier
    * @param gameId - The game identifier
@@ -141,7 +199,7 @@ export class GameProcessorService {
       // Use the game's status from testGame
       const gameContext = GameContext.fromCreateContext(testGame.status, testGame.createContext);
       const playerContext = this.buildPlayerContext(userId, testGame);
-      const enemyContext = new EnemyContext();
+      const enemyContext = this.buildEnemyContext(userId, testGame);
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
       
       return new GameResponse('success', payload);
@@ -178,7 +236,7 @@ export class GameProcessorService {
       const game = gameEntity.toGame();
       const gameContext = GameContext.fromCreateContext(gameEntity.status, game.createContext);
       const playerContext = this.buildPlayerContext(userId, game);
-      const enemyContext = new EnemyContext();
+      const enemyContext = this.buildEnemyContext(userId, game);
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
       
       return new GameResponse('success', payload);
@@ -209,7 +267,7 @@ export class GameProcessorService {
       if (testGame.status === GameStatus.Finished) {
         const gameContext = GameContext.fromCreateContext(testGame.status, testGame.createContext);
         const playerContext = this.buildPlayerContext(userId, testGame);
-        const enemyContext = new EnemyContext();
+        const enemyContext = this.buildEnemyContext(userId, testGame);
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
         return new UpdateGameResponse('failed', gameId, payload, 'Error: game is finished');
       }
@@ -217,7 +275,7 @@ export class GameProcessorService {
       if (testGame.status === GameStatus.Broken) {
         const gameContext = GameContext.fromCreateContext(testGame.status, testGame.createContext);
         const playerContext = this.buildPlayerContext(userId, testGame);
-        const enemyContext = new EnemyContext();
+        const enemyContext = this.buildEnemyContext(userId, testGame);
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
         return new UpdateGameResponse('failed', gameId, payload, 'Error: game is broken');
       }
@@ -228,7 +286,7 @@ export class GameProcessorService {
 
       const gameContext = GameContext.fromCreateContext(updatedGame.status, updatedGame.createContext);
       const playerContext = this.buildPlayerContext(userId, updatedGame);
-      const enemyContext = new EnemyContext();
+      const enemyContext = this.buildEnemyContext(userId, updatedGame);
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
       
       return new UpdateGameResponse('updated', gameId, payload, 'Game updated successfully');
@@ -264,7 +322,7 @@ export class GameProcessorService {
         const game = gameEntity.toGame();
         const gameContext = GameContext.fromCreateContext(gameEntity.status, game.createContext);
         const playerContext = this.buildPlayerContext(userId, game);
-        const enemyContext = new EnemyContext();
+        const enemyContext = this.buildEnemyContext(userId, game);
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
         return new UpdateGameResponse('failed', gameId, payload, 'Error: game is finished');
       }
@@ -273,7 +331,7 @@ export class GameProcessorService {
         const game = gameEntity.toGame();
         const gameContext = GameContext.fromCreateContext(gameEntity.status, game.createContext);
         const playerContext = this.buildPlayerContext(userId, game);
-        const enemyContext = new EnemyContext();
+        const enemyContext = this.buildEnemyContext(userId, game);
         const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
         return new UpdateGameResponse('failed', gameId, payload, 'Error: game is broken');
       }
@@ -295,28 +353,36 @@ export class GameProcessorService {
       }
 
       // Convert updated Game back to GameEntity and save
-      const updatedGameEntity = new GameEntity(
-        updatedGame.id,
-        updatedGame.usersIds,
-        updatedGame.rounds,
-        updatedGame.status,
-        gameEntity.internalGetBackingStore().etag, // Preserve etag for optimistic locking
-        gameEntity.metadata,
-        updatedGame.createContext,
-        updatedGame.endTime,
-        updatedGame.outcome.toJSON(), // outcome
-        updatedGame.inventories
+      const updatedGameEntity = this.toEntity(
+        updatedGame,
+        gameEntity.internalGetBackingStore().etag,
+        gameEntity.metadata
       );
 
       // Save updated game to repository
       await this.gameRepository.save(updatedGameEntity, { ifMatch: gameEntity.internalGetBackingStore().etag });
+
+      if (
+        (updatedGame.status === GameStatus.Finished || updatedGame.status === GameStatus.Broken)
+        && updatedGame.campaignId
+      ) {
+        try {
+          await this.battleSink?.resolveFromGame(updatedGame);
+        } catch (sinkError: any) {
+          this.logger.error('Campaign resolution failed after the game was saved', {
+            gameId,
+            campaignId: updatedGame.campaignId,
+            error: sinkError.message
+          });
+        }
+      }
 
       this.logger.info('Game updated in repository', { gameId, userId, status: updatedGame.status });
 
       // Build response with updated game state
       const gameContext = GameContext.fromCreateContext(updatedGame.status, updatedGame.createContext);
       const playerContext = this.buildPlayerContext(userId, updatedGame);
-      const enemyContext = new EnemyContext();
+      const enemyContext = this.buildEnemyContext(userId, updatedGame);
       const payload = new GameResponsePayload(gameContext, playerContext, enemyContext);
       
       return new UpdateGameResponse('updated', gameId, payload, 'Game updated successfully');
@@ -379,5 +445,69 @@ export class GameProcessorService {
     }
     return new PlayerContext(roundStates, inventory);
   }
+
+  /**
+   * Extended games against one NPC include that row.
+   * Classic games and games against a person stay empty.
+   */
+  private buildEnemyContext(callerId: string, game: Game): EnemyContext {
+    if (game.createContext?.kind !== KindOfGame.Extended) {
+      return new EnemyContext();
+    }
+    const npcIds = game.usersIds.filter(id => id !== callerId && id.startsWith('NPC_'));
+    if (npcIds.length !== 1) {
+      return new EnemyContext();
+    }
+    const inventory = game.inventories.find(item => item.userId === npcIds[0]);
+    if (!inventory) {
+      throw new ValidationError(`Inventory for user '${npcIds[0]}' not found`);
+    }
+    return new EnemyContext(inventory);
+  }
+
+  private toEntity(game: Game, etag?: string, metadata?: EntityMetadata): GameEntity {
+    return new GameEntity(
+      game.id,
+      game.usersIds,
+      game.rounds,
+      game.status,
+      etag,
+      metadata,
+      game.createContext,
+      game.endTime,
+      game.outcome.toJSON(),
+      game.inventories,
+      game.campaignLink()
+    );
+  }
+}
+
+function stackedInventory(
+  userId: string,
+  items: ItemStack,
+  currencies: CurrencyStack,
+  time: number
+): GamePlayerInventory {
+  const full = {} as InventoryItems;
+  for (const key of ITEM_KEYS) {
+    full[key] = items[key] ?? 0;
+  }
+  return new GamePlayerInventory(userId, full, {
+    gold: currencies.gold ?? 0,
+    silver: currencies.silver ?? 0,
+    copper: currencies.copper ?? 0
+  }, time);
+}
+
+function zeroCoinInventory(userId: string, items: ItemStack, time: number): GamePlayerInventory {
+  const full = {} as InventoryItems;
+  for (const key of ITEM_KEYS) {
+    full[key] = items[key] ?? 0;
+  }
+  const currencies = { gold: 0, silver: 0, copper: 0 };
+  for (const key of CURRENCY_KEYS) {
+    currencies[key] = 0;
+  }
+  return new GamePlayerInventory(userId, full, currencies, time);
 }
 

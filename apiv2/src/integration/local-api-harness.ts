@@ -79,7 +79,7 @@ export async function playExtendedBo3(baseUrl: string): Promise<{ gameId: string
     rounds: 'BO3',
     kind: 'extended',
     level: { name: 'Level1' },
-    episode: { name: 'Episode1' }
+    campaign: { name: 'Episode1' }
   });
 
   if (created.status !== 200 || created.json.status !== 'created') {

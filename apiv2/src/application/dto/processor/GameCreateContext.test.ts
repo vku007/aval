@@ -16,7 +16,7 @@ const base = {
   gameType: 'PVE',
   rounds: 'BO3',
   level: { name: 'Level1' },
-  episode: { name: 'Episode1' }
+  campaign: { name: 'Episode1' }
 };
 
 describe('GameCreateContext turn caps', () => {
@@ -53,6 +53,26 @@ describe('GameCreateContext turn caps', () => {
     })).toThrow(ValidationError);
   });
 
+  it('loads a stored episode key as campaign, and campaign wins when both are present', () => {
+    const fromEpisode = GameCreateContext.fromJSON({
+      ...base,
+      kind: 'classic',
+      campaign: undefined,
+      episode: { name: 'Episode1' }
+    });
+    expect(fromEpisode.campaign.name).toBe('Episode1');
+    expect(fromEpisode.toJSON()).toMatchObject({ campaign: { name: 'Episode1' } });
+    expect(fromEpisode.toJSON()).not.toHaveProperty('episode');
+
+    const both = GameCreateContext.fromJSON({
+      ...base,
+      kind: 'classic',
+      campaign: { name: 'Chapter I' },
+      episode: { name: 'Episode1' }
+    });
+    expect(both.campaign.name).toBe('Chapter I');
+  });
+
   it('puts extended caps on GameContext', () => {
     const createContext = new GameCreateContext(
       GameType.PVE,
@@ -80,5 +100,5 @@ function customLevel() {
 }
 
 function customEpisode() {
-  return GameCreateContext.fromJSON({ ...base, kind: 'classic' }).episode;
+  return GameCreateContext.fromJSON({ ...base, kind: 'classic' }).campaign;
 }

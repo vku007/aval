@@ -20,10 +20,12 @@ import { EntityService } from './application/services/EntityService.js';
 import { UserService, type IUserRepository } from './application/services/UserService.js';
 import { GameService, type IGameRepository } from './application/services/GameService.js';
 import { GameProcessorService } from './application/services/GameProcessorService.js';
+import { CampaignService } from './application/services/CampaignService.js';
 import { EntityController } from './presentation/controllers/EntityController.js';
 import { UserController } from './presentation/controllers/UserController.js';
 import { GameController } from './presentation/controllers/GameController.js';
 import { ExternalController } from './presentation/controllers/ExternalController.js';
+import { CampaignController } from './presentation/controllers/CampaignController.js';
 import { AuthController } from './presentation/controllers/AuthController.js';
 import { CognitoUserAdminController } from './presentation/controllers/CognitoUserAdminController.js';
 import { CognitoUserAdminService } from './application/services/CognitoUserAdminService.js';
@@ -68,6 +70,7 @@ let gameController: GameController;
 let externalController: ExternalController;
 let authController: AuthController;
 let gameProcessorService: GameProcessorService;
+let campaignController: CampaignController;
 let auditLogRepository: IAuditLogRepository;
 let auditLogService: AuditLogService;
 let cognitoUserAdminService: CognitoUserAdminService;
@@ -106,6 +109,9 @@ export function createRouter(): Router {
   if (!router) {
     initializeServices();
     gameProcessorService = new GameProcessorService(gameRepository);
+    const campaignService = new CampaignService(userRepository, gameProcessorService, logger);
+    gameProcessorService.setBattleSink(campaignService);
+    campaignController = new CampaignController(campaignService, logger);
     entityController = new EntityController(entityService, logger);
     userController = new UserController(userService, logger);
     gameController = new GameController(gameService, logger);
@@ -140,6 +146,13 @@ export function createRouter(): Router {
       .get('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.getGame(req))
       .put('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.updateGame(req))
       .patch('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.updateGame(req))
+
+      .get('/apiv2/external/campaigns', ...authenticated(), (req: HttpRequest) => campaignController.catalog(req))
+      .post('/apiv2/external/campaigns', ...authenticated(), (req: HttpRequest) => campaignController.start(req))
+      .get('/apiv2/external/campaigns/:id', ...authenticated(), (req: HttpRequest) => campaignController.get(req))
+      .post('/apiv2/external/campaigns/:id/actions', ...authenticated(), (req: HttpRequest) => campaignController.act(req))
+
+      .post('/apiv2/internal/users/:userId/campaigns/:id/finish', ...adminOnly(), (req: HttpRequest) => campaignController.finishExternal(req))
 
       .get('/apiv2/internal/files', ...adminOnly(), (req: HttpRequest) => entityController.list(req))
       .get('/apiv2/internal/files/:id/meta', ...adminOnly(), (req: HttpRequest) => entityController.getMeta(req))

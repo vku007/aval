@@ -7,6 +7,56 @@ import { GameStatus } from "../value-object/GameStatus.js";
 import { GameOutcome } from "../value-object/GameOutcome.js";
 import { GamePlayerInventory } from "../value-object/GamePlayerInventory.js";
 
+export interface CampaignBattleLink {
+    campaignId: string;
+    campaignTile: { q: number; r: number };
+    campaignAttackId: string;
+    campaignBattleSeed: number;
+    /** Absent on battles stored before garrisons. Those use npc-v1. */
+    campaignNpcAlgorithmId?: string;
+}
+
+const CAMPAIGN_LINK_KEYS = ['campaignId', 'campaignTile', 'campaignAttackId', 'campaignBattleSeed'] as const;
+
+export function readCampaignBattleLink(data: any): CampaignBattleLink | undefined {
+    if (!data || typeof data !== 'object') {
+        return undefined;
+    }
+    const present = CAMPAIGN_LINK_KEYS.filter(key => data[key] !== undefined);
+    if (present.length === 0) {
+        return undefined;
+    }
+    if (present.length !== CAMPAIGN_LINK_KEYS.length) {
+        throw new ValidationError('Campaign battle link must include campaignId, campaignTile, campaignAttackId, and campaignBattleSeed');
+    }
+    if (typeof data.campaignId !== 'string' || data.campaignId.length === 0) {
+        throw new ValidationError('campaignId must be a non-empty string');
+    }
+    if (!data.campaignTile || typeof data.campaignTile.q !== 'number' || typeof data.campaignTile.r !== 'number') {
+        throw new ValidationError('campaignTile must be { q, r }');
+    }
+    if (typeof data.campaignAttackId !== 'string' || data.campaignAttackId.length === 0) {
+        throw new ValidationError('campaignAttackId must be a non-empty string');
+    }
+    if (typeof data.campaignBattleSeed !== 'number' || !Number.isInteger(data.campaignBattleSeed)) {
+        throw new ValidationError('campaignBattleSeed must be an integer');
+    }
+    if (data.campaignNpcAlgorithmId !== undefined
+        && (typeof data.campaignNpcAlgorithmId !== 'string' || data.campaignNpcAlgorithmId.length === 0)) {
+        throw new ValidationError('campaignNpcAlgorithmId must be a non-empty string');
+    }
+    const link: CampaignBattleLink = {
+        campaignId: data.campaignId,
+        campaignTile: { q: data.campaignTile.q, r: data.campaignTile.r },
+        campaignAttackId: data.campaignAttackId,
+        campaignBattleSeed: data.campaignBattleSeed
+    };
+    if (typeof data.campaignNpcAlgorithmId === 'string') {
+        link.campaignNpcAlgorithmId = data.campaignNpcAlgorithmId;
+    }
+    return link;
+}
+
 /** Best-of length used by Medal.gameLength, not stored on Game. */
 export enum GameTypeLength {
     BO1 = 'BO1',
@@ -25,6 +75,11 @@ export class Game {
     public inventories: GamePlayerInventory[];
     /** Outcome (rewards, etc.) created when the game is created; not passed to constructor. */
     public outcome: GameOutcome;
+    public campaignId?: string;
+    public campaignTile?: { q: number; r: number };
+    public campaignAttackId?: string;
+    public campaignBattleSeed?: number;
+    public campaignNpcAlgorithmId?: string;
 
     constructor(
         public readonly id: string,
@@ -112,6 +167,10 @@ export class Game {
         updatedGame.rounds = updatedRounds;
         updatedGame.inventories = [...this.inventories];
         updatedGame.outcome = GameOutcome.fromJSON(this.outcome.toJSON());
+        const link = this.campaignLink();
+        if (link) {
+            updatedGame.assignCampaignLink(link);
+        }
         return updatedGame;
     }
 
@@ -166,8 +225,37 @@ export class Game {
     /**
      * Convert to JSON representation
      */
+    campaignLink(): CampaignBattleLink | undefined {
+        if (
+            this.campaignId === undefined
+            || this.campaignTile === undefined
+            || this.campaignAttackId === undefined
+            || this.campaignBattleSeed === undefined
+        ) {
+            return undefined;
+        }
+        const link: CampaignBattleLink = {
+            campaignId: this.campaignId,
+            campaignTile: { ...this.campaignTile },
+            campaignAttackId: this.campaignAttackId,
+            campaignBattleSeed: this.campaignBattleSeed
+        };
+        if (this.campaignNpcAlgorithmId !== undefined) {
+            link.campaignNpcAlgorithmId = this.campaignNpcAlgorithmId;
+        }
+        return link;
+    }
+
+    assignCampaignLink(link: CampaignBattleLink): void {
+        this.campaignId = link.campaignId;
+        this.campaignTile = { ...link.campaignTile };
+        this.campaignAttackId = link.campaignAttackId;
+        this.campaignBattleSeed = link.campaignBattleSeed;
+        this.campaignNpcAlgorithmId = link.campaignNpcAlgorithmId;
+    }
+
     toJSON(): object {
-        return {
+        const json: Record<string, unknown> = {
             id: this.id,
             usersIds: [...this.usersIds],
             inventories: this.inventories.map(inventory => inventory.toJSON()),
@@ -178,6 +266,17 @@ export class Game {
             outcome: this.outcome.toJSON(),
             createContext: this.createContext?.toJSON()
         };
+        const link = this.campaignLink();
+        if (link) {
+            json.campaignId = link.campaignId;
+            json.campaignTile = link.campaignTile;
+            json.campaignAttackId = link.campaignAttackId;
+            json.campaignBattleSeed = link.campaignBattleSeed;
+            if (link.campaignNpcAlgorithmId !== undefined) {
+                json.campaignNpcAlgorithmId = link.campaignNpcAlgorithmId;
+            }
+        }
+        return json;
     }
 
     /**
@@ -231,6 +330,10 @@ export class Game {
                 throw new ValidationError('Game endTime must be a number');
             }
             game.endTime = data.endTime;
+        }
+        const link = readCampaignBattleLink(data);
+        if (link) {
+            game.assignCampaignLink(link);
         }
         return game;
     }

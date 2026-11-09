@@ -3,7 +3,7 @@ import { Move, MoveType } from './Move.js';
 
 export const DEFAULT_INVENTORY_AMOUNT = 1000;
 
-const ITEM_KEYS = [
+export const ITEM_KEYS = [
   'stones',
   'scissors',
   'papers',
@@ -13,7 +13,7 @@ const ITEM_KEYS = [
   'NT_effect'
 ] as const;
 
-const CURRENCY_KEYS = ['gold', 'silver', 'copper'] as const;
+export const CURRENCY_KEYS = ['gold', 'silver', 'copper'] as const;
 
 export type InventoryItemKey = (typeof ITEM_KEYS)[number];
 export type InventoryCurrencyKey = (typeof CURRENCY_KEYS)[number];

@@ -14,6 +14,7 @@ import { EnemyContext } from '../../application/dto/processor/response/context/E
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 import { CreateGameRequest } from '../../application/dto/processor/CreateGameRequest.js';
+import { UpdateGameResponse } from '../../application/dto/processor/UpdateGameResponse.js';
 
 describe('ExternalController', () => {
   let controller: ExternalController;
@@ -234,7 +235,7 @@ describe('ExternalController', () => {
       rounds: 'BO1',
       kind: 'classic',
       level: { name: '1' },
-      episode: { name: 'intro' }
+      campaign: { name: 'intro' }
     };
 
     it('should pass caller inventories into create and omit them from the response', async () => {
@@ -258,6 +259,23 @@ describe('ExternalController', () => {
       const request = vi.mocked(mockGameProcessorService.createGame).mock.calls[0][0] as CreateGameRequest;
       expect(request.inventories?.[0].items.stones).toBe(4);
       expect(request.inventories).toHaveLength(1);
+    });
+
+    it('should reject a lobby create that sends campaignId', async () => {
+      await expect(controller.createGame(authed({
+        ...createBody,
+        campaignId: 'campaign-1'
+      }))).rejects.toThrow(ValidationError);
+      expect(mockGameProcessorService.createGame).not.toHaveBeenCalled();
+    });
+
+    it('should reject a create body that only sends episode', async () => {
+      const { campaign: _campaign, ...rest } = createBody;
+      await expect(controller.createGame(authed({
+        ...rest,
+        episode: { name: 'Episode1' }
+      }))).rejects.toThrow(ValidationError);
+      expect(mockGameProcessorService.createGame).not.toHaveBeenCalled();
     });
 
     it('should reject an inventory user who is not the caller or NPC_1', async () => {
@@ -287,6 +305,66 @@ describe('ExternalController', () => {
       expect(response.statusCode).toBe(200);
       expect((response.body as { payload: { playerContext: { inventory: unknown } } }).payload.playerContext.inventory)
         .toEqual(inventory.toJSON());
+      expect((response.body as { payload: { enemyContext: unknown } }).payload.enemyContext).toEqual({});
+    });
+
+    it('should include the NPC inventory on an extended get', async () => {
+      const npc = GamePlayerInventory.advancedFor('NPC_1', 4);
+      vi.mocked(mockGameProcessorService.getGame).mockResolvedValue(
+        new GameResponse(
+          'success',
+          new GameResponsePayload(
+            new GameContext(GameStatus.Created),
+            new PlayerContext([], GamePlayerInventory.advancedFor(userId, 3)),
+            new EnemyContext(npc)
+          )
+        )
+      );
+
+      const response = await controller.getGame(authed(null, { gameId: 'game-1' }));
+
+      expect(response.statusCode).toBe(200);
+      expect((response.body as { payload: { enemyContext: { inventory: unknown } } }).payload.enemyContext.inventory)
+        .toEqual(npc.toJSON());
+    });
+
+    it('should include the NPC inventory on an extended update and stay empty for classic', async () => {
+      const npc = GamePlayerInventory.advancedFor('NPC_1', 4);
+      vi.mocked(mockGameProcessorService.updateGame).mockResolvedValueOnce(
+        new UpdateGameResponse(
+          'updated',
+          'game-1',
+          new GameResponsePayload(
+            new GameContext(GameStatus.Started),
+            new PlayerContext([], GamePlayerInventory.advancedFor(userId, 3)),
+            new EnemyContext(npc)
+          ),
+          'Game updated successfully'
+        )
+      );
+
+      const extended = await controller.updateGame(authed({ type: 'Surrender', context: {} }, { gameId: 'game-1' }));
+
+      expect(extended.statusCode).toBe(200);
+      expect((extended.body as { payload: { enemyContext: { inventory: unknown } } }).payload.enemyContext.inventory)
+        .toEqual(npc.toJSON());
+
+      vi.mocked(mockGameProcessorService.updateGame).mockResolvedValueOnce(
+        new UpdateGameResponse(
+          'updated',
+          'game-1',
+          new GameResponsePayload(
+            new GameContext(GameStatus.Started),
+            new PlayerContext([], GamePlayerInventory.defaultFor(userId, 3)),
+            new EnemyContext()
+          ),
+          'Game updated successfully'
+        )
+      );
+
+      const classic = await controller.updateGame(authed({ type: 'Surrender', context: {} }, { gameId: 'game-1' }));
+
+      expect((classic.body as { payload: { enemyContext: unknown } }).payload.enemyContext).toEqual({});
     });
   });
 });

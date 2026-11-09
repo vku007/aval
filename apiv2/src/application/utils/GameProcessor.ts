@@ -293,8 +293,8 @@ export class GameProcessor {
         gameType: game.createContext.gameType,
         rounds: game.createContext.rounds,
         kind: game.createContext.kind,
-        level: game.createContext.level.name,
-        episode: game.createContext.episode.name
+        levelName: game.createContext.level.name,
+        campaign: game.createContext.campaign.name
       });
       
 

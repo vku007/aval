@@ -23,7 +23,7 @@ import { GameType } from '../../domain/value-object/GameType.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { GameLevel } from '../../domain/value-object/GameLevel.js';
-import { EpisodeContext } from '../../domain/value-object/EpisodeContext.js';
+import { CampaignContext } from '../../domain/value-object/CampaignContext.js';
 import { ValidationError } from '../../shared/errors/index.js';
 
 describe('GameProcessor.processAction', () => {
@@ -42,7 +42,7 @@ describe('GameProcessor.processAction', () => {
     status: GameStatus = GameStatus.Created
   ): Game {
     const gameLevel = new GameLevel('Level1');
-    const episodeContext = new EpisodeContext('Episode1');
+    const episodeContext = new CampaignContext('Episode1');
     const createContext = new GameCreateContext(
       GameType.PVP,
       roundsLength,
@@ -492,7 +492,7 @@ describe('GameProcessor.doNpcAction', () => {
     status: GameStatus = GameStatus.Created
   ): Game {
     const gameLevel = new GameLevel('Level1');
-    const episodeContext = new EpisodeContext('Episode1');
+    const episodeContext = new CampaignContext('Episode1');
     const createContext = new GameCreateContext(
       GameType.PVE,
       roundsLength,
@@ -794,7 +794,7 @@ describe('GameProcessor Extended kind', () => {
       roundsLength,
       KindOfGame.Extended,
       new GameLevel('Level1'),
-      new EpisodeContext('Episode1')
+      new CampaignContext('Episode1')
     );
     return new Game(id, usersIds, status, createContext);
   }
@@ -918,6 +918,21 @@ describe('GameProcessor Extended kind', () => {
     expect(game.inventories.find(item => item.userId === USER_2)!.items.stones).toBe(1000);
   });
 
+  it('NPC_greed_1 spends one item of the thrown type', () => {
+    const npcId = 'NPC_greed_1';
+    const game = createExtendedGame('game-1', [USER_1, npcId]);
+    setItems(game, npcId, { stones: 0, scissors: 10, papers: 0 });
+    processor.processAction(game, createMoveAction(USER_1, MoveType.Stone, 1), USER_1);
+
+    processor.doNpcAction(game);
+
+    const npcMove = game.rounds[0].subRounds[0].moves.find(m => m.userId === npcId);
+    expect(npcMove!.context.moveType).toBe(MoveType.Scissors);
+    expect(npcMove!.context.size).toBe(1);
+    expect(npcMove!.context.effects).toEqual([]);
+    expect(game.inventories.find(item => item.userId === npcId)!.items.scissors).toBe(9);
+  });
+
   it('NPC surrenders when no gesture stack can pay for a throw', () => {
     const game = createExtendedGame('game-1', [USER_1, NPC_1]);
     setItems(game, NPC_1, { stones: 0, scissors: 0, papers: 0 });
@@ -972,7 +987,7 @@ describe('GameProcessor Extended kind', () => {
         RoundsLength.BO3,
         KindOfGame.Classic,
         new GameLevel('Level1'),
-        new EpisodeContext('Episode1')
+        new CampaignContext('Episode1')
       )
     );
     setItems(classicGame, USER_1, { stones: 0, NT_effect: 0 });

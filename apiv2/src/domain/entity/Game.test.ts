@@ -12,7 +12,7 @@ import { GameType } from '../value-object/GameType.js';
 import { RoundsLength } from '../value-object/RoundsLength.js';
 import { KindOfGame } from '../value-object/KindOfGame.js';
 import { GameLevel } from '../value-object/GameLevel.js';
-import { EpisodeContext } from '../value-object/EpisodeContext.js';
+import { CampaignContext } from '../value-object/CampaignContext.js';
 
 function sampleCreateContext(
   rounds: RoundsLength = RoundsLength.BO3
@@ -22,7 +22,7 @@ function sampleCreateContext(
     rounds,
     KindOfGame.Classic,
     new GameLevel('Level1'),
-    new EpisodeContext('Episode1')
+    new CampaignContext('Episode1')
   );
 }
 

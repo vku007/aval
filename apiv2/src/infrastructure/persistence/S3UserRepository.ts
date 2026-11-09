@@ -1,8 +1,10 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { Campaign } from '../../domain/campaign/Campaign.js';
 import { User } from '../../domain/entity/User.js';
 import { JsonEntity } from '../../domain/entity/JsonEntity.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
 import { IUserRepository } from '../../application/services/UserService.js';
+import { etagsEqual } from '../../shared/etag.js';
 import { NotFoundError, ConflictError, PreconditionFailedError, NotModifiedError } from '../../shared/errors/index.js';
 import type { AppConfig } from '../../config/environment.js';
 
@@ -33,13 +35,13 @@ export class S3UserRepository implements IUserRepository {
       }
 
       // Check If-None-Match condition
-      if (ifNoneMatch && response.ETag === ifNoneMatch) {
+      if (ifNoneMatch && response.ETag && etagsEqual(ifNoneMatch, response.ETag)) {
         throw new NotModifiedError(`User '${id}' not modified`);
       }
 
       // Read the body
       const body = await this.streamToBuffer(response.Body);
-      const data = JSON.parse(body.toString()) as { name: string; externalId: number };
+      const data = JSON.parse(body.toString()) as { name: string; externalId: number; campaigns?: unknown };
 
       // Create metadata
       const metadata: EntityMetadata = {
@@ -49,7 +51,8 @@ export class S3UserRepository implements IUserRepository {
       };
 
       // Create User using the factory
-      return this.userFactory(id, data.name, data.externalId, response.ETag, metadata);
+      return this.userFactory(id, data.name, data.externalId, response.ETag, metadata)
+        .withCampaigns(readCampaigns(data.campaigns));
     } catch (error: any) {
       if (error.name === 'NoSuchKey' || error.name === 'NotFound') {
         return null;
@@ -70,7 +73,7 @@ export class S3UserRepository implements IUserRepository {
 
     // Get backing store data
     const backingStore = user.internalGetBackingStore();
-    const userData = backingStore.data as { name: string; externalId: number };
+    const userData = backingStore.data as { name: string; externalId: number; campaigns?: unknown };
 
     try {
       const command = new PutObjectCommand({
@@ -89,7 +92,8 @@ export class S3UserRepository implements IUserRepository {
         lastModified: new Date().toISOString()
       };
 
-      return this.userFactory(id, userData.name, userData.externalId, response.ETag, newMetadata);
+      return this.userFactory(id, userData.name, userData.externalId, response.ETag, newMetadata)
+        .withCampaigns(readCampaigns(userData.campaigns));
     } catch (error: any) {
       if (error.name === 'PreconditionFailed') {
         throw new PreconditionFailedError(`User '${id}' precondition failed`);
@@ -107,7 +111,7 @@ export class S3UserRepository implements IUserRepository {
       if (!existing) {
         throw new NotFoundError(`User '${id}' not found`);
       }
-      if (existing.metadata?.etag !== opts.ifMatch) {
+      if (!existing.metadata?.etag || !etagsEqual(opts.ifMatch, existing.metadata.etag)) {
         throw new PreconditionFailedError(`User '${id}' ETag mismatch`);
       }
     }
@@ -208,13 +212,13 @@ export class S3UserRepository implements IUserRepository {
       if (!existing) {
         throw new NotFoundError(`User '${id}' not found`);
       }
-      if (existing.metadata?.etag !== opts.ifMatch) {
+      if (!existing.metadata?.etag || !etagsEqual(opts.ifMatch, existing.metadata.etag)) {
         throw new PreconditionFailedError(`User '${id}' ETag mismatch`);
       }
     }
 
     if (opts.ifNoneMatch) {
-      if (existing && existing.metadata?.etag === opts.ifNoneMatch) {
+      if (existing && existing.metadata?.etag && etagsEqual(opts.ifNoneMatch, existing.metadata.etag)) {
         throw new NotModifiedError(`User '${id}' not modified`);
       }
       if (existing && opts.ifNoneMatch === '*') {
@@ -254,4 +258,11 @@ export class S3UserRepository implements IUserRepository {
       stream.on('end', () => resolve(Buffer.concat(chunks)));
     });
   }
+}
+
+function readCampaigns(stored: unknown): Campaign[] {
+  if (!Array.isArray(stored)) {
+    return [];
+  }
+  return stored.map(item => Campaign.fromJSON(item));
 }

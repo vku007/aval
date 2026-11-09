@@ -45,9 +45,10 @@ export class UserService {
       throw new NotFoundError(`User '${id}' not found`);
     }
     
-    const updated = dto.merge
-      ? existing.merge(dto.data)
-      : new User(id, dto.data.name ?? existing.name, dto.data.externalId ?? existing.externalId, existing.metadata?.etag, existing.metadata);
+    const updated = existing.merge({
+      name: dto.merge ? dto.data.name : (dto.data.name ?? existing.name),
+      externalId: dto.merge ? dto.data.externalId : (dto.data.externalId ?? existing.externalId)
+    });
     
     const saved = await this.repository.save(updated, { ifMatch });
     this.logger.info('Updated user', { id, etag: saved.metadata?.etag });

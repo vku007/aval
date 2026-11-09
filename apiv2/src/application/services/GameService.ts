@@ -313,7 +313,8 @@ export class GameService {
       existingGame.createContext,
       existingGame.endTime,
       existingGame.outcome,
-      this.resolveInventories(usersIds, dto.inventories, existingGame.inventories)
+      this.resolveInventories(usersIds, dto.inventories, existingGame.inventories),
+      existingGame.campaignLink
     );
   }
 
@@ -360,7 +361,8 @@ export class GameService {
       existingGame.createContext,
       existingGame.endTime,
       existingGame.outcome,
-      this.resolveInventories(dto.usersIds, dto.inventories, existingGame.inventories)
+      this.resolveInventories(dto.usersIds, dto.inventories, existingGame.inventories),
+      existingGame.campaignLink
     );
   }
 

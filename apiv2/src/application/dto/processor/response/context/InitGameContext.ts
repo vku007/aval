@@ -14,13 +14,13 @@ export class InitGameContext {
     public readonly rounds: RoundsLength,
     public readonly kind: KindOfGame,
     public readonly level: { name: string },
-    public readonly episode: { name: string }
+    public readonly campaign: { name: string }
   ) {
     this.validateGameType(gameType);
     this.validateRounds(rounds);
     this.validateKind(kind);
     this.validateLevel(level);
-    this.validateEpisode(episode);
+    this.validateCampaign(campaign);
   }
 
   /**
@@ -32,7 +32,7 @@ export class InitGameContext {
       rounds: this.rounds,
       kind: this.kind,
       level: this.level,
-      episode: this.episode
+      campaign: this.campaign
     };
   }
 
@@ -72,11 +72,12 @@ export class InitGameContext {
       throw new ValidationError('InitGameContext level.name is required and must be a string');
     }
 
-    if (!data.episode || typeof data.episode !== 'object') {
-      throw new ValidationError('InitGameContext episode is required and must be an object');
+    const campaignData = data.campaign ?? data.episode;
+    if (!campaignData || typeof campaignData !== 'object') {
+      throw new ValidationError('InitGameContext campaign is required and must be an object');
     }
-    if (!data.episode.name || typeof data.episode.name !== 'string') {
-      throw new ValidationError('InitGameContext episode.name is required and must be a string');
+    if (!campaignData.name || typeof campaignData.name !== 'string') {
+      throw new ValidationError('InitGameContext campaign.name is required and must be a string');
     }
 
     return new InitGameContext(
@@ -84,7 +85,7 @@ export class InitGameContext {
       data.rounds as RoundsLength,
       data.kind as KindOfGame,
       { name: data.level.name },
-      { name: data.episode.name }
+      { name: campaignData.name }
     );
   }
 
@@ -97,7 +98,7 @@ export class InitGameContext {
       gameCreateContext.rounds,
       gameCreateContext.kind,
       { name: gameCreateContext.level.name },
-      { name: gameCreateContext.episode.name }
+      { name: gameCreateContext.campaign.name }
     );
   }
 
@@ -128,12 +129,12 @@ export class InitGameContext {
     }
   }
 
-  private validateEpisode(episode: { name: string }): void {
-    if (!episode || typeof episode !== 'object') {
-      throw new ValidationError('episode is required and must be an object');
+  private validateCampaign(campaign: { name: string }): void {
+    if (!campaign || typeof campaign !== 'object') {
+      throw new ValidationError('campaign is required and must be an object');
     }
-    if (!episode.name || typeof episode.name !== 'string' || episode.name.trim().length === 0) {
-      throw new ValidationError('episode.name is required and must be a non-empty string');
+    if (!campaign.name || typeof campaign.name !== 'string' || campaign.name.trim().length === 0) {
+      throw new ValidationError('campaign.name is required and must be a non-empty string');
     }
   }
 }

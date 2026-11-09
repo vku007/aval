@@ -79,7 +79,7 @@ Create payload, echoed in GET as `initGameContext`:
 - `gameType`: `PVP` | `PVE` (create always seats `NPC_1` anyway)
 - `rounds`: `BO1` | `BO3` | `BO7` — this is what victory uses
 - `kind`: `classic` | `extended` — selects the sub-round resolver (`ClassicGameResolver` vs `ExtendedGameResolver`). Missing kind on old games is Classic.
-- `level`, `episode`: campaign metadata
+- `level`, `campaign`: chapter name (`{ name }`). Stored games that still have `episode` load as `campaign`. A linked battle also stores `campaignId`, `campaignTile`, `campaignAttackId`, `campaignBattleSeed`, and `campaignNpcAlgorithmId` on the game document. A battle stored without the algorithm id plays as `npc-v1`. Lobby create cannot set those fields
 - Extended turn caps, stored on this object and returned on `gameContext`: `max_stone_per_turn` (default 9), `max_scissors_per_turn` (default 4), `max_paper_per_turn` (default 7). Classic omits them.
 
 ### `Round`
@@ -173,7 +173,7 @@ Loads the entity, checks the caller is in `usersIds` (otherwise 404), maps to a 
 
 - `gameContext.status` + `initGameContext` (copy of create settings)
 - `playerContext.roundStates[]` with nested `subRoundStates[]` and `moves`
-- `enemyContext` is currently empty `{}`
+- `enemyContext` is `{}` on a classic game. On an extended game it carries `inventory`, the NPC participant's `GamePlayerInventory`, when exactly one other id starts with `NPC_`. A human opponent's inventory is not included.
 
 Admin `GameResponseDto` still flattens all sub-round moves onto the round and maps status to `isFinished`. The player payload keeps the nested shape.
 
@@ -248,7 +248,7 @@ NPC is **not** inside `processAction`. After a human move, `updateGame` calls `d
 - last sub-round is `init` or `wait_player`
 - NPC has not already thrown in that sub-round
 
-Otherwise it returns `null`. Classic NPC uses `size: 0`. Extended NPC picks a type that still has items and a size from `1` through `min(that type's turn cap, items of that type)`, and still attaches no effects. When no type can be paid for, the action is `Surrender` and `doNpcAction` applies it, so the opponent wins.
+Otherwise it returns `null`. Classic NPC uses `size: 0`. An extended NPC picks a type that still has items and attaches no effects. `NPC_1` then picks a size from `1` through `min(that type's turn cap, items of that type)`. `NPC_greed_1` always throws size `1`. When no type can be paid for, the action is `Surrender` and `doNpcAction` applies it, so the opponent wins.
 
 `GameProcessor.doNpcAction` applies that action via `processAction`. Typical PVE: player throws → sub-round `wait_player` → NPC throws → resolve → maybe new round.
 

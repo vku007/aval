@@ -11,6 +11,7 @@ import { GameStatus } from '../value-object/GameStatus.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
 import { GameOutcome } from '../value-object/GameOutcome.js';
 import { GamePlayerInventory } from '../value-object/GamePlayerInventory.js';
+import { readCampaignBattleLink, type CampaignBattleLink } from './Game.js';
 
 // Define the data structure for better type safety
 interface GameData {
@@ -22,6 +23,11 @@ interface GameData {
   createContext?: any; // Store as JSON object
   endTime?: number;
   outcome?: any; // Serialized GameOutcome (rewards) for persistence
+  campaignId?: string;
+  campaignTile?: { q: number; r: number };
+  campaignAttackId?: string;
+  campaignBattleSeed?: number;
+  campaignNpcAlgorithmId?: string;
 }
 
 interface RoundData {
@@ -67,7 +73,8 @@ export class GameEntity {
     createContext?: GameCreateContext,
     endTime?: number,
     outcome?: any, // Serialized GameOutcome (game.outcome.toJSON()) for persistence
-    inventories?: GamePlayerInventory[]
+    inventories?: GamePlayerInventory[],
+    campaignLink?: CampaignBattleLink
   ) {
     this.validateId(id);
     this.validateGameData(usersIds, rounds, status);
@@ -82,7 +89,16 @@ export class GameEntity {
       isFinished: status === GameStatus.Finished, // Backward compatibility
       createContext: createContext ? createContext.toJSON() : undefined,
       endTime,
-      outcome
+      outcome,
+      ...(campaignLink ? {
+        campaignId: campaignLink.campaignId,
+        campaignTile: { ...campaignLink.campaignTile },
+        campaignAttackId: campaignLink.campaignAttackId,
+        campaignBattleSeed: campaignLink.campaignBattleSeed,
+        ...(campaignLink.campaignNpcAlgorithmId
+          ? { campaignNpcAlgorithmId: campaignLink.campaignNpcAlgorithmId }
+          : {})
+      } : {})
     };
     
     this._backed = new JsonEntity(id, gameData as unknown as JsonValue, etag, metadata);
@@ -145,6 +161,10 @@ export class GameEntity {
     return this.getGameData().outcome;
   }
 
+  get campaignLink(): CampaignBattleLink | undefined {
+    return readCampaignBattleLink(this.getGameData());
+  }
+
   // Read-only access to entity metadata (etag, size, lastModified)
   get metadata(): EntityMetadata | undefined {
     return this._backed.metadata;
@@ -179,7 +199,8 @@ export class GameEntity {
       createContext,
       gameData.endTime,
       gameData.outcome,
-      inventories
+      inventories,
+      readCampaignBattleLink(gameData)
     );
   }
 
@@ -277,6 +298,10 @@ export class GameEntity {
       game.outcome = GameOutcome.fromJSON(gameData.outcome);
     }
     game.inventories = this.inventories;
+    const link = this.campaignLink;
+    if (link) {
+      game.assignCampaignLink(link);
+    }
     return game;
   }
 
@@ -291,7 +316,8 @@ export class GameEntity {
       game.createContext,
       game.endTime,
       game.outcome.toJSON(),
-      game.inventories
+      game.inventories,
+      game.campaignLink()
     );
   }
 
@@ -430,7 +456,8 @@ export class GameEntity {
       createContext,
       endTime,
       outcome,
-      inventories
+      inventories,
+      readCampaignBattleLink(data)
     );
   }
 

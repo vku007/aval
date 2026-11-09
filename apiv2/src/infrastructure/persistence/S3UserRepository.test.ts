@@ -136,6 +136,24 @@ describe('S3UserRepository', () => {
       expect(mockS3Client.send).toHaveBeenCalledTimes(2);
     });
 
+    it('accepts a weak If-Match for the same S3 etag', async () => {
+      const user = User.create('user-123', 'John Doe', 1001);
+      vi.mocked(mockS3Client.send).mockResolvedValueOnce({
+        Body: {
+          on: vi.fn((event: string, callback: Function) => {
+            if (event === 'data') callback(Buffer.from(JSON.stringify({ name: 'Old Name', externalId: 1001 })));
+            if (event === 'end') callback();
+          })
+        },
+        ETag: '"old-etag"'
+      });
+      vi.mocked(mockS3Client.send).mockResolvedValueOnce({ ETag: '"new-etag"' });
+
+      const result = await repository.save(user, { ifMatch: 'W/"old-etag"' });
+
+      expect(result.metadata?.etag).toBe('"new-etag"');
+    });
+
     it('should throw ConflictError when creating existing user with If-None-Match: *', async () => {
       const user = User.create('user-123', 'John Doe', 1001);
       

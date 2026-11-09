@@ -34,6 +34,12 @@ class GameSelectScene extends Phaser.Scene {
 
         const buttons = [
             {
+                label: 'CHAPTER I',
+                kind: 'chapter',
+                height: UI.menuPrimaryH,
+                strong: true
+            },
+            {
                 label: 'BLITZ GAME',
                 kind: 'blitz',
                 height: UI.menuPrimaryH,
@@ -80,6 +86,10 @@ class GameSelectScene extends Phaser.Scene {
 
     onSelectKind(kind) {
         console.log('[GameSelectScene] Selected kind:', kind);
+        if (kind === 'chapter') {
+            fxGoTo(this, 'CampaignCatalogScene', undefined, { flash: true });
+            return;
+        }
         if (kind === 'blitz') {
             fxGoTo(this, 'BlitzGameScene', undefined, { flash: true });
         }

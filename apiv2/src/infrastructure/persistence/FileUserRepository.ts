@@ -1,3 +1,4 @@
+import { Campaign } from '../../domain/campaign/Campaign.js';
 import { User } from '../../domain/entity/User.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 import { IUserRepository } from '../../application/services/UserService.js';
@@ -22,19 +23,20 @@ export class FileUserRepository implements IUserRepository {
       return null;
     }
 
-    const data = stored.data as { name: string; externalId: number };
+    const data = stored.data as { name: string; externalId: number; campaigns?: unknown };
     const metadata: EntityMetadata = {
       etag: stored.etag,
       size: stored.size,
       lastModified: stored.lastModified
     };
 
-    return this.userFactory(id, data.name, data.externalId, stored.etag, metadata);
+    return this.userFactory(id, data.name, data.externalId, stored.etag, metadata)
+      .withCampaigns(readCampaigns(data.campaigns));
   }
 
   async save(user: User, opts?: { ifMatch?: string; ifNoneMatch?: string }): Promise<User> {
     const backingStore = user.internalGetBackingStore();
-    const userData = backingStore.data as { name: string; externalId: number };
+    const userData = backingStore.data as { name: string; externalId: number; campaigns?: unknown };
     const stored = await this.store.put(this.keyFor(user.id), userData, opts);
     const metadata: EntityMetadata = {
       etag: stored.etag,
@@ -42,7 +44,8 @@ export class FileUserRepository implements IUserRepository {
       lastModified: stored.lastModified
     };
 
-    return this.userFactory(user.id, userData.name, userData.externalId, stored.etag, metadata);
+    return this.userFactory(user.id, userData.name, userData.externalId, stored.etag, metadata)
+      .withCampaigns(readCampaigns(userData.campaigns));
   }
 
   async delete(id: string, opts?: { ifMatch?: string }): Promise<void> {
@@ -101,4 +104,11 @@ export class FileUserRepository implements IUserRepository {
       return encoded;
     }
   }
+}
+
+function readCampaigns(stored: unknown): Campaign[] {
+  if (!Array.isArray(stored)) {
+    return [];
+  }
+  return stored.map(item => Campaign.fromJSON(item));
 }

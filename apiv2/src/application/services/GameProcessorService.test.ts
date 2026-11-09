@@ -7,14 +7,14 @@ import { GameType } from '../../domain/value-object/GameType.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { GameLevel } from '../../domain/value-object/GameLevel.js';
-import { EpisodeContext } from '../../domain/value-object/EpisodeContext.js';
+import { CampaignContext } from '../../domain/value-object/CampaignContext.js';
 import { Game } from '../../domain/entity/Game.js';
 import { Action } from '../../domain/value-object/Action.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
 import { ActionContext } from '../../domain/value-object/ActionContext.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { GameEntity } from '../../domain/entity/GameEntity.js';
-import { ADVANCED_INVENTORY_ITEMS, GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
+import { ADVANCED_INVENTORY_ITEMS, GamePlayerInventory, gestureItemKey } from '../../domain/value-object/GamePlayerInventory.js';
 import { Move, MoveContext, MoveType } from '../../domain/value-object/Move.js';
 import { MoveEffect, MoveEffectKind } from '../../domain/value-object/MoveEffect.js';
 import { ValidationError } from '../../shared/errors/index.js';
@@ -38,7 +38,7 @@ function sampleCreateContext(
     rounds,
     kind,
     new GameLevel('Level1'),
-    new EpisodeContext('Episode1')
+    new CampaignContext('Episode1')
   );
 }
 
@@ -453,6 +453,118 @@ describe('GameProcessorService', () => {
         new Action(ActionType.Move, new ActionContext(move))
       )).rejects.toThrow(ValidationError);
       expect(mockRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('enemy inventory', () => {
+    function extendedGame(id: string, usersIds: string[], status = GameStatus.Started): Game {
+      const game = new Game(
+        id,
+        usersIds,
+        status,
+        sampleCreateContext(GameType.PVE, RoundsLength.BO5, KindOfGame.Extended)
+      );
+      game.inventories = usersIds.map((userId, index) => GamePlayerInventory.advancedFor(userId, index + 1));
+      return game;
+    }
+
+    it('returns the NPC advanced stacks on an extended get', async () => {
+      const game = extendedGame('game-npc', ['user-1', 'NPC_1'], GameStatus.Created);
+
+      const response = await gameProcessorService.getGame('user-1', 'game-npc', game);
+
+      expect(response.payload.enemyContext.inventory?.toJSON()).toEqual(
+        GamePlayerInventory.advancedFor('NPC_1', 2).toJSON()
+      );
+      expect(response.payload.enemyContext.toJSON().inventory?.items).toEqual(ADVANCED_INVENTORY_ITEMS);
+    });
+
+    it('keeps enemyContext empty on a classic get', async () => {
+      const game = new Game(
+        'game-classic',
+        ['user-1', 'NPC_1'],
+        GameStatus.Created,
+        sampleCreateContext()
+      );
+
+      const response = await gameProcessorService.getGame('user-1', 'game-classic', game);
+
+      expect(response.payload.enemyContext.inventory).toBeUndefined();
+      expect(response.payload.enemyContext.toJSON()).toEqual({});
+    });
+
+    it('keeps enemyContext empty on a classic update', async () => {
+      const game = new Game(
+        'game-classic-move',
+        ['user-1', 'NPC_1'],
+        GameStatus.Started,
+        sampleCreateContext()
+      );
+
+      const response = await gameProcessorService.updateGame(
+        'user-1',
+        'game-classic-move',
+        new Action(ActionType.Surrender, new ActionContext()),
+        game
+      );
+
+      expect(response.payload.enemyContext.inventory).toBeUndefined();
+      expect(response.payload.enemyContext.toJSON()).toEqual({});
+    });
+
+    it('keeps enemyContext empty when the other player is a person', async () => {
+      const game = extendedGame('game-pvp', ['user-1', 'user-2']);
+
+      const response = await gameProcessorService.getGame('user-1', 'game-pvp', game);
+
+      expect(response.payload.enemyContext.toJSON()).toEqual({});
+    });
+
+    it('rejects an extended game whose NPC has no inventory row', async () => {
+      const game = extendedGame('game-missing', ['user-1', 'NPC_1']);
+      game.inventories = game.inventories.filter(item => item.userId === 'user-1');
+
+      await expect(gameProcessorService.getGame('user-1', 'game-missing', game))
+        .rejects.toThrow(ValidationError);
+      await expect(gameProcessorService.getGame('user-1', 'game-missing', game))
+        .rejects.toThrow("Inventory for user 'NPC_1' not found");
+    });
+
+    it('returns the NPC stock left after the NPC throw', async () => {
+      const caller = GamePlayerInventory.advancedFor('user-1', 11);
+      const npc = GamePlayerInventory.advancedFor('NPC_1', 12);
+      const entity = new GameEntity(
+        'game-spent',
+        ['user-1', 'NPC_1'],
+        [],
+        GameStatus.Started,
+        'etag-1',
+        undefined,
+        sampleCreateContext(GameType.PVE, RoundsLength.BO5, KindOfGame.Extended),
+        undefined,
+        undefined,
+        [caller, npc]
+      );
+      mockRepository.findById.mockResolvedValueOnce(entity);
+      mockRepository.save.mockImplementation(async (game: GameEntity) => game);
+      const move = new Move('user-1', new MoveContext(MoveType.Stone, 1, 0), Date.now());
+
+      const response = await gameProcessorService.updateGame(
+        'user-1',
+        'game-spent',
+        new Action(ActionType.Move, new ActionContext(move))
+      );
+
+      const saved = mockRepository.save.mock.calls[0][0] as GameEntity;
+      const savedNpc = saved.inventories.find(item => item.userId === 'NPC_1')!;
+      const npcMove = saved.rounds[0].subRounds[0].moves.find(item => item.userId === 'NPC_1')!;
+      const spent = gestureItemKey(npcMove.context.moveType);
+      expect(savedNpc.items[spent]).toBe(ADVANCED_INVENTORY_ITEMS[spent] - npcMove.context.size);
+      expect(savedNpc.items.NA_effect_stone).toBe(ADVANCED_INVENTORY_ITEMS.NA_effect_stone);
+      expect(savedNpc.items.NA_effect_scissors).toBe(ADVANCED_INVENTORY_ITEMS.NA_effect_scissors);
+      expect(savedNpc.items.NA_effect_papers).toBe(ADVANCED_INVENTORY_ITEMS.NA_effect_papers);
+      expect(savedNpc.items.NT_effect).toBe(ADVANCED_INVENTORY_ITEMS.NT_effect);
+      expect(response.payload.enemyContext.inventory?.toJSON()).toEqual(savedNpc.toJSON());
     });
   });
 });

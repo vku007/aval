@@ -27,6 +27,9 @@ class GamePlayScene extends Phaser.Scene {
         this.lastStageKey = null;
         this.cancelButton = null;
         this.effectButtons = null;
+        this.campaignId = data && data.campaignId || null;
+        this.returnTo = data && data.returnTo || null;
+        this._campaignLeaving = false;
         if (typeof uiLog === 'function') {
             uiLog('[GamePlayScene] Scene state initialized', this.scene.key, this.currentGameId);
         }
@@ -248,6 +251,18 @@ class GamePlayScene extends Phaser.Scene {
         this.updateStageDisplay();
         this.updatePendingMoveDisplay();
         this.updateActionButtons();
+        this.leaveCampaignIfSettled();
+    }
+
+    leaveCampaignIfSettled() {
+        if (!this.campaignId || this._campaignLeaving) return;
+        if (!SimpleGameSceneUtil.isCampaignMatchOver(this.gameData)) return;
+        this._campaignLeaving = true;
+        fxGoTo(this, this.returnTo || 'CampaignMapScene', {
+            instanceId: this.campaignId,
+            settledGameId: this.currentGameId,
+            settledOver: true
+        });
     }
 
     updateScore() {
@@ -1113,7 +1128,13 @@ class GamePlayScene extends Phaser.Scene {
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
         bindPress(this, btn, {
             tapFx: 'none',
-            onClick: () => fxGoTo(this, 'TestsScene')
+            onClick: () => {
+                if (this.campaignId) {
+                    fxGoTo(this, this.returnTo || 'CampaignMapScene', { instanceId: this.campaignId });
+                    return;
+                }
+                fxGoTo(this, 'TestsScene');
+            }
         });
         return btn;
     }

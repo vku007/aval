@@ -1,6 +1,6 @@
 /**
  * BlitzGameScene
- * Full-scene heat map with four stacked green frames.
+ * Full-scene heat map with five stacked green frames.
  * Starts an extended best-of-5 match and sends the current stack as the move.
  * Item count is the extended size. Paper is a New Paper stack. NEG and SIZE are one toggle.
  * Choosing an NA effect (NEG) drops that stack to one item, hides it, and shows its prime.
@@ -16,6 +16,8 @@
  * ascending rounds. The NT panel shows one centered column of six ascending rounds.
  * A move result replaces those counts with the spent inventory. Until the player adds an item
  * for the next move, every occupied slot stays stored. Nothing is shown selected.
+ * The enemy_inventory band matches that inventory band. Its tables show the NPC stacks
+ * and never a selection. The NPC throw is centered in enemy_data, under that band.
  */
 class BlitzGameScene extends Phaser.Scene {
     constructor() {
@@ -51,9 +53,10 @@ class BlitzGameScene extends Phaser.Scene {
         const inventoryBottom = inventory.y + inventory.height;
         const inventoryRight = inventory.x + inventory.width;
         const enemyBox = boxes.find((box) => box.label === 'enemy_data');
+        const enemyStock = boxes.find((box) => box.label === 'enemy_inventory');
         const enemySpawn = {
             x: enemyBox.x + enemyBox.width / 2,
-            y: enemyBox.y + 4
+            y: enemyStock.y + enemyStock.height
         };
         this.panelBoxes = boxes;
         this.compositeSpecs = [
@@ -77,6 +80,9 @@ class BlitzGameScene extends Phaser.Scene {
                 spec.centerBox
             );
         });
+        if (this.enemyStone && this.enemyStone.ballInit) {
+            this.enemyStone.ballInit.orbitRadius = ENEMY_STONE_ORBIT_RADIUS;
+        }
         this.playerByType = {
             Stone: this.stone,
             Scissors: this.scissor,
@@ -98,6 +104,7 @@ class BlitzGameScene extends Phaser.Scene {
         this.enemyHealthBars = null;
         this.createMatchReadout(boxes);
         this.createInventoryReadout(boxes);
+        this.createEnemyInventoryReadout(boxes);
         this.createLocalAdvancedButtons(boxes);
         this.startMatch();
     }
@@ -122,7 +129,7 @@ class BlitzGameScene extends Phaser.Scene {
                 rounds: 'BO5',
                 kind: 'extended',
                 level: { name: 'Level1' },
-                episode: { name: 'Episode1' }
+                campaign: { name: 'Episode1' }
             }, { signal: abort.signal });
             if (!this.fieldLive(field)) {
                 return;
@@ -746,6 +753,11 @@ class BlitzGameScene extends Phaser.Scene {
         this.refreshEffectButtons();
         this.syncHealthBars();
         this.refreshInventoryReadout();
+        this.refreshEnemyStock();
+    }
+
+    refreshEnemyStock() {
+        this.syncEnemyStorageIndicators();
     }
 
     gameRounds() {
@@ -866,21 +878,27 @@ class BlitzGameScene extends Phaser.Scene {
         const score = boxes.find((box) => box.label === 'score');
         const enemy = boxes.find((box) => box.label === 'enemy_data');
         this.syncHealthBars();
+        const scoreWrap = score.width - UI.backW - UI.pad * 2;
         const textStyle = {
             font: `${UI.body}px monospace`,
             fill: '#00ff66',
-            wordWrap: { width: score.width - 16 }
+            wordWrap: { width: scoreWrap }
         };
-        this.scoreText = this.add.text(score.x + 8, score.y + 46, 'you 0  —  enemy 0', textStyle).setOrigin(0, 0);
+        const scoreTextY = score.y + score.height - (UI.body + UI.small + 10);
+        this.scoreText = this.add.text(score.x + 8, scoreTextY, 'you 0  —  enemy 0', textStyle).setOrigin(0, 0);
         this.scoreText.setDepth(1100);
-        this.statusText = this.add.text(score.x + 8, score.y + 46 + UI.body + 8, 'Starting match...', {
+        this.statusText = this.add.text(score.x + 8, scoreTextY + UI.body + 4, 'Starting match...', {
             font: `${UI.small}px monospace`,
             fill: '#00ff66',
-            wordWrap: { width: score.width - 16 }
+            wordWrap: { width: scoreWrap }
         }).setOrigin(0, 0);
         this.statusText.setDepth(1100);
 
-        this.enemyReadout = this.add.text(enemy.x + 8, enemy.y + 22, 'you  —\nenemy  —\nWAIT', {
+        const enemyTitle = this.stageMarkup && this.stageMarkup.list.find((item) => item.text === 'enemy_data');
+        if (enemyTitle) {
+            enemyTitle.setPosition(enemy.x + 4, enemy.y + 2);
+        }
+        this.enemyReadout = this.add.text(enemy.x + 8, enemy.y + 16, 'you  —\nenemy  —\nWAIT', {
             font: `${UI.body}px monospace`,
             fill: '#00ff66',
             wordWrap: { width: enemy.width - 16 }
@@ -925,6 +943,18 @@ class BlitzGameScene extends Phaser.Scene {
         this.refreshInventoryReadout();
     }
 
+    createEnemyInventoryReadout(boxes) {
+        const stone = boxes.find((box) => box.label === 'enemy_stone_storage_panel');
+        const scissors = boxes.find((box) => box.label === 'enemy_scissors_storage_panel');
+        const paper = boxes.find((box) => box.label === 'enemy_paper_storage_panel');
+        const nt = boxes.find((box) => box.label === 'enemy_NT_effects_panel');
+        this.createStorageIndicators(stone, enemyInventoryStorageSpec('Stone'));
+        this.createStorageIndicators(scissors, enemyInventoryStorageSpec('Scissors'));
+        this.createStorageIndicators(paper, enemyInventoryStorageSpec('Paper'));
+        this.createNtEffectsIndicator(nt, 'enemyNtEffectsIndicator');
+        this.refreshEnemyStock();
+    }
+
     createStoneStorageIndicators(panel) {
         this.createStorageIndicators(panel, inventoryStorageSpec('Stone'));
     }
@@ -958,19 +988,20 @@ class BlitzGameScene extends Phaser.Scene {
         }
     }
 
-    createNtEffectsIndicator(panel) {
+    createNtEffectsIndicator(panel, fieldName) {
         if (!panel || !this.heatMap || typeof HmVerticalTableAmountIndicator !== 'function') {
             return;
         }
+        const key = fieldName || 'ntEffectsIndicator';
         const placed = heatMapIndicatorOptions(this.heatMap, ntEffectsIndicatorFrame(panel));
-        this.ntEffectsIndicator = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
-            name: 'NT Effects',
+        this[key] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
+            name: key === 'enemyNtEffectsIndicator' ? 'Enemy NT Effects' : 'NT Effects',
             maxAmount: NT_EFFECT_INDICATOR_MAX,
             columns: NT_EFFECT_INDICATOR_COLUMNS,
             direction: 'asc',
             shape: 'round'
         }, placed));
-        if (this.ntEffectText) {
+        if (key === 'ntEffectsIndicator' && this.ntEffectText) {
             this.ntEffectText.setVisible(false);
         }
     }
@@ -1027,6 +1058,36 @@ class BlitzGameScene extends Phaser.Scene {
         );
     }
 
+    syncEnemyStorageIndicators() {
+        const items = readEnemyInventoryItems(this.gameData);
+        ['Stone', 'Scissors', 'Paper'].forEach((moveType) => {
+            const spec = enemyInventoryStorageSpec(moveType);
+            const storedItems = this[spec.itemsName];
+            const effects = this[spec.effectsName];
+            if (!storedItems && !effects) {
+                return;
+            }
+            const count = items && Number.isFinite(items[spec.itemKey]) ? items[spec.itemKey] : null;
+            const naCount = items && Number.isFinite(items[spec.effectKey]) ? items[spec.effectKey] : null;
+            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, 3, count, 0);
+            syncTableAmountIndicator(
+                effects,
+                GESTURE_EFFECT_INDICATOR_MAX,
+                GESTURE_EFFECT_INDICATOR_COLUMNS,
+                naCount,
+                0
+            );
+        });
+        const ntCount = items && Number.isFinite(items.NT_effect) ? items.NT_effect : null;
+        syncTableAmountIndicator(
+            this.enemyNtEffectsIndicator,
+            NT_EFFECT_INDICATOR_MAX,
+            NT_EFFECT_INDICATOR_COLUMNS,
+            ntCount,
+            0
+        );
+    }
+
     createInventorySideText(box, side, style) {
         const left = side === 'left';
         const text = this.add.text(
@@ -1045,11 +1106,22 @@ class BlitzGameScene extends Phaser.Scene {
         if (!layer || !layer.list) {
             return;
         }
-        const inventoryTitle = layer.list.find((item) => item.text === 'inventory');
-        if (inventoryTitle) {
-            inventoryTitle.setVisible(false);
-        }
-        ['stone_storage_panel', 'scissors_storage_panel', 'paper_storage_panel', 'NT_effects_panel'].forEach((label) => {
+        ['inventory', 'enemy_inventory'].forEach((title) => {
+            const text = layer.list.find((item) => item.text === title);
+            if (text) {
+                text.setVisible(false);
+            }
+        });
+        [
+            'stone_storage_panel',
+            'scissors_storage_panel',
+            'paper_storage_panel',
+            'NT_effects_panel',
+            'enemy_stone_storage_panel',
+            'enemy_scissors_storage_panel',
+            'enemy_paper_storage_panel',
+            'enemy_NT_effects_panel'
+        ].forEach((label) => {
             const box = boxes.find((item) => item.label === label);
             const text = layer.list.find((item) => item.text === label);
             if (!box || !text || typeof text.setWordWrapWidth !== 'function') {
@@ -1524,9 +1596,10 @@ class BlitzGameScene extends Phaser.Scene {
 
 function localAdvancedPanelBoxes(width, height) {
     const panels = [
-        { label: 'score', share: 0.215 },
+        { label: 'score', share: 0.10 },
+        { label: 'enemy_inventory', share: 0.15 },
         { label: 'enemy_data', share: 0.25 },
-        { label: 'current turn', share: 0.385 },
+        { label: 'current turn', share: 0.35 },
         { label: 'inventory', share: 0.15 }
     ];
     const boxes = [];
@@ -1541,6 +1614,9 @@ function localAdvancedPanelBoxes(width, height) {
             label: panel.label
         };
         boxes.push(box);
+        if (panel.label === 'enemy_inventory') {
+            pushInventoryStoragePanels(boxes, box, 'enemy_');
+        }
         if (panel.label === 'inventory') {
             pushInventoryStoragePanels(boxes, box);
         }
@@ -1585,13 +1661,15 @@ const LOCAL_ADVANCED_STONE_BALL_HEAT = 2;
 const LOCAL_ADVANCED_REVEAL_PAUSE = 5000;
 const LOCAL_ADVANCED_CLASH_PAUSE = 2000;
 const LOCAL_ADVANCED_REMOVE_PAUSE = 320;
+const ENEMY_STONE_ORBIT_RADIUS = 32;
 
-function pushInventoryStoragePanels(boxes, inventory) {
+function pushInventoryStoragePanels(boxes, inventory, prefix) {
+    const lead = prefix || '';
     const specs = [
-        { label: 'stone_storage_panel', share: 0.3 },
-        { label: 'scissors_storage_panel', share: 0.3 },
-        { label: 'paper_storage_panel', share: 0.3 },
-        { label: 'NT_effects_panel', share: 0.1 }
+        { label: `${lead}stone_storage_panel`, share: 0.3 },
+        { label: `${lead}scissors_storage_panel`, share: 0.3 },
+        { label: `${lead}paper_storage_panel`, share: 0.3 },
+        { label: `${lead}NT_effects_panel`, share: 0.1 }
     ];
     let x = inventory.x;
     specs.forEach((spec, index) => {
@@ -1610,9 +1688,17 @@ function pushInventoryStoragePanels(boxes, inventory) {
 }
 
 function readInventoryItems(gameData) {
+    return readContextInventoryItems(gameData, 'playerContext');
+}
+
+function readEnemyInventoryItems(gameData) {
+    return readContextInventoryItems(gameData, 'enemyContext');
+}
+
+function readContextInventoryItems(gameData, contextKey) {
     const payload = gameData && gameData.payload;
-    const player = payload && payload.playerContext;
-    const inventory = player && player.inventory;
+    const context = payload && payload[contextKey];
+    const inventory = context && context.inventory;
     const items = inventory && inventory.items;
     if (!items || typeof items !== 'object') {
         return null;
@@ -1969,6 +2055,37 @@ function pointerInsideStageButton(scene, button) {
     }
     const bounds = root.getBounds();
     return Phaser.Geom.Rectangle.Contains(bounds, pointer.worldX, pointer.worldY);
+}
+
+function enemyInventoryStorageSpec(moveType) {
+    if (moveType === 'Scissors') {
+        return {
+            itemKey: 'scissors',
+            effectKey: 'NA_effect_scissors',
+            itemsName: 'enemyScissorsIndicator',
+            effectsName: 'enemyScissorsNaIndicator',
+            itemsLabel: 'Enemy Scissors',
+            effectsLabel: 'Enemy NA Scissors'
+        };
+    }
+    if (moveType === 'Paper') {
+        return {
+            itemKey: 'papers',
+            effectKey: 'NA_effect_papers',
+            itemsName: 'enemyPapersIndicator',
+            effectsName: 'enemyPapersNaIndicator',
+            itemsLabel: 'Enemy Papers',
+            effectsLabel: 'Enemy NA Papers'
+        };
+    }
+    return {
+        itemKey: 'stones',
+        effectKey: 'NA_effect_stone',
+        itemsName: 'enemyStonesIndicator',
+        effectsName: 'enemyStoneNaIndicator',
+        itemsLabel: 'Enemy Stones',
+        effectsLabel: 'Enemy NA Stones'
+    };
 }
 
 function inventoryStorageSpec(moveType) {
