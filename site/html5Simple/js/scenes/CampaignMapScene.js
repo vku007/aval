@@ -30,10 +30,13 @@ class CampaignMapScene extends Phaser.Scene {
         this.errorText = null;
         this.showReload = false;
         this.busy = false;
+        this.attackConfirm = null;
+        this.hideAttackFeeNotice = false;
         this.uiObjects = [];
         this.instanceId = null;
         this.settledGameId = null;
         this.settledOver = false;
+        this.pendingOutcome = null;
         this.refreshQueued = false;
         this.readStartData(data);
         const generation = this.generation;
@@ -64,9 +67,11 @@ class CampaignMapScene extends Phaser.Scene {
             this.settledOver = false;
             const again = await this.reload(generation);
             if (!this.current(generation) || !again) return;
+            this.settledOver = true;
         }
         await this.repairEmptyBattle(generation);
         if (!this.current(generation) || this.showReload) return;
+        if (this.openBattleResult(generation)) return;
         this.draw();
     }
 
@@ -122,15 +127,29 @@ class CampaignMapScene extends Phaser.Scene {
         this.view = result.body.campaign;
         this.etag = result.etag;
         this.notice = null;
+        this.pendingOutcome = (result.body && result.body.battleOutcome) || null;
         this.syncBattle();
+    }
+
+    openBattleResult() {
+        if (!this.settledOver || !this.pendingOutcome || !this.instanceId) return false;
+        const outcome = this.pendingOutcome;
+        this.settledOver = false;
+        this.pendingOutcome = null;
+        this.left = true;
+        fxGoTo(this, 'CampaignBattleResultScene', {
+            instanceId: this.instanceId,
+            battleOutcome: outcome
+        });
+        return true;
     }
 
     applyCommand(result) {
         const body = result.body || {};
         this.view = body.campaign;
         this.etag = result.etag;
+        this.pendingOutcome = body.battleOutcome || null;
         if (body.found) this.notice = { kind: 'found', found: body.found };
-        else if (body.battleOutcome) this.notice = { kind: 'outcome', outcome: body.battleOutcome };
         else this.notice = null;
         this.errorText = null;
         this.syncBattle();
@@ -155,6 +174,15 @@ class CampaignMapScene extends Phaser.Scene {
             const result = await campaignClient.act(this.view.id, body, this.etag);
             if (!this.current(generation)) return;
             this.applyCommand(result);
+            const outcome = result.body && result.body.battleOutcome;
+            if (outcome && this.view && this.view.id) {
+                this.left = true;
+                fxGoTo(this, 'CampaignBattleResultScene', {
+                    instanceId: this.view.id,
+                    battleOutcome: outcome
+                });
+                return;
+            }
             this.leaveToCatalog(body);
         } catch (error) {
             if (!this.current(generation)) return;
@@ -196,12 +224,59 @@ class CampaignMapScene extends Phaser.Scene {
     }
 
     onOffer(action) {
-        if (!action || !action.enabled || !action.send || !action.body) return;
+        if (!action || !action.enabled || !action.send || !action.body || this.busy) return;
+        if (action.confirm === 'fee' && !CampaignOffers.hidesAttackFeeNotice(this.registry.get('currentUser'))) {
+            this.attackConfirm = action;
+            this.hideAttackFeeNotice = false;
+            this.refresh();
+            return;
+        }
         this.post(action.body);
     }
 
+    toggleHideAttackFeeNotice() {
+        if (!this.attackConfirm || this.busy) return;
+        this.hideAttackFeeNotice = !this.hideAttackFeeNotice;
+        this.refresh();
+    }
+
+    async closeAttackConfirm() {
+        if (!this.attackConfirm || this.busy) return;
+        const hide = !!this.hideAttackFeeNotice;
+        this.attackConfirm = null;
+        this.hideAttackFeeNotice = false;
+        this.refresh();
+        if (hide) await this.saveHideAttackFeeNotice();
+    }
+
+    async confirmAttack() {
+        const action = this.attackConfirm;
+        if (!action || this.busy || this.left) return;
+        const hide = !!this.hideAttackFeeNotice;
+        this.attackConfirm = null;
+        this.hideAttackFeeNotice = false;
+        this.refresh();
+        if (hide) await this.saveHideAttackFeeNotice();
+        if (this.alive && !this.left) this.post(action.body);
+    }
+
+    async saveHideAttackFeeNotice() {
+        if (typeof gameAPI === 'undefined' || !this.etag) return;
+        try {
+            const result = await gameAPI.patchMe({ settings: { hideAttackFeeNotice: true } }, this.etag);
+            if (!this.alive) return;
+            if (result && result.etag) this.etag = result.etag;
+            if (result && result.body) {
+                gameAPI.user = result.body;
+                this.registry.set('currentUser', result.body);
+            }
+        } catch (error) {
+            console.error('[CampaignMapScene] Could not store the fee-card setting', error);
+        }
+    }
+
     onCell(tile) {
-        if (this.busy || !this.view || this.view.activeBattle || this.view.score) return;
+        if (this.attackConfirm || this.busy || !this.view || this.view.activeBattle || this.view.score) return;
         const same = this.selected && this.selected.q === tile.q && this.selected.r === tile.r && this.sheet === 'cell';
         if (same) {
             this.selected = null;
@@ -214,7 +289,7 @@ class CampaignMapScene extends Phaser.Scene {
     }
 
     openSheet(name) {
-        if (this.busy) return;
+        if (this.busy || this.attackConfirm) return;
         if (this.sheet === name) {
             this.sheet = null;
         } else {
@@ -259,7 +334,7 @@ class CampaignMapScene extends Phaser.Scene {
         const battle = this.view && this.view.activeBattle;
         if (this.busy || this.left || !battle || !battle.gameId) return;
         this.left = true;
-        fxGoTo(this, 'ExtendedGameScene', {
+        fxGoTo(this, 'BlitzGameScene', {
             gameId: battle.gameId,
             campaignId: this.view.id,
             returnTo: 'CampaignMapScene'
@@ -267,7 +342,7 @@ class CampaignMapScene extends Phaser.Scene {
     }
 
     onBack() {
-        if (this.left) return;
+        if (this.left || this.attackConfirm) return;
         this.left = true;
         fxGoTo(this, 'CampaignCatalogScene');
     }
@@ -354,6 +429,7 @@ class CampaignMapScene extends Phaser.Scene {
         if (this.notice && sheetH > 0) {
             this.drawNotice(8, chromeTop - sheetH, width - 16, sheetH);
         }
+        this.drawAttackConfirm(width, height);
     }
 
     plannedSheetHeight(kind, outerW) {
@@ -591,6 +667,58 @@ class CampaignMapScene extends Phaser.Scene {
             this.track(zone);
         }
         this.button(x, y + h - 34, w, 32, 'BACK', () => this.openSheet('log'), true);
+    }
+
+    drawAttackConfirm(width, height) {
+        if (!this.attackConfirm) return;
+        const dim = this.add.rectangle(0, 0, width, height, 0x000000, 0.45);
+        dim.setOrigin(0, 0);
+        dim.setInteractive();
+        dim.on('pointerup', () => this.closeAttackConfirm());
+        this.track(dim);
+
+        const cardW = Math.min(340, width - 32);
+        const cardH = 220;
+        const x = (width - cardW) / 2;
+        const y = (height - cardH) / 2;
+        const bg = this.add.graphics();
+        bg.fillStyle(0xffffff, 1);
+        bg.fillRect(x, y, cardW, cardH);
+        bg.lineStyle(2, 0x000000, 1);
+        bg.strokeRect(x, y, cardW, cardH);
+        bg.setInteractive(new Phaser.Geom.Rectangle(x, y, cardW, cardH), Phaser.Geom.Rectangle.Contains);
+        this.track(bg);
+
+        this.text(width / 2, y + 16, CampaignOffers.attackFeeLine(this.view), UI.body, 0.5, 0, cardW - 24);
+        this.drawFeeCheckbox(x + 16, y + 56, cardW - 32);
+        const btnW = cardW - 24;
+        this.button(x + 12, y + 96, btnW, 44, 'ATTACK', () => this.confirmAttack(), true);
+        this.button(x + 12, y + 148, btnW, 36, 'BACK', () => this.closeAttackConfirm(), true);
+    }
+
+    drawFeeCheckbox(x, y, w) {
+        const box = 18;
+        const checked = !!this.hideAttackFeeNotice;
+        const row = this.add.container(x, y);
+        const square = this.add.graphics();
+        square.lineStyle(2, 0x000000, 1);
+        square.strokeRect(0, 0, box, box);
+        if (checked) {
+            square.fillStyle(0x000000, 1);
+            square.fillRect(4, 4, box - 8, box - 8);
+        }
+        const label = this.add.text(box + 8, box / 2, 'do not show this window', {
+            font: `${UI.body}px monospace`,
+            fill: '#000000'
+        }).setOrigin(0, 0.5);
+        row.add([square, label]);
+        const hitW = Math.min(w, box + 8 + label.width);
+        row.setInteractive(new Phaser.Geom.Rectangle(0, -4, hitW, box + 8), Phaser.Geom.Rectangle.Contains);
+        bindPress(this, row, {
+            isEnabled: () => !this.busy,
+            onClick: () => this.toggleHideAttackFeeNotice()
+        });
+        this.track(row);
     }
 
     drawLeave(x, y, w) {

@@ -80,6 +80,7 @@ interface CampaignState {
   resolvedAttacks: ResolvedAttack[];
   log: CampaignLogEntry[];
   score?: CampaignScoreRecord;
+  lastBattleOutcome: BattleOutcome | null;
 }
 
 const PRODUCT_ORDER: MineProduct[] = ['stones', 'scissors', 'papers', 'copper'];
@@ -113,7 +114,8 @@ export class Campaign {
       tiles: copy.tiles.map(tile => reviveTile(tile, NPC_ALGORITHM_V1)),
       activeBattle: null,
       resolvedAttacks: [],
-      log: []
+      log: [],
+      lastBattleOutcome: null
     });
   }
 
@@ -152,7 +154,8 @@ export class Campaign {
       activeBattle: data.activeBattle ? structuredClone(data.activeBattle) : null,
       resolvedAttacks: Array.isArray(data.resolvedAttacks) ? structuredClone(data.resolvedAttacks) : [],
       log: Array.isArray(data.log) ? structuredClone(data.log) : [],
-      score: data.score ? structuredClone(data.score) : undefined
+      score: data.score ? structuredClone(data.score) : undefined,
+      lastBattleOutcome: readBattleOutcome(data.lastBattleOutcome)
     });
   }
 
@@ -174,6 +177,7 @@ export class Campaign {
   get resolvedAttacks(): readonly ResolvedAttack[] { return this.state.resolvedAttacks; }
   get log(): readonly CampaignLogEntry[] { return this.state.log; }
   get score(): CampaignScoreRecord | undefined { return this.state.score; }
+  get lastBattleOutcome(): BattleOutcome | null { return this.state.lastBattleOutcome; }
   get rulesetVersion(): number { return this.state.rulesetVersion; }
   get startingInventory(): { items: ItemStack; currencies: CurrencyStack } {
     return this.state.startingInventory;
@@ -204,33 +208,35 @@ export class Campaign {
       actionPoints: this.state.rules.actionPointsPerTurn,
       turnNumber,
       updatedAt: now,
+      lastBattleOutcome: null,
       log: [...this.state.log, this.entry(now, 'income', summarizeIncome(income), turnNumber)]
     });
   }
 
   /**
-   * Debit the kit and open a battle with an empty gameId.
+   * Open a battle with an empty gameId.
+   * A fee chapter charges copper and moves every item. A wager chapter debits the kit.
    * The service creates the game after this, then calls attachGame.
    */
   beginAttack(q: number, r: number, from: Axial | undefined, attackId: string, battleSeed: number, now: number): Campaign {
     this.assertAttackAllowed(q, r, from);
     const tile = this.tileAt(q, r);
-    const kit = this.state.rules.battleKit;
-    const inventory = this.state.inventory.debitItems(kit);
+    const opened = this.openBattleStake();
     const battle: ActiveBattleState = {
       attackId,
       battleSeed,
       gameId: null,
       q,
       r,
-      wager: positiveItems(kit),
-      resolved: false
+      resolved: false,
+      ...opened.stake
     };
     return this.branch({
-      inventory,
+      inventory: opened.inventory,
       actionPoints: this.state.actionPoints - 1,
       activeBattle: battle,
       updatedAt: now,
+      lastBattleOutcome: null,
       log: [...this.state.log, this.entry(now, 'attack', tile.label)]
     });
   }
@@ -253,11 +259,12 @@ export class Campaign {
       return this;
     }
     return this.branch({
-      inventory: this.state.inventory.addStack(battle.wager, {}),
+      inventory: this.refundedInventory(battle),
       actionPoints: Math.min(this.state.rules.actionPointsPerTurn, this.state.actionPoints + 1),
       activeBattle: null,
       updatedAt: now,
-      log: [...this.state.log, this.entry(now, 'battle_refunded', 'wager returned')]
+      lastBattleOutcome: null,
+      log: [...this.state.log, this.entry(now, 'battle_refunded', refundSummary(battle))]
     });
   }
 
@@ -295,20 +302,9 @@ export class Campaign {
       revealedGarrison = garrison.reveal();
       tiles = this.mapTile(battle.q, battle.r, current => ({ ...current, garrison }));
     }
-    const spent = spentItems(battle.wager, leftovers.items);
+    const spent = spentItems(stakeOf(battle), leftovers.items);
     const resolvedAttacks = [...this.state.resolvedAttacks, { attackId: facts.attackId, gameId: facts.gameId }];
     const logType: CampaignLogType = won ? 'battle_won' : 'battle_lost';
-    let next = this.branch({
-      inventory,
-      tiles,
-      activeBattle: null,
-      resolvedAttacks,
-      updatedAt: now,
-      log: [...this.state.log, this.entry(now, logType, tile.label)]
-    });
-    if (won && tile.objective) {
-      next = next.finishVictory(now);
-    }
     const outcome: BattleOutcome = {
       result: won ? 'victory' : 'defeat',
       playerRoundWins: facts.playerRoundWins,
@@ -321,6 +317,18 @@ export class Campaign {
     };
     if (revealedGarrison) {
       outcome.garrison = revealedGarrison;
+    }
+    let next = this.branch({
+      inventory,
+      tiles,
+      activeBattle: null,
+      resolvedAttacks,
+      updatedAt: now,
+      lastBattleOutcome: outcome,
+      log: [...this.state.log, this.entry(now, logType, tile.label)]
+    });
+    if (won && tile.objective) {
+      next = next.finishVictory(now);
     }
     return { campaign: next, outcome };
   }
@@ -342,6 +350,7 @@ export class Campaign {
       actionPoints,
       tiles: this.mapTile(q, r, current => ({ ...current, dugThisTurn: true })),
       updatedAt: now,
+      lastBattleOutcome: null,
       log: [...this.state.log, this.entry(now, 'dig', summarizeProduct(product, yieldAmount))]
     });
   }
@@ -370,6 +379,7 @@ export class Campaign {
         stashes: current.stashes.map(pile => pile.id === stash.id ? { ...pile, found: true } : { ...pile })
       })),
       updatedAt: now,
+      lastBattleOutcome: null,
       log: [...this.state.log, this.entry(now, 'search', summarizeStack(found.items, found.currencies))]
     });
     return { campaign, found };
@@ -391,6 +401,7 @@ export class Campaign {
       actionPoints,
       tiles: this.mapTile(q, r, current => ({ ...current, mines, increasedThisTurn: true })),
       updatedAt: now,
+      lastBattleOutcome: null,
       log: [...this.state.log, this.entry(now, 'mines_increased', `${tile.label} mines ${mines}`)]
     });
   }
@@ -415,6 +426,7 @@ export class Campaign {
       inventory,
       actionPoints,
       updatedAt: now,
+      lastBattleOutcome: null,
       log: [...this.state.log, this.entry(now, 'purchase', `${amount} ${item}`)]
     });
   }
@@ -422,19 +434,20 @@ export class Campaign {
   leave(now: number): Campaign {
     this.assertStarted();
     this.assertNoBattle();
-    return this.finish('abandoned', now, [...this.state.log, this.entry(now, 'left', 'abandoned')]);
+    return this.branch({ lastBattleOutcome: null })
+      .finish('abandoned', now, [...this.state.log, this.entry(now, 'left', 'abandoned')]);
   }
 
   finishExternal(now: number): Campaign {
     this.assertStarted();
     this.assertNoBattle();
-    return this.finish('external', now, this.state.log);
+    return this.branch({ lastBattleOutcome: null }).finish('external', now, this.state.log);
   }
 
   blockedReasons(): string[] {
     const reasons: string[] = [];
     const targets = this.legalTargets();
-    if (targets.length > 0 && !this.state.inventory.canPayItems(this.state.rules.battleKit)) {
+    if (targets.length > 0 && !this.canAffordEntry()) {
       reasons.push('cannot_afford_battle');
     }
     if (targets.length === 0) {
@@ -474,6 +487,9 @@ export class Campaign {
     if (this.state.score) {
       json.score = this.state.score;
     }
+    if (this.state.lastBattleOutcome) {
+      json.lastBattleOutcome = this.state.lastBattleOutcome;
+    }
     return json;
   }
 
@@ -506,12 +522,13 @@ export class Campaign {
 
   private refundBroken(battle: ActiveBattleState, facts: BattleApplyFacts, now: number): Campaign {
     return this.branch({
-      inventory: this.state.inventory.addStack(battle.wager, {}),
+      inventory: this.refundedInventory(battle),
       actionPoints: Math.min(this.state.rules.actionPointsPerTurn, this.state.actionPoints + 1),
       activeBattle: null,
       resolvedAttacks: [...this.state.resolvedAttacks, { attackId: facts.attackId, gameId: facts.gameId }],
       updatedAt: now,
-      log: [...this.state.log, this.entry(now, 'battle_refunded', 'wager returned')]
+      lastBattleOutcome: null,
+      log: [...this.state.log, this.entry(now, 'battle_refunded', refundSummary(battle))]
     });
   }
 
@@ -567,9 +584,49 @@ export class Campaign {
         throw new ValidationError('The from tile must be an owned neighbor of the target');
       }
     }
-    if (!this.state.inventory.canPayItems(this.state.rules.battleKit)) {
-      throw new ValidationError('Not enough items for the battle kit');
+    if (!this.canAffordEntry()) {
+      throw new ValidationError(battleEntryOf(this.state.rules) === 'fee'
+        ? 'Not enough copper for the attack'
+        : 'Not enough items for the battle kit');
     }
+  }
+
+  /** Fee moves every item after the copper charge. Wager debits only the kit. */
+  private openBattleStake(): { inventory: CampaignInventory; stake: Pick<ActiveBattleState, 'wager' | 'committedItems' | 'feeCopper'> } {
+    if (battleEntryOf(this.state.rules) === 'fee') {
+      const feeCopper = this.attackFee();
+      const paid = this.state.inventory.debitCopper(feeCopper);
+      const committedItems = positiveItems(paid.items);
+      return {
+        inventory: CampaignInventory.fromPartial({}, paid.currencies),
+        stake: { committedItems, feeCopper }
+      };
+    }
+    const kit = this.state.rules.battleKit ?? {};
+    return {
+      inventory: this.state.inventory.debitItems(kit),
+      stake: { wager: positiveItems(kit) }
+    };
+  }
+
+  private refundedInventory(battle: ActiveBattleState): CampaignInventory {
+    const fee = battle.feeCopper ?? 0;
+    return this.state.inventory.addStack(stakeOf(battle), fee > 0 ? { copper: fee } : {});
+  }
+
+  private canAffordEntry(): boolean {
+    if (battleEntryOf(this.state.rules) === 'fee') {
+      return this.state.inventory.canPayCopper(this.attackFee());
+    }
+    return this.state.inventory.canPayItems(this.state.rules.battleKit ?? {});
+  }
+
+  private attackFee(): number {
+    const fee = this.state.rules.attackFee ?? 0;
+    if (!Number.isInteger(fee) || fee < 0) {
+      throw new ValidationError('Attack fee must be a non-negative integer');
+    }
+    return fee;
   }
 
   private ownedEconomyTile(q: number, r: number): ServerTile {
@@ -668,6 +725,29 @@ export class Campaign {
   private branch(patch: Partial<CampaignState>): Campaign {
     return new Campaign({ ...this.state, ...patch });
   }
+}
+
+function readBattleOutcome(stored: unknown): BattleOutcome | null {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+    return null;
+  }
+  const result = (stored as { result?: unknown }).result;
+  if (result !== 'victory' && result !== 'defeat') {
+    return null;
+  }
+  return structuredClone(stored) as BattleOutcome;
+}
+
+function battleEntryOf(rules: { battleEntry?: string }): 'fee' | 'wager' {
+  return rules.battleEntry === 'fee' ? 'fee' : 'wager';
+}
+
+function stakeOf(battle: ActiveBattleState): ItemStack {
+  return battle.committedItems ?? battle.wager ?? {};
+}
+
+function refundSummary(battle: ActiveBattleState): string {
+  return (battle.feeCopper ?? 0) > 0 ? 'fee returned' : 'wager returned';
 }
 
 function spentItems(wager: ItemStack, leftovers: ItemStack): ItemStack {

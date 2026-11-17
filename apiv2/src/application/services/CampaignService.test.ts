@@ -73,10 +73,21 @@ describe('CampaignService', () => {
     expect(renamed.campaigns.map(campaign => campaign.id)).toEqual(['campaign-keep']);
     expect(loaded?.campaigns.map(campaign => campaign.id)).toEqual(['campaign-keep']);
     expect(loaded?.campaigns[0].rules.digCost).toBe(4);
+    expect(loaded?.settings).toEqual({});
+
+    const flagged = await users.save(
+      loaded!.withSettings({ hideAttackFeeNotice: true }),
+      { ifMatch: loaded?.metadata?.etag }
+    );
+    const kept = await users.findById('player-1');
+    expect(flagged.settings).toEqual({ hideAttackFeeNotice: true });
+    expect(kept?.settings).toEqual({ hideAttackFeeNotice: true });
+    expect(kept?.campaigns.map(campaign => campaign.id)).toEqual(['campaign-keep']);
 
     await store.put('json/users/old-user.json', { name: 'Old File', externalId: 4 });
     const old = await users.findById('old-user');
     expect(old?.campaigns).toEqual([]);
+    expect(old?.settings).toEqual({});
     const onDisk = JSON.parse(await readFile(path.join(dir, 'json/users/player-1.json'), 'utf8'));
     expect(Array.isArray(onDisk.campaigns)).toBe(true);
     expect(onDisk.campaigns.length).toBeGreaterThan(0);
@@ -89,14 +100,34 @@ describe('CampaignService', () => {
       type: 'attack', q: 0, r: -1, from: { q: 0, r: 0 }
     }, started.etag);
     expect(attacked.body.gameId).toEqual(expect.any(String));
-    const view = attacked.body.campaign as { actionPoints: number; activeBattle: { gameId: string }; inventory: { items: { stones: number } } };
+    const view = attacked.body.campaign as {
+      actionPoints: number;
+      activeBattle: { gameId: string };
+      inventory: { items: { stones: number; scissors: number }; currencies: { copper: number; gold: number } };
+      rules: { battleEntry: string; attackFee: { copper: number }; battleKit?: unknown };
+    };
     expect(view.actionPoints).toBe(0);
-    expect(view.inventory.items.stones).toBe(6);
+    expect(view.inventory.items.stones).toBe(0);
+    expect(view.inventory.items.scissors).toBe(0);
+    expect(view.inventory.currencies.copper).toBe(6);
+    expect(view.inventory.currencies.gold).toBe(0);
+    expect(view.rules.battleEntry).toBe('fee');
+    expect(view.rules.attackFee.copper).toBe(10);
+    expect(view.rules.battleKit).toBeUndefined();
     expect(view.activeBattle.gameId).toBe(attacked.body.gameId);
     const linked = await games.load(String(attacked.body.gameId));
     expect(linked?.game.campaignId).toBe(started.id);
     expect(linked?.game.createContext?.campaign.name).toBe('Chapter I');
     expect(linked?.game.inventories[0].currencies.copper).toBe(0);
+    expect(linked?.game.inventories[0].items).toMatchObject({
+      stones: 14,
+      scissors: 10,
+      papers: 14,
+      NA_effect_stone: 2,
+      NA_effect_scissors: 2,
+      NA_effect_papers: 2,
+      NT_effect: 2
+    });
     expect(linked?.game.inventories[1].currencies.copper).toBe(0);
     expect(linked?.game.inventories[1].items.stones).toBe(9);
     expect(linked?.game.campaignNpcAlgorithmId).toBe('npc-v1');
@@ -153,6 +184,7 @@ describe('CampaignService', () => {
       inventory: { items: { stones: number } };
     };
     expect(campaign.activeBattle).toBeNull();
+    expect(read.body.battleOutcome).toEqual(expect.objectContaining({ result: 'defeat' }));
     expect(campaign.tiles.find(tile => tile.q === 0 && tile.r === -1)?.visibility).toBe('seen');
     expect(campaign.inventory.items.stones).toBeLessThanOrEqual(14);
 
@@ -167,6 +199,7 @@ describe('CampaignService', () => {
     await games.save(game, loaded!.etag);
     const repaired = await campaigns.get('player-3', second.id);
     const won = repaired.body.campaign as { tiles: Array<{ q: number; r: number; visibility: string }>; inventory: { items: { stones: number }; currencies: { silver: number } } };
+    expect(repaired.body.battleOutcome).toEqual(expect.objectContaining({ result: 'victory' }));
     expect(won.tiles.find(tile => tile.q === 0 && tile.r === -1)?.visibility).toBe('owned');
     expect(won.inventory.items.stones).toBe(17);
     expect(won.inventory.currencies.silver).toBe(1);
@@ -199,15 +232,37 @@ describe('CampaignService', () => {
     expect(gate?.garrison).not.toHaveProperty('known');
     expect(gate?.garrison?.inventory.items.stones).toBe(2);
     expect(lost.inventory.items.stones).toBe(14);
-    expect(repaired.body.battleOutcome).toBeUndefined();
+    expect(repaired.body.battleOutcome).toEqual(expect.objectContaining({
+      result: 'defeat',
+      reward: null
+    }));
     const paid = await campaigns.act('player-4', started.id, { type: 'end_turn' }, repaired.etag!);
-    const again = await campaigns.act('player-4', started.id, { type: 'attack', q: 0, r: -1 }, paid.etag!);
+    const cleared = await campaigns.get('player-4', started.id);
+    expect(cleared.body.battleOutcome).toBeUndefined();
+    const funded = await campaigns.act('player-4', started.id, { type: 'end_turn' }, paid.etag!);
+    const again = await campaigns.act('player-4', started.id, { type: 'attack', q: 0, r: -1 }, funded.etag!);
     const next = await games.load(String(again.body.gameId));
     expect(next?.game.inventories.find(row => row.userId === 'NPC_1')?.items.stones).toBe(2);
     expect(next?.game.campaignNpcAlgorithmId).toBe('npc-v1');
   });
 
-  it('rejects a garrison that does not use npc-v1 and leaves the campaign unchanged', async () => {
+  it('copies a npc-greed-v1 garrison onto the game and still seats NPC_1', async () => {
+    const { campaigns, games, users } = await boot();
+    const started = await open('player-6', campaigns);
+    const user = await users.findById('player-6');
+    const raw = user!.campaigns[0].toJSON() as {
+      tiles: Array<{ q: number; r: number; garrison: { npcAlgorithmId: string } | null }>;
+    };
+    const gate = raw.tiles.find(tile => tile.q === 0 && tile.r === -1);
+    gate!.garrison!.npcAlgorithmId = 'npc-greed-v1';
+    const saved = await users.save(user!.withCampaigns([Campaign.fromJSON(raw)]), { ifMatch: user!.metadata?.etag });
+    const attacked = await campaigns.act('player-6', started.id, { type: 'attack', q: 0, r: -1 }, saved.metadata!.etag!);
+    const linked = await games.load(String(attacked.body.gameId));
+    expect(linked?.game.usersIds).toEqual(['player-6', 'NPC_1']);
+    expect(linked?.game.campaignNpcAlgorithmId).toBe('npc-greed-v1');
+  });
+
+  it('rejects an unknown garrison algorithm and leaves the campaign unchanged', async () => {
     const { campaigns, users } = await boot();
     const started = await open('player-5', campaigns);
     const user = await users.findById('player-5');
@@ -243,6 +298,7 @@ describe('CampaignService', () => {
     expect(view.activeBattle).toBeNull();
     expect(view.inventory.items.stones).toBe(14);
     expect(view.tiles.find(tile => tile.q === 0 && tile.r === -1)).not.toHaveProperty('garrison');
+    expect(refunded.body.battleOutcome).toBeUndefined();
 
     const user = await users.findById('player-1');
     const raw = user!.campaigns[0].toJSON() as {
@@ -313,7 +369,7 @@ describe('CampaignService', () => {
     expect(row.history[0]).toMatchObject({ finishReason: 'victory', score: { total: finalView.score.total } });
   });
 
-  it('cancels an attack that has no move and returns the kit', async () => {
+  it('cancels an attack that has no move and returns the items and the fee', async () => {
     const { campaigns, games } = await boot();
     const started = await open('player-1', campaigns);
     const attacked = await campaigns.act('player-1', started.id, { type: 'attack', q: 0, r: -1 }, started.etag);
@@ -321,11 +377,12 @@ describe('CampaignService', () => {
     const view = cancelled.body.campaign as {
       actionPoints: number;
       activeBattle: unknown;
-      inventory: { items: { stones: number } };
+      inventory: { items: { stones: number }; currencies: { copper: number } };
     };
     expect(view.actionPoints).toBe(1);
     expect(view.activeBattle).toBeNull();
     expect(view.inventory.items.stones).toBe(14);
+    expect(view.inventory.currencies.copper).toBe(16);
     const stored = await games.load(String(attacked.body.gameId));
     expect(stored?.game.status).toBe(GameStatus.Broken);
     await expect(campaigns.act('player-1', started.id, { type: 'cancel_attack' }, cancelled.etag!)).rejects.toBeInstanceOf(ConflictError);
@@ -339,7 +396,7 @@ describe('CampaignService', () => {
     const held = await campaigns.get('player-1', started.id);
     const heldView = held.body.campaign as { activeBattle: { gameId: string }; inventory: { items: { stones: number } } };
     expect(heldView.activeBattle.gameId).toBe(again.body.gameId);
-    expect(heldView.inventory.items.stones).toBe(6);
+    expect(heldView.inventory.items.stones).toBe(0);
   });
 
   it('rejects sell, an unpriced buy, and a missing If-Match at the schema and domain', async () => {

@@ -79,7 +79,7 @@ Create payload, echoed in GET as `initGameContext`:
 - `gameType`: `PVP` | `PVE` (create always seats `NPC_1` anyway)
 - `rounds`: `BO1` | `BO3` | `BO7` — this is what victory uses
 - `kind`: `classic` | `extended` — selects the sub-round resolver (`ClassicGameResolver` vs `ExtendedGameResolver`). Missing kind on old games is Classic.
-- `level`, `campaign`: chapter name (`{ name }`). Stored games that still have `episode` load as `campaign`. A linked battle also stores `campaignId`, `campaignTile`, `campaignAttackId`, `campaignBattleSeed`, and `campaignNpcAlgorithmId` on the game document. A battle stored without the algorithm id plays as `npc-v1`. Lobby create cannot set those fields
+- `level`, `campaign`: chapter name (`{ name }`). Stored games that still have `episode` load as `campaign`. A linked battle also stores `campaignId`, `campaignTile`, `campaignAttackId`, `campaignBattleSeed`, and `campaignNpcAlgorithmId` on the game document. A battle stored without the algorithm id plays as `npc-v1`. `npc-v1` throws size 1 through min(cap, stock). `npc-greed-v1` throws size 1. The seat stays `NPC_1`. Lobby create cannot set those fields
 - Extended turn caps, stored on this object and returned on `gameContext`: `max_stone_per_turn` (default 9), `max_scissors_per_turn` (default 4), `max_paper_per_turn` (default 7). Classic omits them.
 
 ### `Round`

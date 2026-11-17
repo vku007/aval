@@ -17,7 +17,7 @@ describe('User Entity', () => {
       const backingStore = user.internalGetBackingStore();
       expect(backingStore).toBeInstanceOf(JsonEntity);
       expect(backingStore.id).toBe('user-123');
-      expect(backingStore.data).toEqual({ name: 'John Doe', externalId: 1001, campaigns: [] });
+      expect(backingStore.data).toEqual({ name: 'John Doe', externalId: 1001, campaigns: [], settings: {} });
     });
 
     it('should create user with metadata', () => {
@@ -46,7 +46,7 @@ describe('User Entity', () => {
       const backingStore = user.internalGetBackingStore();
       expect(backingStore).toBeInstanceOf(JsonEntity);
       expect(backingStore.id).toBe('user-456');
-      expect(backingStore.data).toEqual({ name: 'Jane Smith', externalId: 2002, campaigns: [] });
+      expect(backingStore.data).toEqual({ name: 'Jane Smith', externalId: 2002, campaigns: [], settings: {} });
     });
   });
 
@@ -102,7 +102,7 @@ describe('User Entity', () => {
       expect(updated.name).toBe('John Smith');
       expect(updated.externalId).toBe(1001); // Unchanged
       expect(updated.id).toBe('user-123'); // Unchanged
-      expect(updated.internalGetBackingStore().data).toEqual({ name: 'John Smith', externalId: 1001, campaigns: [] });
+      expect(updated.internalGetBackingStore().data).toEqual({ name: 'John Smith', externalId: 1001, campaigns: [], settings: {} });
     });
 
     it('should preserve metadata during updates', () => {
@@ -127,7 +127,7 @@ describe('User Entity', () => {
       expect(updated.externalId).toBe(2002);
       expect(updated.name).toBe('John Doe'); // Unchanged
       expect(updated.id).toBe('user-123'); // Unchanged
-      expect(updated.internalGetBackingStore().data).toEqual({ name: 'John Doe', externalId: 2002, campaigns: [] });
+      expect(updated.internalGetBackingStore().data).toEqual({ name: 'John Doe', externalId: 2002, campaigns: [], settings: {} });
     });
 
     it('should create user from backing store', () => {
@@ -135,7 +135,7 @@ describe('User Entity', () => {
       const newBacked = new JsonEntity('user-123', { name: 'Updated Backed', externalId: 9999 });
       const updated = user.internalCreateFromBackingStore(newBacked);
       
-      expect(updated.internalGetBackingStore().data).toEqual({ name: 'Updated Backed', externalId: 9999, campaigns: [] });
+      expect(updated.internalGetBackingStore().data).toEqual({ name: 'Updated Backed', externalId: 9999, campaigns: [], settings: {} });
       expect(updated.name).toBe('Updated Backed');
       expect(updated.externalId).toBe(9999);
       expect(updated.id).toBe('user-123'); // Unchanged
@@ -191,7 +191,7 @@ describe('User Entity', () => {
       expect(merged.name).toBe('Merged Name');
       expect(merged.externalId).toBe(1001); // Unchanged
       expect(merged.id).toBe('user-123'); // Unchanged
-      expect(merged.internalGetBackingStore().data).toEqual({ name: 'Merged Name', externalId: 1001, campaigns: [] });
+      expect(merged.internalGetBackingStore().data).toEqual({ name: 'Merged Name', externalId: 1001, campaigns: [], settings: {} });
     });
 
     it('should preserve metadata during merge', () => {
@@ -208,6 +208,39 @@ describe('User Entity', () => {
       expect(merged.externalId).toBe(9999); // Updated
       expect(merged.metadata).toEqual(metadata); // Metadata preserved
       expect(merged.internalGetBackingStore().etag).toBe('etag-456'); // ETag preserved
+    });
+  });
+
+  describe('settings', () => {
+    it('keeps settings beside campaigns through a campaign replace and a name change', () => {
+      const stored = User.fromJSON({
+        id: 'user-123',
+        name: 'John Doe',
+        externalId: 1001,
+        campaigns: [],
+        settings: { hideAttackFeeNotice: true, theme: 'day' }
+      });
+      const replaced = stored.withCampaigns(stored.campaigns);
+      const renamed = replaced.updateName('Jane Doe');
+
+      expect(replaced.settings).toEqual({ hideAttackFeeNotice: true, theme: 'day' });
+      expect(renamed.settings).toEqual({ hideAttackFeeNotice: true, theme: 'day' });
+      expect(renamed.campaigns).toEqual([]);
+      expect(renamed.internalGetBackingStore().data).toEqual({
+        name: 'Jane Doe',
+        externalId: 1001,
+        campaigns: [],
+        settings: { hideAttackFeeNotice: true, theme: 'day' }
+      });
+    });
+
+    it('reads a document with no settings as an empty object', () => {
+      const stored = User.fromJSON({
+        id: 'user-123',
+        name: 'John Doe',
+        externalId: 1001
+      });
+      expect(stored.settings).toEqual({});
     });
   });
 });

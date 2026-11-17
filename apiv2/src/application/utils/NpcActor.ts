@@ -14,14 +14,17 @@ const MOVE_TYPES = [MoveType.Stone, MoveType.Paper, MoveType.Scissors];
 
 /** Random extended size, 1 through min(turn cap, stock). */
 export const NPC_1 = 'NPC_1';
-/** Extended size is always 1. */
+/** Extended size is always 1 when no size policy is passed. */
 export const NPC_GREED_1 = 'NPC_greed_1';
+
+/** `spread` is 1 through min(turn cap, stock). `minimum` is always 1. */
+export type NpcSizePolicy = 'spread' | 'minimum';
 
 /**
  * Decides the NPC's next action.
  * Extended throws use only a type the inventory can pay for.
- * `NPC_1` picks a size from 1 through min(turn cap, stock).
- * `NPC_greed_1` always throws size 1.
+ * A `spread` policy, and `NPC_1` with no policy, pick a size from 1 through min(turn cap, stock).
+ * A `minimum` policy, and `NPC_greed_1` with no policy, throw size 1.
  * An empty extended inventory is a Surrender. Classic still throws size 0.
  * Does not apply the action — GameProcessor.processAction does.
  */
@@ -29,7 +32,7 @@ export class NpcActor {
   private readonly logger: Logger;
   private readonly random: () => number;
 
-  constructor(logger?: Logger, random?: () => number) {
+  constructor(logger?: Logger, random?: () => number, private readonly sizePolicy?: NpcSizePolicy) {
     this.logger = logger ?? new Logger();
     this.random = random ?? (() => Math.random());
   }
@@ -137,7 +140,8 @@ export class NpcActor {
   /**
    * A playable type has at least one item and a turn cap of at least 1.
    * No such type means Surrender.
-   * `NPC_greed_1` spends the minimum, size 1. `NPC_1` spends 1..min(cap, stock).
+   * A `minimum` policy spends size 1. A `spread` policy spends 1..min(cap, stock).
+   * With no policy, `NPC_greed_1` spends size 1 and any other seat spends 1..min(cap, stock).
    */
   private extendedAction(game: Game, npcId: string, roundId: string, subRoundIdNum: number): Action {
     const playable = MOVE_TYPES.filter(moveType =>
@@ -170,12 +174,23 @@ export class NpcActor {
 
   /** Playable types already have stock and a cap of at least 1. */
   private moveSize(game: Game, npcId: string, moveType: MoveType): number {
-    if (npcId === NPC_GREED_1) {
+    if (this.throwsMinimum(npcId)) {
       return 1;
     }
     const available = this.gestureCount(game, npcId, moveType);
     const maxSize = Math.min(this.turnCap(game, moveType), available);
     return 1 + Math.floor(this.random() * maxSize);
+  }
+
+  /** An explicit policy wins over the seated id. */
+  private throwsMinimum(npcId: string): boolean {
+    if (this.sizePolicy === 'minimum') {
+      return true;
+    }
+    if (this.sizePolicy === 'spread') {
+      return false;
+    }
+    return npcId === NPC_GREED_1;
   }
 
   private turnCap(game: Game, moveType: MoveType): number {

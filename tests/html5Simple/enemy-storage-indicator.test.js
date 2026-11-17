@@ -71,8 +71,11 @@ describe('enemy storage indicators', () => {
         expect(enemyBand.height).toBe(playerBand.height);
         expect(playerBand.height).toBeCloseTo(844 * 0.075, 5);
         expect(reveal.y).toBe(enemyBand.y + enemyBand.height);
-        expect(reveal.height).toBeCloseTo(844 * 0.4, 5);
+        expect(reveal.height).toBeCloseTo(844 * 0.3, 5);
         expect(box(boxes, 'current turn').height).toBeCloseTo(844 * 0.35, 5);
+        const footer = box(boxes, 'footer');
+        expect(footer.height).toBeCloseTo(844 * 0.1, 5);
+        expect(footer.y + footer.height).toBeCloseTo(844, 5);
         [
             ['enemy_stone_storage_panel', 'stone_storage_panel'],
             ['enemy_scissors_storage_panel', 'scissors_storage_panel'],

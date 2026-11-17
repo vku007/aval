@@ -1,5 +1,5 @@
 import { Campaign } from '../../domain/campaign/Campaign.js';
-import { User } from '../../domain/entity/User.js';
+import { readUserSettings, User } from '../../domain/entity/User.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 import { IUserRepository } from '../../application/services/UserService.js';
 import { NotFoundError } from '../../shared/errors/index.js';
@@ -23,7 +23,7 @@ export class FileUserRepository implements IUserRepository {
       return null;
     }
 
-    const data = stored.data as { name: string; externalId: number; campaigns?: unknown };
+    const data = stored.data as { name: string; externalId: number; campaigns?: unknown; settings?: unknown };
     const metadata: EntityMetadata = {
       etag: stored.etag,
       size: stored.size,
@@ -31,12 +31,13 @@ export class FileUserRepository implements IUserRepository {
     };
 
     return this.userFactory(id, data.name, data.externalId, stored.etag, metadata)
-      .withCampaigns(readCampaigns(data.campaigns));
+      .withCampaigns(readCampaigns(data.campaigns))
+      .withSettings(readUserSettings(data.settings));
   }
 
   async save(user: User, opts?: { ifMatch?: string; ifNoneMatch?: string }): Promise<User> {
     const backingStore = user.internalGetBackingStore();
-    const userData = backingStore.data as { name: string; externalId: number; campaigns?: unknown };
+    const userData = backingStore.data as { name: string; externalId: number; campaigns?: unknown; settings?: unknown };
     const stored = await this.store.put(this.keyFor(user.id), userData, opts);
     const metadata: EntityMetadata = {
       etag: stored.etag,
@@ -45,7 +46,8 @@ export class FileUserRepository implements IUserRepository {
     };
 
     return this.userFactory(user.id, userData.name, userData.externalId, stored.etag, metadata)
-      .withCampaigns(readCampaigns(userData.campaigns));
+      .withCampaigns(readCampaigns(userData.campaigns))
+      .withSettings(readUserSettings(userData.settings));
   }
 
   async delete(id: string, opts?: { ifMatch?: string }): Promise<void> {

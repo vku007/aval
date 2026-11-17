@@ -108,15 +108,8 @@ function chapterView(extra) {
       digCost: { copper: 4 },
       searchCost: { copper: 6 },
       increaseMinesCost: { copper: 6 },
-      battleKit: {
-        stones: 8,
-        scissors: 5,
-        papers: 8,
-        NA_effect_stone: 1,
-        NA_effect_scissors: 1,
-        NA_effect_papers: 1,
-        NT_effect: 1
-      },
+      battleEntry: 'fee',
+      attackFee: { copper: 10 },
       marketplace: {
         stones: 3,
         papers: 3,
@@ -182,9 +175,19 @@ test('camp on turn 1 offers dig, upgrade, neighbor attacks, and a bare end turn'
     same(Object.keys(attack.body).sort(), ['q', 'r', 'type']);
     assert.equal(attack.body.type, 'attack');
     assert.equal(attack.label.includes('Best of 5'), true);
-    assert.equal(attack.label.includes('8 Stone'), true);
-    assert.equal(attack.label.includes('5 Scissors'), true);
+    assert.equal(attack.label.includes('10 copper'), true);
+    assert.equal(attack.label.includes('Stone'), false);
+    assert.equal(attack.confirm, 'fee');
   });
+  assert.equal(CampaignOffers.attackFeeLine(view), 'This attack costs 10 copper.');
+  const unnamed = chapterView();
+  delete unnamed.rules.attackFee;
+  assert.equal(CampaignOffers.attackFeeLine(unnamed), 'This attack costs copper.');
+  assert.equal(CampaignOffers.hidesAttackFeeNotice({ settings: { hideAttackFeeNotice: true } }), true);
+  assert.equal(CampaignOffers.hidesAttackFeeNotice({ settings: { hideAttackFeeNotice: false } }), false);
+  assert.equal(CampaignOffers.hidesAttackFeeNotice({ settings: {} }), false);
+  assert.equal(CampaignOffers.hidesAttackFeeNotice(null), false);
+  assert.equal(CampaignOffers.hidesAttackFeeNotice({ settings: { hideAttackFeeNotice: 'true' } }), false);
   const quiet = view.tiles.find((tile) => tile.q === 0 && tile.r === -1);
   assert.equal(CampaignOffers.tileSheet(view, quiet).garrison, null);
   const scouted = {
@@ -279,9 +282,31 @@ test('stall lines stay hidden while a battle is open', () => {
   same(
     CampaignOffers.stallLines(chapterView({ blockedReasons: ['cannot_afford_battle', 'no_attack_target'] })),
     [
-      'You need the battle kit before you can attack.',
+      'You need 10 copper to attack.',
       'No neighboring tile to attack.'
     ]
+  );
+  const wagerView = chapterView({
+    rules: {
+      ...chapterView().rules,
+      battleEntry: 'wager',
+      battleKit: { stones: 8, scissors: 5, papers: 8 }
+    }
+  });
+  delete wagerView.rules.attackFee;
+  const wagerAttack = CampaignOffers.attack(wagerView, wagerView.tiles.find((tile) => tile.q === 0 && tile.r === -1));
+  assert.equal(wagerAttack.label.includes('8 Stone'), true);
+  assert.equal(wagerAttack.label.includes('5 Scissors'), true);
+  assert.equal(wagerAttack.confirm, undefined);
+  const legacy = chapterView();
+  delete legacy.rules.battleEntry;
+  assert.equal(CampaignOffers.attack(legacy, legacy.tiles.find((tile) => tile.q === 0 && tile.r === -1)).confirm, undefined);
+  same(
+    CampaignOffers.stallLines(chapterView({
+      rules: wagerView.rules,
+      blockedReasons: ['cannot_afford_battle']
+    })),
+    ['You need the battle kit before you can attack.']
   );
   assert.equal(CampaignOffers.battle(view, false).actions.map((action) => action.id).join(','), 'play,autobattle,cancel');
   assert.equal(CampaignOffers.battle(view, false).actions.find((action) => action.id === 'cancel').body.type, 'cancel_attack');
@@ -352,6 +377,21 @@ test('score lines use the stored total and skip a missing score', () => {
     garrison: { inventory: { items: {}, currencies: {} } }
   });
   assert.equal(bare.includes('Defender has nothing left'), true);
+  same(CampaignLabels.resultLines({
+    result: 'victory',
+    reward: { items: { stones: 3, scissors: 1 }, currencies: { silver: 1, copper: 4 } },
+    spent: { items: { stones: 2, papers: 1 } }
+  }), ['Victory', 'Spent 2 Stone, 1 Paper', 'Gained 3 Stone, 1 Scissors, 1 Silver, 4 Copper']);
+  same(CampaignLabels.resultLines({
+    result: 'defeat',
+    reward: { items: { stones: 3 } },
+    spent: { items: { stones: 2 } }
+  }), ['Defeat', 'Spent 2 Stone']);
+  same(CampaignLabels.resultLines({
+    result: 'victory',
+    reward: { items: {}, currencies: {} },
+    spent: { items: {} }
+  }), ['Victory']);
 });
 
 test('campaign client returns the etag and does not invent one', async () => {

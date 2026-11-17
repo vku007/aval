@@ -4,9 +4,13 @@ import { Logger } from '../../shared/logging/Logger.js';
 import { ClassicGameResolver } from '../utils/ClassicGameResolver.js';
 import { ExtendedGameResolver } from '../utils/ExtendedGameResolver.js';
 import { GameProcessor } from '../utils/GameProcessor.js';
-import { NpcActor } from '../utils/NpcActor.js';
+import { NpcActor, type NpcSizePolicy } from '../utils/NpcActor.js';
 import { SimpleGameOutcomeResolver } from '../utils/SimpleGameOutcomeResolver.js';
-import { assertSupportedNpcAlgorithm, NPC_ALGORITHM_V1 } from '../../domain/campaign/Garrison.js';
+import {
+  assertSupportedNpcAlgorithm,
+  NPC_ALGORITHM_GREED_V1,
+  NPC_ALGORITHM_V1
+} from '../../domain/campaign/Garrison.js';
 
 /** mulberry32. One call advances this stream. */
 export function mulberry32(seed: number): () => number {
@@ -48,6 +52,16 @@ export function campaignProcessor(game: Game, logger: Logger): GameProcessor {
   if (game.campaignBattleSeed === undefined) {
     return new GameProcessor(resolver, logger);
   }
-  assertSupportedNpcAlgorithm(game.campaignNpcAlgorithmId ?? NPC_ALGORITHM_V1);
-  return new GameProcessor(resolver, logger, new NpcActor(logger, seededNpcRandom(game)));
+  const algorithmId = game.campaignNpcAlgorithmId ?? NPC_ALGORITHM_V1;
+  assertSupportedNpcAlgorithm(algorithmId);
+  return new GameProcessor(
+    resolver,
+    logger,
+    new NpcActor(logger, seededNpcRandom(game), sizePolicyFor(algorithmId))
+  );
+}
+
+/** `npc-greed-v1` spends 1. `npc-v1` spends 1 through min(cap, stock). */
+function sizePolicyFor(algorithmId: string): NpcSizePolicy {
+  return algorithmId === NPC_ALGORITHM_GREED_V1 ? 'minimum' : 'spread';
 }

@@ -103,7 +103,7 @@ Instance fields that are stored and are not all visible:
 | `createdAt`, `updatedAt` | yes |
 | `turnNumber`, `actionPoints` | yes, plus computed `turns` |
 | `inventory` | yes |
-| `rules` (costs, kit, marketplace, score weights, `economyConsumesActionPoint`, `actionPointsPerTurn`) | yes, without the flag names the client does not need. Send `digCost`, `searchCost`, `increaseMinesCost`, `battleKit`, `marketplace`, `scoreWeights`. Keep the two flags on the stored rules for the server. |
+| `rules` (costs, entry, marketplace, score weights, `economyConsumesActionPoint`, `actionPointsPerTurn`) | yes, without the flag names the client does not need. Send `digCost`, `searchCost`, `increaseMinesCost`, `battleEntry`, `attackFee` on a fee chapter, `battleKit` on a wager chapter, `marketplace`, `scoreWeights`. Keep the two flags on the stored rules for the server. |
 | `tiles` including stashes and garrisons | no. 19 views only. A seen tile includes `garrison` after a loss on that tile |
 | `activeBattle` | `{ gameId, q, r }` or null. `gameId` is null only while the crash window is open; the view then still reports `battle_in_progress` |
 | `resolvedAttacks` | no |
@@ -138,11 +138,11 @@ Start, Leave, End Turn, Dig, Search, IncreaseMines, Buy, and internal finish are
 Attack, in order:
 
 1. Repair in memory. Reject when the checks in the design fail. Change nothing yet.
-2. Debit the kit, spend one action point, set `activeBattle` with a new `attackId`, a `battleSeed`, the tile, the wager, `gameId` empty, `resolved: false`. Save the user.
-3. Create the game with the wager as the human inventory and the tile garrison as `NPC_1`. Human coins are 0. The NPC row copies the garrison items and currencies. Chapter I garrisons have no coins. Pass both rows so `ensureForUsers` does not fill defaults. Copy `npcAlgorithmId` to `campaignNpcAlgorithmId`. Persist the game or throw. An id other than `npc-v1` is rejected before the user save.
+2. Debit 10 copper, move every campaign item, spend one action point, set `activeBattle` with a new `attackId`, a `battleSeed`, the tile, `committedItems`, `feeCopper` 10, `gameId` empty, `resolved: false`. Save the user. A wager chapter debits only `battleKit` onto `wager`.
+3. Create the game with `committedItems` as the human inventory and the tile garrison as `NPC_1`. Human coins are 0. The NPC row copies the garrison items and currencies. Chapter I garrisons have no coins. Pass both rows so `ensureForUsers` does not fill defaults. Copy `npcAlgorithmId` to `campaignNpcAlgorithmId`. Persist the game or throw. An id other than `npc-v1` or `npc-greed-v1` is rejected before the user save. `npc-greed-v1` throws size 1. A wager chapter seats the kit as the human row.
 4. Store `gameId` on `activeBattle`. Save the user with the ETag from step 2.
 
-If step 3 throws, refund the kit, restore the action point, clear `activeBattle`, save, and return the create error. If step 4 throws, leave the step-2 document in place (empty `gameId`) and return 500. The next read refunds. The orphan game is inert: resolve applies only when `activeBattle.gameId` equals that game's id.
+If step 3 throws, return the items and the 10 copper, restore the action point, clear `activeBattle`, save, and return the create error. A wager chapter returns the kit. If step 4 throws, leave the step-2 document in place (empty `gameId`) and return 500. The next read refunds. The orphan game is inert: resolve applies only when `activeBattle.gameId` equals that game's id.
 
 Autobattle and a human finish:
 
@@ -212,7 +212,7 @@ Player throws, in order, repeating: stone 3, paper 3, scissors 2, stone 3, paper
 - Size drops to the stock when the stock is at least 1 and below the planned size. A gesture at 0 is skipped.
 - No legal gesture is Surrender, which the existing processor scores as a loss.
 - Each throw goes through `GameProcessor.processAction`, then `doNpcAction`.
-- Stop on `finished` or `broken`. At 48 player throws, set `status` to `broken` without `endingGame`. The broken path refunds the original wager.
+- Stop on `finished` or `broken`. At 48 player throws, set `status` to `broken` without `endingGame`. The broken path returns `committedItems` and the fee. A wager chapter returns the kit.
 
 The response adds `battleOutcome` from the resolved instance. Throws stay on the game.
 
@@ -223,12 +223,12 @@ Run on instance GET and at the start of every command, including Start's sibling
 | State | Action |
 |---|---|
 | No `activeBattle` | none |
-| `gameId` empty | Refund the stored wager, restore one action point (not above the maximum), clear `activeBattle`, append `battle_refunded`. Do not load a game. |
+| `gameId` empty | Return `committedItems` and `feeCopper`, restore one action point (not above the maximum), clear `activeBattle`, append `battle_refunded`. A stored `wager` with no fee is returned instead. Do not load a game. |
 | `gameId` set, game `created` or `started` | leave it open |
 | `gameId` set, game `finished` or `broken`, pair already in `resolvedAttacks` | clear a stale `activeBattle` if it is still that pair. Grant nothing. |
-| `gameId` set, game `finished`, player won | leftovers + tile reward, capture, reveal neighbors, maybe victory and score, clear battle, record the pair |
+| `gameId` set, game `finished`, player won | leftovers + tile reward, capture, reveal neighbors, maybe victory and score, clear battle, record the pair, store `lastBattleOutcome` |
 | `gameId` set, game `finished`, player lost or surrendered | human leftovers only, write the NPC row onto the garrison and mark it known, clear battle, record the pair |
-| `gameId` set, game `broken` | refund the original wager, restore the action point, clear battle, record the pair |
+| `gameId` set, game `broken` | return `committedItems` and the fee, or the stored wager, restore the action point, clear battle, record the pair |
 | `gameId` set, game document missing | leave the battle open and log it. Do not refund. |
 
 Winner is `whoIsWinner(game) === humanUserId`. The human is `usersIds[0]`, which is how `createGame` already orders the seats.

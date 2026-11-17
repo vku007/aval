@@ -91,7 +91,8 @@ class GameSelectScene extends Phaser.Scene {
             return;
         }
         if (kind === 'blitz') {
-            fxGoTo(this, 'BlitzGameScene', undefined, { flash: true });
+            // {} replaces the last start payload. A missing payload would keep a campaign match.
+            fxGoTo(this, 'BlitzGameScene', {}, { flash: true });
         }
     }
 

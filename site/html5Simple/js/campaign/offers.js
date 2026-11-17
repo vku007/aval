@@ -8,7 +8,13 @@ const CampaignOffers = {
     if (reasons.indexOf('battle_in_progress') !== -1) return [];
     const lines = [];
     if (reasons.indexOf('cannot_afford_battle') !== -1) {
-      lines.push('You need the battle kit before you can attack.');
+      const rules = campaign.rules || {};
+      if (rules.battleEntry === 'fee') {
+        const copper = rules.attackFee && rules.attackFee.copper;
+        lines.push(`You need ${copper} copper to attack.`);
+      } else {
+        lines.push('You need the battle kit before you can attack.');
+      }
     }
     if (reasons.indexOf('no_attack_target') !== -1) {
       lines.push('No neighboring tile to attack.');
@@ -84,15 +90,31 @@ const CampaignOffers = {
     if (!(campaign.actionPoints >= 1)) return null;
     const reasons = campaign.blockedReasons || [];
     if (reasons.indexOf('cannot_afford_battle') !== -1) return null;
-    const kit = CampaignLabels.stackPhrase(campaign.rules && campaign.rules.battleKit);
+    const rules = campaign.rules || {};
+    const price = rules.battleEntry === 'fee'
+      ? `${rules.attackFee && rules.attackFee.copper} copper`
+      : CampaignLabels.stackPhrase(rules.battleKit);
     const length = CampaignLabels.rounds(tile.rounds);
-    return {
+    const action = {
       id: 'attack',
-      label: ['Attack', length, kit].filter(Boolean).join(' · '),
+      label: ['Attack', length, price].filter(Boolean).join(' · '),
       enabled: true,
       send: true,
       body: { type: 'attack', q: tile.q, r: tile.r }
     };
+    if (rules.battleEntry === 'fee') action.confirm = 'fee';
+    return action;
+  },
+
+  hidesAttackFeeNotice(user) {
+    return !!(user && user.settings && user.settings.hideAttackFeeNotice === true);
+  },
+
+  attackFeeLine(campaign) {
+    const rules = (campaign && campaign.rules) || {};
+    const copper = rules.attackFee && rules.attackFee.copper;
+    if (typeof copper !== 'number') return 'This attack costs copper.';
+    return `This attack costs ${copper} copper.`;
   },
 
   ownedActions(campaign, tile) {

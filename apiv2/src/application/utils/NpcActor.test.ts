@@ -249,6 +249,31 @@ describe('NpcActor.nextAction', () => {
     expect(action!.context.move!.context.size).toBe(10);
   });
 
+  it('a minimum policy throws size 1 while seated as NPC_1', () => {
+    const greedy = new NpcActor(undefined, () => 0.99, 'minimum');
+    const game = createGame([USER_1, NPC_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_1, 0, 10, 0);
+
+    const action = greedy.nextAction(game);
+
+    expect(action!.context.move!.userId).toBe(NPC_1);
+    expect(action!.context.move!.context.moveType).toBe(MoveType.Scissors);
+    expect(action!.context.move!.context.size).toBe(1);
+  });
+
+  it('a spread policy throws above size 1 while seated as NPC_greed_1', () => {
+    const spread = new NpcActor(undefined, () => 0.99, 'spread');
+    const game = createGame([USER_1, NPC_GREED_1], KindOfGame.Extended);
+    addOpenSubRound(game, [playerMove()]);
+    setGestureCounts(game, NPC_GREED_1, 0, 10, 0);
+
+    const action = spread.nextAction(game);
+
+    expect(action!.context.move!.userId).toBe(NPC_GREED_1);
+    expect(action!.context.move!.context.size).toBe(DEFAULT_MAX_SCISSORS_PER_TURN);
+  });
+
   it('NPC_greed_1 throws size 1 even when stock and the turn cap allow more', () => {
     const game = createGame([USER_1, NPC_GREED_1], KindOfGame.Extended);
     addOpenSubRound(game, [playerMove()]);

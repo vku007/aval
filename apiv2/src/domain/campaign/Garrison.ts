@@ -5,10 +5,15 @@ import {
   type ItemStack
 } from './CampaignInventory.js';
 
+/** Throw size is 1 through min(turn cap, stock). */
 export const NPC_ALGORITHM_V1 = 'npc-v1';
+/** Throw size is always 1. The match still seats `NPC_1`. */
+export const NPC_ALGORITHM_GREED_V1 = 'npc-greed-v1';
+
+const SUPPORTED_NPC_ALGORITHMS = new Set<string>([NPC_ALGORITHM_V1, NPC_ALGORITHM_GREED_V1]);
 
 export function assertSupportedNpcAlgorithm(id: string): void {
-  if (id !== NPC_ALGORITHM_V1) {
+  if (!SUPPORTED_NPC_ALGORITHMS.has(id)) {
     throw new ValidationError(`Unknown NPC algorithm '${id}'`);
   }
 }

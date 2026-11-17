@@ -2,7 +2,7 @@ import type { HttpRequest } from '../../infrastructure/http/HttpTypes.js';
 import { HttpResponse } from '../../infrastructure/http/HttpTypes.js';
 import type { UserService } from '../../application/services/UserService.js';
 import type { Logger } from '../../shared/logging/Logger.js';
-import { NotFoundError, ValidationError } from '../../shared/errors/index.js';
+import { NotFoundError, PreconditionFailedError, ValidationError } from '../../shared/errors/index.js';
 import type { GameProcessorService } from '../../application/services/GameProcessorService.js';
 import { CreateGameRequest } from '../../application/dto/processor/CreateGameRequest.js';
 import { GameCreateContext } from '../../application/dto/processor/GameCreateContext.js';
@@ -21,6 +21,53 @@ export class ExternalController {
     private readonly logger: Logger,
     private readonly gameProcessorService: GameProcessorService
   ) {}
+
+  /**
+   * Store one player setting on the current user.
+   * PATCH /apiv2/external/me
+   */
+  async patchMe(request: HttpRequest): Promise<{ statusCode: number; body?: unknown; headers: Record<string, string> }> {
+    const userId = request.user?.userId;
+    if (!userId) {
+      throw new NotFoundError('User profile not found');
+    }
+    const ifMatch = request.headers['if-match'];
+    try {
+      const patch = parseSettingsPatch(request.body);
+      const userDto = await this.userService.updateSettings(userId, patch, ifMatch);
+      const metadata = await this.userService.getUserMetadata(userId);
+      return HttpResponse.ok(userDto.toJSON()).withETag(metadata.etag);
+    } catch (error: any) {
+      if (error instanceof ValidationError) {
+        return HttpResponse.badRequest({
+          type: 'about:blank',
+          title: 'Validation Error',
+          status: 400,
+          detail: error.message,
+          instance: request.path
+        });
+      }
+      if (error instanceof NotFoundError) {
+        return HttpResponse.notFound({
+          type: 'about:blank',
+          title: 'User Not Found',
+          status: 404,
+          detail: error.message,
+          instance: request.path
+        });
+      }
+      if (error instanceof PreconditionFailedError) {
+        return HttpResponse.preconditionFailed({
+          type: 'about:blank',
+          title: 'Precondition Failed',
+          status: 412,
+          detail: error.message,
+          instance: request.path
+        });
+      }
+      throw error;
+    }
+  }
 
   /**
    * Get current user's profile
@@ -309,5 +356,29 @@ export class ExternalController {
     GamePlayerInventory.ensureForUsers([userId, 'NPC_1'], parsed, Date.now());
     return parsed;
   }
+}
+
+export function parseSettingsPatch(body: unknown): { hideAttackFeeNotice: boolean } {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new ValidationError('Request body must be an object');
+  }
+  const obj = body as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length !== 1 || keys[0] !== 'settings') {
+    throw new ValidationError('Request body must contain only settings');
+  }
+  const settings = obj.settings;
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    throw new ValidationError('settings must be an object');
+  }
+  const settingKeys = Object.keys(settings as Record<string, unknown>);
+  if (settingKeys.length !== 1 || settingKeys[0] !== 'hideAttackFeeNotice') {
+    throw new ValidationError('settings must contain only hideAttackFeeNotice');
+  }
+  const flag = (settings as Record<string, unknown>).hideAttackFeeNotice;
+  if (typeof flag !== 'boolean') {
+    throw new ValidationError('hideAttackFeeNotice must be a boolean');
+  }
+  return { hideAttackFeeNotice: flag };
 }
 

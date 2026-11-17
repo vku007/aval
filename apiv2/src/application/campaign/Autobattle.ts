@@ -64,7 +64,7 @@ export function planPlayerThrow(game: Game, memory: AutobattleMemory): Action {
 
 /**
  * Plays the open match in memory. The caller saves the game once.
- * At the throw cap the game is broken without endingGame, so the wager is refunded.
+ * At the throw cap the game is broken without endingGame, so the entry is refunded.
  */
 export function playAutobattle(game: Game, maxPlayerThrows = AUTOBATTLE_THROW_CAP): Game {
   const memory = freshAutobattleMemory();

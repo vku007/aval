@@ -1,6 +1,7 @@
 import { GameOutcome } from '../../domain/value-object/GameOutcome.js';
 import { OutcomeEvent } from '../../domain/value-object/rewards/OutcomeEvent.js';
 import { PointOutcomeEvent } from '../../domain/value-object/rewards/PointOutcomeEvent.js';
+import { OutcomeEventType } from '../../domain/value-object/rewards/OutcomeEventType.js';
 import { RewardPointType } from '../../domain/value-object/rewards/RewardPointType.js';
 
 /**
@@ -26,7 +27,7 @@ export class SimpleGameOutcomeResolver {
    */
   addGameOutcome(outcome: GameOutcome, userId: string, isWinner: boolean): void {
     const event = new OutcomeEvent();
-    //outcome.addReward(userId, new OutcomeEvent(OutcomeEventType.Points, 1, RewardPointType.Wins));
+    event.type = OutcomeEventType.Points;
     if (isWinner) {
         event.addPointEvent(new PointOutcomeEvent(1, RewardPointType.Wins));
         event.addPointEvent(new PointOutcomeEvent(30, RewardPointType.Experience));

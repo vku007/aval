@@ -5,57 +5,17 @@ import {
   type CurrencyStack,
   type ItemStack
 } from './CampaignInventory.js';
-import { Garrison, NPC_ALGORITHM_V1 } from './Garrison.js';
-import type { ServerTile, Stash, StoredRules, TileDifficulty } from './Tile.js';
+import { assertSupportedNpcAlgorithm, Garrison, NPC_ALGORITHM_V1 } from './Garrison.js';
+import chapterISettings from './chapter-i.json';
+import type { ScoreWeights } from './CampaignScore.js';
+import type { BattleEntry, ServerTile, Stash, StoredRules, TileDifficulty, TileRounds } from './Tile.js';
 
-const GOAL = 'Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score.';
-
-const BATTLE_KIT: ItemStack = {
-  stones: 8,
-  scissors: 5,
-  papers: 8,
-  NA_effect_stone: 1,
-  NA_effect_scissors: 1,
-  NA_effect_papers: 1,
-  NT_effect: 1
-};
-
-const EASY_KIT: ItemStack = { stones: 6, scissors: 3, papers: 4 };
-const NORMAL_KIT: ItemStack = { stones: 9, scissors: 4, papers: 7, NA_effect_stone: 1 };
-const HARD_KIT: ItemStack = {
-  stones: 12,
-  scissors: 8,
-  papers: 8,
-  NA_effect_stone: 1,
-  NA_effect_scissors: 1,
-  NA_effect_papers: 1,
-  NT_effect: 1
-};
-
-function defenderKit(difficulty: TileDifficulty | null): ItemStack {
-  if (difficulty === 'easy') return { ...EASY_KIT };
-  if (difficulty === 'normal') return { ...NORMAL_KIT };
-  if (difficulty === 'hard') return { ...HARD_KIT };
-  return {};
-}
-
-function roundsFor(difficulty: TileDifficulty | null): 'BO5' | 'BO7' | null {
-  if (difficulty === 'hard') return 'BO7';
-  if (difficulty === 'easy' || difficulty === 'normal') return 'BO5';
-  return null;
-}
-
-function easyReward(product: 'stones' | 'scissors' | 'papers' | 'copper'): { items: ItemStack; currencies: CurrencyStack } {
-  if (product === 'copper') {
-    return { items: {}, currencies: { copper: 4 } };
-  }
-  return { items: { [product]: 2 }, currencies: { copper: 2 } };
-}
+type Product = 'stones' | 'scissors' | 'papers' | 'copper';
 
 interface TileSpec {
   q: number;
   r: number;
-  product: 'stones' | 'scissors' | 'papers' | 'copper';
+  product: Product;
   mines: number;
   maxMines: number;
   difficulty: TileDifficulty | null;
@@ -63,16 +23,228 @@ interface TileSpec {
   owner?: 'player';
   objective?: boolean;
   label: string;
+  /** Omitted garrisons use `npc-v1`. */
+  npcAlgorithmId?: string;
   reward?: { items: ItemStack; currencies: CurrencyStack };
   stash?: { items: ItemStack; currencies: CurrencyStack };
 }
+
+interface ChapterSettings {
+  id: string;
+  title: string;
+  goal: string;
+  rulesetVersion: number;
+  tileCount: number;
+  rules: StoredRules;
+  startingInventory: { items: ItemStack; currencies: CurrencyStack };
+  defenderKits: Record<TileDifficulty, ItemStack>;
+  rounds: Record<TileDifficulty, TileRounds>;
+  easyRewards: Record<Product, { items: ItemStack; currencies: CurrencyStack }>;
+  tiles: TileSpec[];
+}
+
+const PRODUCTS = new Set<Product>(['stones', 'scissors', 'papers', 'copper']);
+const DIFFICULTIES = new Set<TileDifficulty>(['easy', 'normal', 'hard']);
+const ROUNDS = new Set<TileRounds>(['BO5', 'BO7']);
+
+function readObject(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Chapter I settings ${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function readCount(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error(`Chapter I settings ${label} must be an integer`);
+  }
+  return value;
+}
+
+function readText(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`Chapter I settings ${label} must be a string`);
+  }
+  return value;
+}
+
+function readBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(`Chapter I settings ${label} must be a boolean`);
+  }
+  return value;
+}
+
+function readStack(value: unknown, label: string): Record<string, number> {
+  const source = readObject(value, label);
+  const stack: Record<string, number> = {};
+  for (const [key, amount] of Object.entries(source)) {
+    stack[key] = readCount(amount, `${label}.${key}`);
+  }
+  return stack;
+}
+
+function readReward(value: unknown, label: string): { items: ItemStack; currencies: CurrencyStack } {
+  const reward = readObject(value, label);
+  return {
+    items: readStack(reward.items, `${label} items`),
+    currencies: readStack(reward.currencies, `${label} currencies`)
+  };
+}
+
+function readScoreWeights(value: unknown): ScoreWeights {
+  const weights = readObject(value, 'rules.scoreWeights');
+  return {
+    base: readCount(weights.base, 'rules.scoreWeights.base'),
+    perTurn: readCount(weights.perTurn, 'rules.scoreWeights.perTurn'),
+    perVictory: readCount(weights.perVictory, 'rules.scoreWeights.perVictory'),
+    perSilver: readCount(weights.perSilver, 'rules.scoreWeights.perSilver'),
+    perCopper: readCount(weights.perCopper, 'rules.scoreWeights.perCopper')
+  };
+}
+
+function readRules(value: unknown): StoredRules {
+  const rules = readObject(value, 'rules');
+  if (rules.battleEntry !== 'fee' && rules.battleEntry !== 'wager') {
+    throw new Error('Chapter I settings rules.battleEntry must be "fee" or "wager"');
+  }
+  const battleEntry: BattleEntry = rules.battleEntry;
+  const stored: StoredRules = {
+    digCost: readCount(rules.digCost, 'rules.digCost'),
+    searchCost: readCount(rules.searchCost, 'rules.searchCost'),
+    increaseMinesCost: readCount(rules.increaseMinesCost, 'rules.increaseMinesCost'),
+    battleEntry,
+    marketplace: readStack(rules.marketplace, 'rules.marketplace'),
+    scoreWeights: readScoreWeights(rules.scoreWeights),
+    economyConsumesActionPoint: readBoolean(rules.economyConsumesActionPoint, 'rules.economyConsumesActionPoint'),
+    actionPointsPerTurn: readCount(rules.actionPointsPerTurn, 'rules.actionPointsPerTurn')
+  };
+  if (rules.attackFee !== undefined) {
+    stored.attackFee = readCount(rules.attackFee, 'rules.attackFee');
+  }
+  if (rules.battleKit !== undefined) {
+    stored.battleKit = readStack(rules.battleKit, 'rules.battleKit');
+  }
+  return stored;
+}
+
+function readKits(value: unknown): Record<TileDifficulty, ItemStack> {
+  const kits = readObject(value, 'defenderKits');
+  const read = (difficulty: TileDifficulty) => readStack(kits[difficulty], `defenderKits.${difficulty}`);
+  return { easy: read('easy'), normal: read('normal'), hard: read('hard') };
+}
+
+function readRounds(value: unknown): Record<TileDifficulty, TileRounds> {
+  const rounds = readObject(value, 'rounds');
+  const read = (difficulty: TileDifficulty): TileRounds => {
+    const round = rounds[difficulty];
+    if (typeof round !== 'string' || !ROUNDS.has(round as TileRounds)) {
+      throw new Error(`Chapter I settings rounds.${difficulty} must be BO5 or BO7`);
+    }
+    return round as TileRounds;
+  };
+  return { easy: read('easy'), normal: read('normal'), hard: read('hard') };
+}
+
+function readEasyRewards(value: unknown): Record<Product, { items: ItemStack; currencies: CurrencyStack }> {
+  const rewards = readObject(value, 'easyRewards');
+  const read = (product: Product) => readReward(rewards[product], `easyRewards.${product}`);
+  return {
+    stones: read('stones'),
+    scissors: read('scissors'),
+    papers: read('papers'),
+    copper: read('copper')
+  };
+}
+
+function readTile(value: unknown, index: number): TileSpec {
+  const tile = readObject(value, `tiles[${index}]`);
+  const label = typeof tile.label === 'string' && tile.label.length > 0 ? tile.label : `#${index}`;
+  if (typeof tile.product !== 'string' || !PRODUCTS.has(tile.product as Product)) {
+    throw new Error(`Chapter I settings tile ${label} has an unknown product`);
+  }
+  let difficulty: TileDifficulty | null = null;
+  if (tile.difficulty != null) {
+    if (typeof tile.difficulty !== 'string' || !DIFFICULTIES.has(tile.difficulty as TileDifficulty)) {
+      throw new Error(`Chapter I settings tile ${label} has an unknown difficulty`);
+    }
+    difficulty = tile.difficulty as TileDifficulty;
+  }
+  const spec: TileSpec = {
+    q: readCount(tile.q, `tile ${label} q`),
+    r: readCount(tile.r, `tile ${label} r`),
+    product: tile.product as Product,
+    mines: readCount(tile.mines, `tile ${label} mines`),
+    maxMines: readCount(tile.maxMines, `tile ${label} maxMines`),
+    difficulty,
+    revealed: readBoolean(tile.revealed, `tile ${label} revealed`),
+    label
+  };
+  if (tile.owner !== undefined) {
+    if (tile.owner !== 'player') {
+      throw new Error(`Chapter I settings tile ${label} owner must be "player"`);
+    }
+    spec.owner = 'player';
+  }
+  if (tile.objective !== undefined && typeof tile.objective !== 'boolean') {
+    throw new Error(`Chapter I settings tile ${label} objective must be a boolean`);
+  }
+  if (tile.objective === true) {
+    spec.objective = true;
+  }
+  if (tile.npcAlgorithmId !== undefined) {
+    spec.npcAlgorithmId = readText(tile.npcAlgorithmId, `tile ${label} npcAlgorithmId`);
+  }
+  if (tile.reward !== undefined) {
+    spec.reward = readReward(tile.reward, `tile ${label} reward`);
+  }
+  if (tile.stash !== undefined) {
+    spec.stash = readReward(tile.stash, `tile ${label} stash`);
+  }
+  return spec;
+}
+
+function readSettings(value: unknown): ChapterSettings {
+  const settings = readObject(value, 'file');
+  if (!Array.isArray(settings.tiles)) {
+    throw new Error('Chapter I settings tiles must be an array');
+  }
+  const inventory = readObject(settings.startingInventory, 'startingInventory');
+  return {
+    id: readText(settings.id, 'id'),
+    title: readText(settings.title, 'title'),
+    goal: readText(settings.goal, 'goal'),
+    rulesetVersion: readCount(settings.rulesetVersion, 'rulesetVersion'),
+    tileCount: readCount(settings.tileCount, 'tileCount'),
+    rules: readRules(settings.rules),
+    startingInventory: {
+      items: readStack(inventory.items, 'startingInventory.items'),
+      currencies: readStack(inventory.currencies, 'startingInventory.currencies')
+    },
+    defenderKits: readKits(settings.defenderKits),
+    rounds: readRounds(settings.rounds),
+    easyRewards: readEasyRewards(settings.easyRewards),
+    tiles: settings.tiles.map((tile, index) => readTile(tile, index))
+  };
+}
+
+const settings = readSettings(chapterISettings);
 
 function stash(id: string, items: ItemStack, currencies: CurrencyStack): Stash {
   return { id, items, currencies, found: false };
 }
 
+function defenderKit(difficulty: TileDifficulty | null): ItemStack {
+  if (difficulty === null) return {};
+  return { ...settings.defenderKits[difficulty] };
+}
+
 function makeTile(spec: TileSpec): ServerTile {
-  const reward = spec.reward ?? (spec.difficulty === 'easy' ? easyReward(spec.product) : { items: {}, currencies: {} });
+  const reward = spec.reward ?? (spec.difficulty === 'easy'
+    ? settings.easyRewards[spec.product]
+    : { items: {}, currencies: {} });
+  const npcAlgorithmId = spec.npcAlgorithmId ?? NPC_ALGORITHM_V1;
+  assertSupportedNpcAlgorithm(npcAlgorithmId);
   return {
     q: spec.q,
     r: spec.r,
@@ -85,41 +257,17 @@ function makeTile(spec: TileSpec): ServerTile {
     maxMines: spec.maxMines,
     stashes: spec.stash ? [stash(`stash-${spec.q}-${spec.r}`, spec.stash.items, spec.stash.currencies)] : [],
     difficulty: spec.difficulty,
-    rounds: roundsFor(spec.difficulty),
+    rounds: spec.difficulty === null ? null : settings.rounds[spec.difficulty],
     label: spec.label,
     garrison: spec.owner === 'player'
       ? null
-      : Garrison.hidden(NPC_ALGORITHM_V1, defenderKit(spec.difficulty)),
+      : Garrison.hidden(npcAlgorithmId, defenderKit(spec.difficulty)),
     victoryReward: { items: { ...reward.items }, currencies: { ...reward.currencies } },
     dugThisTurn: false,
     searchedThisTurn: false,
     increasedThisTurn: false,
-    acquiredTurn: spec.owner === 'player' ? null : null
+    acquiredTurn: null
   };
-}
-
-function buildTiles(): ServerTile[] {
-  return [
-    makeTile({ q: 0, r: 0, product: 'copper', mines: 1, maxMines: 3, difficulty: null, revealed: true, owner: 'player', label: 'camp' }),
-    makeTile({ q: 0, r: -1, product: 'stones', mines: 1, maxMines: 3, difficulty: 'normal', revealed: true, label: 'gate', reward: { items: { stones: 3, scissors: 1 }, currencies: { copper: 4, silver: 1 } } }),
-    makeTile({ q: 1, r: -1, product: 'stones', mines: 1, maxMines: 2, difficulty: 'easy', revealed: true, label: '(1,-1)' }),
-    makeTile({ q: 1, r: 0, product: 'papers', mines: 1, maxMines: 2, difficulty: 'easy', revealed: true, label: '(1,0)' }),
-    makeTile({ q: 0, r: 1, product: 'scissors', mines: 1, maxMines: 2, difficulty: 'easy', revealed: true, label: '(0,1)', stash: { items: { scissors: 4 }, currencies: { silver: 2, copper: 6 } } }),
-    makeTile({ q: -1, r: 1, product: 'copper', mines: 1, maxMines: 2, difficulty: 'easy', revealed: true, label: '(-1,1)' }),
-    makeTile({ q: -1, r: 0, product: 'scissors', mines: 1, maxMines: 2, difficulty: 'easy', revealed: true, label: '(-1,0)' }),
-    makeTile({ q: 0, r: -2, product: 'papers', mines: 2, maxMines: 4, difficulty: 'hard', revealed: false, objective: true, label: 'citadel', reward: { items: { papers: 4, stones: 2, NT_effect: 1 }, currencies: { copper: 8, silver: 2 } } }),
-    makeTile({ q: 1, r: -2, product: 'papers', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(1,-2)', stash: { items: { papers: 4, NA_effect_papers: 1 }, currencies: { silver: 1, copper: 4 } } }),
-    makeTile({ q: 2, r: -2, product: 'stones', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(2,-2)' }),
-    makeTile({ q: 2, r: -1, product: 'copper', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(2,-1)' }),
-    makeTile({ q: 2, r: 0, product: 'papers', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(2,0)' }),
-    makeTile({ q: 1, r: 1, product: 'stones', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(1,1)' }),
-    makeTile({ q: 0, r: 2, product: 'copper', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(0,2)' }),
-    makeTile({ q: -1, r: 2, product: 'scissors', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(-1,2)' }),
-    makeTile({ q: -2, r: 2, product: 'papers', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(-2,2)' }),
-    makeTile({ q: -2, r: 1, product: 'stones', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(-2,1)' }),
-    makeTile({ q: -2, r: 0, product: 'scissors', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(-2,0)' }),
-    makeTile({ q: -1, r: -1, product: 'stones', mines: 1, maxMines: 2, difficulty: 'easy', revealed: false, label: '(-1,-1)', stash: { items: { stones: 4, NA_effect_stone: 1 }, currencies: { copper: 4 } } })
-  ];
 }
 
 function validateTile(tile: ServerTile): void {
@@ -127,9 +275,10 @@ function validateTile(tile: ServerTile): void {
     if (tile.garrison) {
       throw new Error(`tile ${tile.label} is owned and must not have a garrison`);
     }
-  } else if (!tile.garrison || tile.garrison.npcAlgorithmId !== NPC_ALGORITHM_V1) {
-    throw new Error(`tile ${tile.label} must have an ${NPC_ALGORITHM_V1} garrison`);
+  } else if (!tile.garrison) {
+    throw new Error(`tile ${tile.label} must have a garrison`);
   } else {
+    assertSupportedNpcAlgorithm(tile.garrison.npcAlgorithmId);
     assertItemKeys(tile.garrison.inventory.items, `tile ${tile.label} garrison`);
     assertCurrencyKeys(tile.garrison.inventory.currencies, `tile ${tile.label} garrison`);
   }
@@ -141,51 +290,25 @@ function validateTile(tile: ServerTile): void {
   });
 }
 
-const RULES: StoredRules = {
-  digCost: 4,
-  searchCost: 6,
-  increaseMinesCost: 6,
-  battleKit: BATTLE_KIT,
-  marketplace: {
-    stones: 3,
-    papers: 3,
-    scissors: 4,
-    NA_effect_stone: 8,
-    NA_effect_scissors: 8,
-    NA_effect_papers: 8,
-    NT_effect: 12
-  },
-  scoreWeights: { base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 },
-  economyConsumesActionPoint: false,
-  actionPointsPerTurn: 1
-};
-
 function buildChapterI(): CampaignDefinition {
-  assertItemKeys(BATTLE_KIT, 'battle kit');
-  assertItemKeys(RULES.marketplace, 'marketplace');
-  const tiles = buildTiles();
-  if (tiles.length !== 19) {
-    throw new Error(`Chapter I must have 19 tiles, found ${tiles.length}`);
+  assertItemKeys(settings.rules.marketplace, 'marketplace');
+  assertItemKeys(settings.startingInventory.items, 'starting inventory');
+  assertCurrencyKeys(settings.startingInventory.currencies, 'starting inventory');
+  for (const difficulty of DIFFICULTIES) {
+    assertItemKeys(settings.defenderKits[difficulty], `${difficulty} garrison`);
+  }
+  const tiles = settings.tiles.map(makeTile);
+  if (tiles.length !== settings.tileCount) {
+    throw new Error(`Chapter I must have ${settings.tileCount} tiles, found ${tiles.length}`);
   }
   tiles.forEach(validateTile);
   return {
-    id: 'chapter-i',
-    title: 'Chapter I',
-    goal: GOAL,
-    rulesetVersion: 1,
-    rules: RULES,
-    startingInventory: {
-      items: {
-        stones: 14,
-        scissors: 10,
-        papers: 14,
-        NA_effect_stone: 2,
-        NA_effect_scissors: 2,
-        NA_effect_papers: 2,
-        NT_effect: 2
-      },
-      currencies: { gold: 0, silver: 0, copper: 16 }
-    },
+    id: settings.id,
+    title: settings.title,
+    goal: settings.goal,
+    rulesetVersion: settings.rulesetVersion,
+    rules: structuredClone(settings.rules),
+    startingInventory: structuredClone(settings.startingInventory),
     tiles
   };
 }

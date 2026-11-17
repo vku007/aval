@@ -3,7 +3,7 @@ import { CreateUserDto } from '../dto/CreateUserDto.js';
 import { UpdateUserDto } from '../dto/UpdateUserDto.js';
 import { UserResponseDto } from '../dto/UserResponseDto.js';
 import { Logger } from '../../shared/logging/Logger.js';
-import { NotFoundError } from '../../shared/errors/index.js';
+import { NotFoundError, PreconditionFailedError } from '../../shared/errors/index.js';
 
 // User-specific repository interface
 export interface IUserRepository {
@@ -52,6 +52,28 @@ export class UserService {
     
     const saved = await this.repository.save(updated, { ifMatch });
     this.logger.info('Updated user', { id, etag: saved.metadata?.etag });
+    return UserResponseDto.fromUser(saved);
+  }
+
+  async updateSettings(
+    id: string,
+    patch: { hideAttackFeeNotice: boolean },
+    ifMatch?: string
+  ): Promise<UserResponseDto> {
+    if (!ifMatch) {
+      throw new PreconditionFailedError('If-Match header is required');
+    }
+    this.logger.info('Updating user settings', { id, ifMatch });
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new NotFoundError(`User '${id}' not found`);
+    }
+    const updated = existing.withSettings({
+      ...existing.settings,
+      hideAttackFeeNotice: patch.hideAttackFeeNotice
+    });
+    const saved = await this.repository.save(updated, { ifMatch });
+    this.logger.info('Updated user settings', { id, etag: saved.metadata?.etag });
     return UserResponseDto.fromUser(saved);
   }
 

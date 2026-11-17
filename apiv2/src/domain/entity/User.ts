@@ -9,6 +9,7 @@ interface UserData {
   name: string;
   externalId: number;
   campaigns: unknown[];
+  settings: Record<string, unknown>;
 }
 
 /**
@@ -32,7 +33,8 @@ export class UserEntity {
     externalId: number,
     etag?: string,
     metadata?: EntityMetadata,
-    campaigns: Campaign[] = []
+    campaigns: Campaign[] = [],
+    settings: Record<string, unknown> = {}
   ) {
     this.validateId(id);
     this.validateUserData(name, externalId);
@@ -41,7 +43,8 @@ export class UserEntity {
     const userData: UserData = {
       name,
       externalId,
-      campaigns: campaigns.map(campaign => campaign.toJSON())
+      campaigns: campaigns.map(campaign => campaign.toJSON()),
+      settings: readUserSettings(settings)
     };
     this._backed = new JsonEntity(id, userData as unknown as JsonValue, etag, metadata);
   }
@@ -67,6 +70,10 @@ export class UserEntity {
     return stored.map(item => Campaign.fromJSON(item));
   }
 
+  get settings(): Record<string, unknown> {
+    return readUserSettings(this.getUserData().settings);
+  }
+
   withCampaigns(campaigns: Campaign[]): UserEntity {
     return new UserEntity(
       this.id,
@@ -74,7 +81,20 @@ export class UserEntity {
       this.externalId,
       this._backed.etag,
       this._backed.metadata,
-      campaigns
+      campaigns,
+      this.settings
+    );
+  }
+
+  withSettings(settings: Record<string, unknown>): UserEntity {
+    return new UserEntity(
+      this.id,
+      this.name,
+      this.externalId,
+      this._backed.etag,
+      this._backed.metadata,
+      this.campaigns,
+      settings
     );
   }
 
@@ -101,7 +121,8 @@ export class UserEntity {
       userData.externalId,
       backed.etag,
       backed.metadata,
-      readCampaigns(userData.campaigns)
+      readCampaigns(userData.campaigns),
+      readUserSettings(userData.settings)
     );
   }
 
@@ -112,9 +133,10 @@ export class UserEntity {
     externalId: number,
     etag?: string,
     metadata?: EntityMetadata,
-    campaigns: Campaign[] = []
+    campaigns: Campaign[] = [],
+    settings: Record<string, unknown> = {}
   ): UserEntity {
-    return new UserEntity(id, name, externalId, etag, metadata, campaigns);
+    return new UserEntity(id, name, externalId, etag, metadata, campaigns, settings);
   }
 
   // Immutable operations that delegate to UserProfile class
@@ -162,7 +184,8 @@ export class UserEntity {
       profile.externalId,
       this._backed.etag,
       this._backed.metadata,
-      this.campaigns
+      this.campaigns,
+      this.settings
     );
   }
 
@@ -192,7 +215,15 @@ export class UserEntity {
       throw new ValidationError('User entity externalId must be a number');
     }
 
-    return new UserEntity(data.id, data.name, data.externalId, undefined, undefined, readCampaigns(data.campaigns));
+    return new UserEntity(
+      data.id,
+      data.name,
+      data.externalId,
+      undefined,
+      undefined,
+      readCampaigns(data.campaigns),
+      readUserSettings(data.settings)
+    );
   }
 
   // Validation methods
@@ -230,6 +261,13 @@ export class UserEntity {
       throw new ValidationError('External ID must be a positive integer');
     }
   }
+}
+
+export function readUserSettings(stored: unknown): Record<string, unknown> {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+    return {};
+  }
+  return { ...(stored as Record<string, unknown>) };
 }
 
 function readCampaigns(stored: unknown): Campaign[] {

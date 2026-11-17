@@ -33,7 +33,8 @@ describe('UserService', () => {
       expect(result).toEqual({
         id: 'user-123',
         name: 'John Doe',
-        externalId: 1001
+        externalId: 1001,
+        settings: {}
       });
       expect(mockRepository.findById).toHaveBeenCalledWith('user-123', undefined);
     });
@@ -65,7 +66,8 @@ describe('UserService', () => {
       expect(result).toEqual({
         id: 'user-123',
         name: 'John Doe',
-        externalId: 1001
+        externalId: 1001,
+        settings: {}
       });
       expect(mockRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'user-123', name: 'John Doe', externalId: 1001 }),
@@ -101,7 +103,8 @@ describe('UserService', () => {
       expect(result).toEqual({
         id: 'user-123',
         name: 'Jane Smith',
-        externalId: 2002
+        externalId: 2002,
+        settings: {}
       });
       expect(mockRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'user-123', name: 'Jane Smith', externalId: 2002 }),
@@ -215,7 +218,29 @@ describe('UserService', () => {
     it('returns a DTO when found', async () => {
       vi.mocked(mockRepository.findById).mockResolvedValue(User.create('user-123', 'John Doe', 1001));
       const result = await userService.findUserOrNull('user-123');
-      expect(result).toEqual({ id: 'user-123', name: 'John Doe', externalId: 1001 });
+      expect(result).toEqual({ id: 'user-123', name: 'John Doe', externalId: 1001, settings: {} });
+    });
+
+    it('merges the fee-card flag and keeps campaigns', async () => {
+      const existing = User.create('user-123', 'John Doe', 1001, '"etag"').withSettings({ theme: 'day' });
+      vi.mocked(mockRepository.findById).mockResolvedValue(existing);
+      vi.mocked(mockRepository.save).mockImplementation(async (user) => user);
+
+      const result = await userService.updateSettings('user-123', { hideAttackFeeNotice: true }, '"etag"');
+
+      expect(result.settings).toEqual({ theme: 'day', hideAttackFeeNotice: true });
+      expect(mockRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settings: { theme: 'day', hideAttackFeeNotice: true },
+          campaigns: existing.campaigns
+        }),
+        { ifMatch: '"etag"' }
+      );
+    });
+
+    it('requires If-Match', async () => {
+      await expect(userService.updateSettings('user-123', { hideAttackFeeNotice: true })).rejects.toThrow(PreconditionFailedError);
+      expect(mockRepository.findById).not.toHaveBeenCalled();
     });
 
     it('returns null when missing', async () => {

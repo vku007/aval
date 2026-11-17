@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { Campaign } from '../../domain/campaign/Campaign.js';
-import { User } from '../../domain/entity/User.js';
+import { readUserSettings, User } from '../../domain/entity/User.js';
 import { JsonEntity } from '../../domain/entity/JsonEntity.js';
 import type { JsonValue, EntityMetadata } from '../../shared/types/common.js';
 import { IUserRepository } from '../../application/services/UserService.js';
@@ -41,7 +41,7 @@ export class S3UserRepository implements IUserRepository {
 
       // Read the body
       const body = await this.streamToBuffer(response.Body);
-      const data = JSON.parse(body.toString()) as { name: string; externalId: number; campaigns?: unknown };
+      const data = JSON.parse(body.toString()) as { name: string; externalId: number; campaigns?: unknown; settings?: unknown };
 
       // Create metadata
       const metadata: EntityMetadata = {
@@ -52,7 +52,8 @@ export class S3UserRepository implements IUserRepository {
 
       // Create User using the factory
       return this.userFactory(id, data.name, data.externalId, response.ETag, metadata)
-        .withCampaigns(readCampaigns(data.campaigns));
+        .withCampaigns(readCampaigns(data.campaigns))
+        .withSettings(readUserSettings(data.settings));
     } catch (error: any) {
       if (error.name === 'NoSuchKey' || error.name === 'NotFound') {
         return null;
@@ -73,7 +74,7 @@ export class S3UserRepository implements IUserRepository {
 
     // Get backing store data
     const backingStore = user.internalGetBackingStore();
-    const userData = backingStore.data as { name: string; externalId: number; campaigns?: unknown };
+    const userData = backingStore.data as { name: string; externalId: number; campaigns?: unknown; settings?: unknown };
 
     try {
       const command = new PutObjectCommand({
@@ -93,7 +94,8 @@ export class S3UserRepository implements IUserRepository {
       };
 
       return this.userFactory(id, userData.name, userData.externalId, response.ETag, newMetadata)
-        .withCampaigns(readCampaigns(userData.campaigns));
+        .withCampaigns(readCampaigns(userData.campaigns))
+        .withSettings(readUserSettings(userData.settings));
     } catch (error: any) {
       if (error.name === 'PreconditionFailed') {
         throw new PreconditionFailedError(`User '${id}' precondition failed`);

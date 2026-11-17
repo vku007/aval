@@ -146,6 +146,23 @@ const CampaignLabels = {
     return phrase ? ['Found', phrase] : ['Found'];
   },
 
+  resultLines(outcome) {
+    if (!outcome) return [];
+    const lines = [];
+    if (outcome.result === 'victory') lines.push('Victory');
+    else if (outcome.result === 'defeat') lines.push('Defeat');
+    else if (outcome.result) lines.push(String(outcome.result));
+    const spent = outcome.spent && outcome.spent.items
+      ? this.stackPhrase({ items: outcome.spent.items })
+      : '';
+    if (spent) lines.push(`Spent ${spent}`);
+    if (outcome.result === 'victory') {
+      const gained = this.stackPhrase(outcome.reward);
+      if (gained) lines.push(`Gained ${gained}`);
+    }
+    return lines;
+  },
+
   outcomeLines(outcome) {
     if (!outcome) return [];
     const lines = [];

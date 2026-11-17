@@ -1,6 +1,6 @@
 import type { Campaign } from './Campaign.js';
 import { unitFor } from './CampaignInventory.js';
-import type { ServerTile } from './Tile.js';
+import type { ServerTile, StoredRules } from './Tile.js';
 
 const LOG_LIMIT = 20;
 
@@ -20,14 +20,7 @@ export function toCampaignView(campaign: Campaign): Record<string, unknown> {
     turns: campaign.turns,
     actionPoints: campaign.actionPoints,
     inventory: campaign.inventory.toJSON(),
-    rules: {
-      digCost: { copper: campaign.rules.digCost },
-      searchCost: { copper: campaign.rules.searchCost },
-      increaseMinesCost: { copper: campaign.rules.increaseMinesCost },
-      battleKit: campaign.rules.battleKit,
-      marketplace: campaign.rules.marketplace,
-      scoreWeights: campaign.rules.scoreWeights
-    },
+    rules: publishedRules(campaign.rules),
     tiles: campaign.tiles.map(tileView),
     activeBattle: campaign.activeBattle
       ? { gameId: campaign.activeBattle.gameId, q: campaign.activeBattle.q, r: campaign.activeBattle.r }
@@ -43,6 +36,23 @@ export function toCampaignView(campaign: Campaign): Record<string, unknown> {
     view.score = campaign.score;
   }
   return view;
+}
+
+function publishedRules(rules: StoredRules): Record<string, unknown> {
+  const published: Record<string, unknown> = {
+    digCost: { copper: rules.digCost },
+    searchCost: { copper: rules.searchCost },
+    increaseMinesCost: { copper: rules.increaseMinesCost },
+    battleEntry: rules.battleEntry === 'fee' ? 'fee' : 'wager',
+    marketplace: rules.marketplace,
+    scoreWeights: rules.scoreWeights
+  };
+  if (rules.battleEntry === 'fee') {
+    published.attackFee = { copper: rules.attackFee ?? 0 };
+  } else {
+    published.battleKit = rules.battleKit ?? {};
+  }
+  return published;
 }
 
 function tileView(tile: ServerTile): Record<string, unknown> {

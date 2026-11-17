@@ -1,7 +1,8 @@
 /**
  * BlitzGameScene
- * Full-scene heat map with five stacked green frames.
- * Starts an extended best-of-5 match and sends the current stack as the move.
+ * Full-scene heat map with six stacked green frames. The footer is the bottom band.
+ * Lobby play creates an extended best-of-5 match. Campaign play loads the match Attack already created.
+ * The current stack is the move.
  * Item count is the extended size. Paper is a New Paper stack. NEG and SIZE are one toggle.
  * Choosing an NA effect (NEG) drops that stack to one item, hides it, and shows its prime.
  * Clearing NEG removes the prime and shows the normal composite again. Adds stay blocked while NEG is on.
@@ -10,7 +11,8 @@
  * That Core's round starts bright and fades once. Clearing SIZE removes the Core and shows the normal composite again.
  * Sending an NA turn keeps that prime up and the selected stack hidden. The result takes the gesture item off the prime.
  * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
- * A finished match opens AdvancedGameResultsScene. OK there returns to the main menu.
+ * A finished lobby match opens AdvancedGameResultsScene. OK there returns to the main menu.
+ * A campaign match returns to the map when it finishes or breaks, and BACK surrenders.
  * Each gesture storage panel shows two tables. The items sit on the left: 21 descending
  * rectangles in four columns. That gesture's NA effects sit on the right: eight ascending
  * rounds in two columns. The NT panel shows six ascending rounds in two columns.
@@ -24,8 +26,13 @@ class BlitzGameScene extends Phaser.Scene {
         super({ key: 'BlitzGameScene' });
     }
 
-    init() {
+    init(data) {
         exitTestsCanvas(this);
+        this.adoptGameId = data && data.gameId || null;
+        this.campaignId = data && data.campaignId || null;
+        this.returnTo = data && data.returnTo || null;
+        this._campaignLeaving = false;
+        this._forfeiting = false;
     }
 
     create() {
@@ -94,7 +101,11 @@ class BlitzGameScene extends Phaser.Scene {
             Paper: this.enemyPaper
         };
         this.resultRods = [];
-        this.createBackButton(width - UI.pad - UI.backW / 2, UI.pad + UI.backH / 2);
+        const footer = boxes.find((box) => box.label === 'footer');
+        this.createBackButton(
+            footer.x + footer.width - UI.pad - UI.backW / 2,
+            footer.y + footer.height / 2
+        );
         this.selectedEffects = [];
         this.currentGameId = null;
         this.gameData = null;
@@ -119,6 +130,37 @@ class BlitzGameScene extends Phaser.Scene {
     async startMatch() {
         const field = this.heatMap && this.heatMap.field;
         const abort = this.abortOnShutdown();
+        if (this.adoptGameId) {
+            await this.loadAdoptedMatch(field, abort);
+            return;
+        }
+        await this.createLobbyMatch(field, abort);
+    }
+
+    async loadAdoptedMatch(field, abort) {
+        this.setStatus('Loading match...');
+        try {
+            if (typeof gameClient === 'undefined') {
+                throw new Error('Game client not initialized');
+            }
+            this.currentGameId = this.adoptGameId;
+            this.gameData = await gameClient.getGame(this.adoptGameId, { signal: abort.signal });
+            if (!this.fieldLive(field)) {
+                return;
+            }
+            this.refreshMatchReadout();
+            this.leaveCampaignIfSettled();
+        } catch (error) {
+            if (!this.fieldLive(field)) {
+                return;
+            }
+            console.error('[BlitzGameScene] Failed to load game:', error);
+            this.setStatus('Could not load match');
+            this.showErrorModal('Failed to load game', error.message || 'An unexpected error occurred.');
+        }
+    }
+
+    async createLobbyMatch(field, abort) {
         this.setStatus('Starting match...');
         try {
             if (typeof gameClient === 'undefined') {
@@ -257,13 +299,117 @@ class BlitzGameScene extends Phaser.Scene {
             this.refreshMoveButtons();
             this.refreshEffectButtons();
             if (this._openResults) {
-                this.openAdvancedResults();
+                if (this.campaignId) {
+                    this.leaveCampaignIfSettled();
+                } else {
+                    this.openAdvancedResults();
+                }
             }
         }
     }
 
     openAdvancedResults() {
         fxGoTo(this, 'AdvancedGameResultsScene', { gameData: this.gameData }, { flash: true });
+    }
+
+    leaveCampaignIfSettled() {
+        if (!this.campaignId || this._campaignLeaving) {
+            return;
+        }
+        if (typeof SimpleGameSceneUtil === 'undefined'
+            || !SimpleGameSceneUtil.isCampaignMatchOver(this.gameData)) {
+            return;
+        }
+        const field = this.heatMap && this.heatMap.field;
+        if (!this.fieldLive(field)) {
+            return;
+        }
+        this._campaignLeaving = true;
+        this.openCampaignResult();
+    }
+
+    async openCampaignResult() {
+        const field = this.heatMap && this.heatMap.field;
+        const status = (typeof SimpleGameSceneUtil !== 'undefined')
+            ? SimpleGameSceneUtil.getGameStatus(this.gameData).toLowerCase()
+            : '';
+        if (status !== 'broken' && typeof campaignClient !== 'undefined') {
+            try {
+                const result = await campaignClient.get(this.campaignId);
+                if (!this.fieldLive(field)) return;
+                const outcome = result.body && result.body.battleOutcome;
+                if (outcome) {
+                    fxGoTo(this, 'CampaignBattleResultScene', {
+                        instanceId: this.campaignId,
+                        battleOutcome: outcome
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.error('[BlitzGameScene] Could not read the battle result', error);
+            }
+        }
+        if (!this.fieldLive(field)) return;
+        fxGoTo(this, this.returnTo || 'CampaignMapScene', {
+            instanceId: this.campaignId,
+            settledGameId: this.currentGameId,
+            settledOver: true
+        });
+    }
+
+    async forfeitCampaignMatch() {
+        if (!this.campaignId || this._campaignLeaving || this._forfeiting) {
+            return;
+        }
+        const field = this.heatMap && this.heatMap.field;
+        if (!this.fieldLive(field) || !this.sys || !this.sys.isActive()) {
+            return;
+        }
+        if (!this.currentGameId || (typeof SimpleGameSceneUtil !== 'undefined'
+            && SimpleGameSceneUtil.isCampaignMatchOver(this.gameData))) {
+            this.leaveCampaignIfSettled();
+            if (!this._campaignLeaving) {
+                this._campaignLeaving = true;
+                fxGoTo(this, this.returnTo || 'CampaignMapScene', { instanceId: this.campaignId });
+            }
+            return;
+        }
+        this._forfeiting = true;
+        const abort = this.abortOnShutdown();
+        try {
+            const response = await gameClient.updateGame(
+                this.currentGameId,
+                { type: 'Surrender', context: {} },
+                { signal: abort.signal }
+            );
+            if (!this.fieldLive(field)) {
+                return;
+            }
+            const statusLower = String(response && response.status || '').toLowerCase();
+            if (statusLower === 'failed' || statusLower === 'error') {
+                throw new Error(response.message || response.detail || 'The match could not be left.');
+            }
+            if (response && response.payload && response.payload.playerContext) {
+                this.gameData = response;
+            } else {
+                this.gameData = await gameClient.getGame(this.currentGameId, { signal: abort.signal });
+            }
+            if (!this.fieldLive(field)) {
+                return;
+            }
+            this.refreshMatchReadout();
+            this.leaveCampaignIfSettled();
+            if (!this._campaignLeaving) {
+                this._forfeiting = false;
+                this.showErrorModal('Could not leave the match', 'The match is still open.');
+            }
+        } catch (error) {
+            if (!this.fieldLive(field)) {
+                return;
+            }
+            this._forfeiting = false;
+            this.showErrorModal('Could not leave the match', error.message || 'An unexpected error occurred.');
+        }
     }
 
     latestExchange(userId) {
@@ -585,8 +731,13 @@ class BlitzGameScene extends Phaser.Scene {
     }
 
     isMatchOver() {
-        return typeof SimpleGameSceneUtil !== 'undefined'
-            && SimpleGameSceneUtil.isGameFinished(this.gameData);
+        if (typeof SimpleGameSceneUtil === 'undefined') {
+            return false;
+        }
+        if (this.campaignId) {
+            return SimpleGameSceneUtil.isCampaignMatchOver(this.gameData);
+        }
+        return SimpleGameSceneUtil.isGameFinished(this.gameData);
     }
 
     hasStackItems() {
@@ -878,7 +1029,7 @@ class BlitzGameScene extends Phaser.Scene {
         const score = boxes.find((box) => box.label === 'score');
         const enemy = boxes.find((box) => box.label === 'enemy_data');
         this.syncHealthBars();
-        const scoreWrap = score.width - UI.backW - UI.pad * 2;
+        const scoreWrap = score.width - 16;
         const textStyle = {
             font: `${UI.body}px monospace`,
             fill: '#00ff66',
@@ -1591,7 +1742,13 @@ class BlitzGameScene extends Phaser.Scene {
         btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
         bindPress(this, btn, {
             tapFx: 'none',
-            onClick: () => fxGoTo(this, 'GameSelectScene')
+            onClick: () => {
+                if (this.campaignId) {
+                    this.forfeitCampaignMatch();
+                    return;
+                }
+                fxGoTo(this, 'GameSelectScene');
+            }
         });
         return btn;
     }
@@ -1601,9 +1758,10 @@ function localAdvancedPanelBoxes(width, height) {
     const panels = [
         { label: 'score', share: 0.10 },
         { label: 'enemy_inventory', share: 0.075 },
-        { label: 'enemy_data', share: 0.40 },
+        { label: 'enemy_data', share: 0.30 },
         { label: 'current turn', share: 0.35 },
-        { label: 'inventory', share: 0.075 }
+        { label: 'inventory', share: 0.075 },
+        { label: 'footer', share: 0.10 }
     ];
     const boxes = [];
     let y = 0;
@@ -1968,9 +2126,8 @@ function localAdvancedLossBars(rounds) {
 
 function localAdvancedHealthLayout(score, count, heatMap) {
     const inset = 8;
-    const backReserve = UI.pad + UI.backW + inset;
     const middleGap = 48;
-    const available = Math.max(0, score.width - inset - backReserve - middleGap);
+    const available = Math.max(0, score.width - inset * 2 - middleGap);
     const total = Math.min(score.width * 0.4, available / 2);
     const gapRatio = 0.55;
     const barW = total / (count + Math.max(0, count - 1) * gapRatio);
@@ -1985,7 +2142,7 @@ function localAdvancedHealthLayout(score, count, heatMap) {
         hot: 3,
         cool: 0.8,
         left: score.x + inset,
-        right: score.x + score.width - backReserve
+        right: score.x + score.width - inset
     };
 }
 

@@ -258,11 +258,78 @@ class GamePlayScene extends Phaser.Scene {
         if (!this.campaignId || this._campaignLeaving) return;
         if (!SimpleGameSceneUtil.isCampaignMatchOver(this.gameData)) return;
         this._campaignLeaving = true;
+        this.openCampaignResult();
+    }
+
+    async openCampaignResult() {
+        const status = SimpleGameSceneUtil.getGameStatus(this.gameData).toLowerCase();
+        if (status !== 'broken' && typeof campaignClient !== 'undefined') {
+            try {
+                const result = await campaignClient.get(this.campaignId);
+                if (!this.sys || !this.sys.isActive()) return;
+                const outcome = result.body && result.body.battleOutcome;
+                if (outcome) {
+                    fxGoTo(this, 'CampaignBattleResultScene', {
+                        instanceId: this.campaignId,
+                        battleOutcome: outcome
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.error('[GamePlayScene] Could not read the battle result', error);
+            }
+        }
+        if (!this.sys || !this.sys.isActive()) return;
         fxGoTo(this, this.returnTo || 'CampaignMapScene', {
             instanceId: this.campaignId,
             settledGameId: this.currentGameId,
             settledOver: true
         });
+    }
+
+    async forfeitCampaignMatch() {
+        if (!this.campaignId || this._campaignLeaving || this._forfeiting) {
+            return;
+        }
+        if (!this.sys || !this.sys.isActive()) {
+            return;
+        }
+        if (!this.currentGameId || SimpleGameSceneUtil.isCampaignMatchOver(this.gameData)) {
+            this.leaveCampaignIfSettled();
+            if (!this._campaignLeaving) {
+                this._campaignLeaving = true;
+                fxGoTo(this, this.returnTo || 'CampaignMapScene', { instanceId: this.campaignId });
+            }
+            return;
+        }
+        this._forfeiting = true;
+        try {
+            const response = await gameClient.updateGame(this.currentGameId, { type: 'Surrender', context: {} });
+            if (!this.sys || !this.sys.isActive()) {
+                return;
+            }
+            const statusLower = String(response && response.status || '').toLowerCase();
+            if (statusLower === 'failed' || statusLower === 'error') {
+                throw new Error(response.message || response.detail || 'The match could not be left.');
+            }
+            if (!this.applyGamePayload(response)) {
+                await this.loadGame(this.currentGameId);
+            }
+            if (!this.sys || !this.sys.isActive()) {
+                return;
+            }
+            this.leaveCampaignIfSettled();
+            if (!this._campaignLeaving) {
+                this._forfeiting = false;
+                this.showErrorModal('Could not leave the match', 'The match is still open.');
+            }
+        } catch (error) {
+            if (!this.sys || !this.sys.isActive()) {
+                return;
+            }
+            this._forfeiting = false;
+            this.showErrorModal('Could not leave the match', error.message || 'An unexpected error occurred.');
+        }
     }
 
     updateScore() {
@@ -1130,7 +1197,7 @@ class GamePlayScene extends Phaser.Scene {
             tapFx: 'none',
             onClick: () => {
                 if (this.campaignId) {
-                    fxGoTo(this, this.returnTo || 'CampaignMapScene', { instanceId: this.campaignId });
+                    this.forfeitCampaignMatch();
                     return;
                 }
                 fxGoTo(this, 'TestsScene');

@@ -209,7 +209,13 @@ JWT, any role. Header: `Authorization: Bearer <idToken>`.
 
 ### Current user
 
-**GET** `/apiv2/external/me` — user profile for the token `sub` (creates the User entity if missing).
+**GET** `/apiv2/external/me` — user profile for the token `sub` (creates the User entity if missing). The body is `{ id, name, externalId, settings }`. A user with no stored settings returns `settings: {}`. Campaigns are not on this response.
+
+**PATCH** `/apiv2/external/me` — merge one player setting. Header `If-Match` is the user-document ETag (the same value campaign GET returns). A missing or stale `If-Match` is `412`. The body may contain only `settings`, and `settings` may contain only `hideAttackFeeNotice` as a boolean. Any other key is `400`. The server writes that one key and leaves every other stored setting. The response is the profile plus the new `ETag`.
+
+```json
+{ "settings": { "hideAttackFeeNotice": true } }
+```
 
 ### Promote guest
 
@@ -437,7 +443,7 @@ Success body:
 }
 ```
 
-`gameId` is present on Attack. `battleOutcome` is present on Autobattle when the match finished as a win or a loss. A defeat adds `battleOutcome.garrison` as `{ npcAlgorithmId, inventory }`, the NPC stock left on that tile. A victory omits it. `found` is present on Search and is not repeated on later reads. `campaign` is the instance view: rules (`digCost`, `searchCost`, `increaseMinesCost`, `battleKit`, `marketplace`, `scoreWeights`), inventory, 19 tile views, `activeBattle` as `{ gameId, q, r }` or null, `blockedReasons`, the last 20 log entries newest first, and `score` only after victory. A seen tile includes `garrison` only after a lost battle there; that object is the stock the next attack uses. `turns` is `turnNumber + 1`.
+`gameId` is present on Attack. `battleOutcome` is present on Autobattle when the match finished as a win or a loss, and on `GET /apiv2/external/campaigns/{id}` while that result is still stored. The next accepted command clears it. A defeat adds `battleOutcome.garrison` as `{ npcAlgorithmId, inventory }`, the NPC stock left on that tile. `npcAlgorithmId` is `npc-v1` (throw size 1 through the turn cap) or `npc-greed-v1` (throw size 1). A victory omits it. `reward` is the victory reward, or null on a defeat. `spent.items` is the items thrown in the match. `found` is present on Search and is not repeated on later reads. `campaign` is the instance view: rules (`digCost`, `searchCost`, `increaseMinesCost`, `battleEntry`, `attackFee` on a fee chapter, `battleKit` on a wager chapter, `marketplace`, `scoreWeights`), inventory, 19 tile views, `activeBattle` as `{ gameId, q, r }` or null, `blockedReasons`, the last 20 log entries newest first, and `score` only after victory. Chapter I is `battleEntry` `fee` with `attackFee` 10 copper. Attack moves every campaign item into the match and the tile garrison onto the NPC. Cancel before a throw returns those items, the fee, and the action point. BACK inside the match surrenders: the items still in the game return, and the fee stays spent. A seen tile includes `garrison` only after a lost battle there; that object is the stock the next attack uses. `turns` is `turnNumber + 1`.
 
 Map commands, Buy, and Leave during an open battle are `409` and include `gameId` when the linked game id is known. A command on a finished instance is `409`. Autobattle with no open battle, or after a throw exists, is `409`.
 

@@ -41,11 +41,21 @@ export interface ServerTile {
   acquiredTurn: number | null;
 }
 
+export type BattleEntry = 'fee' | 'wager';
+
 export interface StoredRules {
   digCost: number;
   searchCost: number;
   increaseMinesCost: number;
-  battleKit: ItemStack;
+  /**
+   * Absent means `wager`, so a run stored before the fee still debits `battleKit`.
+   * `fee` charges `attackFee` copper and moves every campaign item.
+   */
+  battleEntry?: BattleEntry;
+  /** Copper charged when `battleEntry` is `fee`. */
+  attackFee?: number;
+  /** Present on a wager chapter. Chapter I omits it. */
+  battleKit?: ItemStack;
   marketplace: ItemStack;
   scoreWeights: ScoreWeights;
   economyConsumesActionPoint: boolean;
@@ -58,7 +68,12 @@ export interface ActiveBattleState {
   gameId: string | null;
   q: number;
   r: number;
-  wager: ItemStack;
+  /** Kit that left the campaign. Absent on a fee attack. */
+  wager?: ItemStack;
+  /** Every item that left the campaign on a fee attack. */
+  committedItems?: ItemStack;
+  /** Copper charged for a fee attack. Absent on a wager attack. */
+  feeCopper?: number;
   resolved: boolean;
 }
 

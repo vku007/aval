@@ -244,6 +244,24 @@ class GameAPI {
     return data;
   }
 
+  async patchMe(body, etag) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (etag) headers['If-Match'] = etag;
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const response = await fetch(`${this.baseUrl}/me`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data.detail || data.message || `HTTP ${response.status}`;
+      throw new APIError(message, response.status, data);
+    }
+    this.user = data;
+    return { body: data, etag: response.headers.get('etag') };
+  }
+
   /**
    * Promote guest user to regular user (registration)
    * @param {string} email - New email address

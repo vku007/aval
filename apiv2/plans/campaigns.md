@@ -2,7 +2,7 @@
 
 Status: design only. Not implemented. API plan: [campaigns_api.md](./campaigns_api.md). UI plan: [campaigns_ui.md](./campaigns_ui.md). This file stays the rulebook.
 
-First release is one definition, **Chapter I** (`chapter-i`). The player can buy from the marketplace for copper. The marketplace does not buy from the player. Numbers in [Chapter I](#chapter-i-ruleset-version-1) are tuning constants on the definition, not schema.
+First release is one definition, **Chapter I** (`chapter-i`). The player can buy from the marketplace for copper. The marketplace does not buy from the player. Numbers in [Chapter I](#chapter-i-ruleset-version-1) are tuning constants on the definition, not schema. How a run plays is [chapter_i_gameplay.md](./chapter_i_gameplay.md).
 
 ## Review of the brief
 
@@ -21,7 +21,7 @@ Naming in the brief drifts across **campain**, **company**, and **campaign**. Th
 | Action point spent by "move", restored next turn, one attack per turn. | One map action point per turn, spent only by Attack, restored by End Turn. Throws inside the match do not spend it. |
 | Dig, Search, IncreaseMines, turn income, marketplace. | Dig, Search, IncreaseMines, turn income, and buying for copper are specified below. The marketplace does not buy from the player. |
 | Player never receives full tile state. | Server tile and player tile view are different types. |
-| NPC algorithm can change later. | Each tile the player does not own has a `Garrison` with its own `npcAlgorithmId` and inventory. Chapter I uses `npc-v1` on every garrison. The campaign does not store one algorithm for the whole run. |
+| NPC algorithm can change later. | Each tile the player does not own has a `Garrison` with its own `npcAlgorithmId` and inventory. `npc-v1` throws size 1 through min(cap, stock). `npc-greed-v1` throws size 1. The seat stays `NPC_1`. Chapter I uses `npc-v1` on every garrison. The campaign does not store one algorithm for the whole run. |
 | Campaign can finish from an event or an external decision. | `finish(reason)` is the only way an instance ends. Reasons: `victory`, `abandoned`, `external`. |
 | prime_stones, cores, and similar names. | Same keys as `GamePlayerInventory`. No second item language. |
 
@@ -38,7 +38,7 @@ Missing from the brief, and decided here:
 
 Chapter I is a short map campaign around the existing rock-paper-scissors match.
 
-The player owns one camp on a hex map. Each turn they may scout the economy of tiles they own, and they may attack one neighboring hex. An attack is a match against the tile's defender. Items wagered on that match leave the campaign until the match ends. A win takes the tile. Taking the citadel ends the chapter. The result that matters is the score: a faster clear, more victories, and more silver and copper. They may abandon, which records no score. They may start the chapter again later; the old run stays as history.
+The player owns one camp on a hex map. Each turn they may scout the economy of tiles they own, and they may attack one neighboring hex. An attack costs 10 copper and an action point. Every item in the campaign inventory goes into the match, and every item in that tile's garrison goes in for the defender. A win takes the tile. Taking the citadel ends the chapter. The result that matters is the score: a faster clear, more victories, and more silver and copper. They may abandon, which records no score. They may start the chapter again later; the old run stays as history.
 
 A match started from the lobby, with no campaign, is unchanged.
 
@@ -50,7 +50,7 @@ In this release:
 - Start, read, leave, end turn, attack, dig, search, increase mines, buy from the marketplace.
 - One active instance per definition per player. Many finished instances.
 - Fog of war, attacks only on neighboring hexes, one attack per turn.
-- Battle kit moved into a linked game and resolved back when that game ends.
+- The player's items, and the tile garrison, moved into a linked game and resolved back when that game ends. The attack also costs 10 copper.
 - The player may play that match, or autobattle it and receive the outcome.
 - Victory when the objective tile becomes owned. A victory stores a score. Leave and external finish do not.
 
@@ -116,6 +116,8 @@ classDiagram
         +battleSeed
         +gameId
         +tile
+        +committedItems
+        +feeCopper
         +wager
         +resolved
     }
@@ -236,7 +238,7 @@ Each server tile:
 | `mines`, `maxMines` | How many levels pay. `0 <= mines <= maxMines`. Disabled tiles use 0 and 0. |
 | `stashes` | Ordered hidden piles. Each pile is `{ id, items, currencies, found }`. |
 | `difficulty` | `easy`, `normal`, or `hard`. Selects the garrison's starting kit. Meaningless on a disabled tile or the starting tile. |
-| `garrison` | The tile's NPC. `{ npcAlgorithmId, inventory, known }`. `known` becomes true after a lost battle, and `inventory` is then the stock the next attack uses. `null` on a tile the player owns. |
+| `garrison` | The tile's NPC. `{ npcAlgorithmId, inventory, known }`. `npcAlgorithmId` is `npc-v1` or `npc-greed-v1`. `known` becomes true after a lost battle, and `inventory` is then the stock the next attack uses. `null` on a tile the player owns. |
 | `dugThisTurn`, `searchedThisTurn`, `increasedThisTurn` | Cleared on End Turn. |
 
 Ownership does not change except by a victorious attack onto a neutral enabled tile. The player cannot attack a tile they own. Nothing un-owns a tile.
@@ -308,7 +310,7 @@ The campaign inventory has no `userId` and no `playerId`. It belongs to the inst
 
 ### What one battle spends
 
-The campaign loses what the player throws. Leftovers of the kit come back. Coins are not thrown.
+The campaign loses what the player throws. Items still in the game inventory come back. The 10 copper fee stays spent. Coins are not thrown.
 
 A best-of-5 match is first to 3. The planning case is a 3–2 that also has one draw: six throws. A throw is sized to matter and not to empty the stack: stone 3, paper 3, scissors 2, under the caps of 9, 7, and 4. Two throws of each gesture, plus one size effect and one type effect:
 
@@ -317,13 +319,13 @@ A best-of-5 match is first to 3. The planning case is a 3–2 that also has one 
 | One best-of-5, played out | 6 | 4 | 6 | 1 | 1 |
 | A 3–0 sweep, about half of that | 3 | 2 | 3 | 0 | 0 |
 
-The gate and an easy hex are best of 5, the length already played: first to 3, about 6 stones, 4 scissors, 6 papers, and one effect of each kind. The citadel is best of 7, first to 4. Played out, that is about a third more: 8 stones, 5 scissors, 8 papers, and one or two effects. That spends the whole kit below.
+The gate and an easy hex are best of 5, the length already played: first to 3, about 6 stones, 4 scissors, 6 papers, and one effect of each kind. The citadel is best of 7, first to 4. Played out, that is about a third more: 8 stones, 5 scissors, 8 papers, and one or two effects.
 
-### Wager
+### Attack fee
 
-Chapter I's battle kit is fixed by the definition. Attack checks that the campaign inventory contains every kit amount, then debits exactly those amounts. Anything above the kit stays in the campaign. Coins are not part of the kit.
+Chapter I has no battle kit. Attack is legal when `actionPoints >= 1` and the wallet has 10 copper. It debits 10 copper, then moves every campaign item onto the player's game row. Gold, silver, and the copper left after the fee stay on the campaign. The NPC row is that tile's garrison, every item and every coin. A first attack uses the chapter's starting garrison. After a loss, the next attack uses whatever the garrison has left. The NPC does not take items from the campaign. Chapter I garrisons hold no coins, so the NPC row still starts at 0 coins.
 
-That wager becomes the player's `GamePlayerInventory` on the new game. The defender's inventory is the garrison on that tile, not a copy of the player and not a fresh difficulty kit. A first attack uses the chapter's starting kit. After a loss, the next attack uses whatever the garrison has left. The NPC does not take items from the campaign. Chapter I garrisons hold no coins, so the NPC row still starts at 0 coins.
+A later chapter can set `battleEntry` to `wager` and name a `battleKit`. That chapter debits only the kit. A stored rules object with no `battleEntry` is that wager path, so a run started before the fee still finishes on its kit. Chapter I stores `battleEntry: 'fee'` and `attackFee: 10`, and it stores no `battleKit`.
 
 ### Match length
 
@@ -349,16 +351,16 @@ All of these are required. Failure rejects the action and changes nothing, inclu
 - Target exists on the map, is enabled, and is neutral.
 - Target shares a side with at least one tile the player owns.
 - If the client sends `from`, that cell is owned by the player and is a hex neighbor of the target. If `from` is omitted, any owned neighbor is enough.
-- Inventory can pay the battle kit.
+- Inventory can pay the 10 copper attack fee. A wager chapter can pay its battle kit instead.
 - Target is not disabled and is not already owned.
 
 Then, in order:
 
-1. Debit the kit. Spend one action point. Store `activeBattle` with a new `attackId`, a `battleSeed`, the tile, the wager, `gameId` still empty, `resolved: false`.
-2. Create the game (extended, PvE, `NPC_1`, the garrison inventory as the NPC row, campaign link set, including `campaignNpcAlgorithmId`). `campaign.name` is `Chapter I`. `level.name` is the tile difficulty. `rounds` is `BO5` or `BO7` from the match-length table. An algorithm other than `npc-v1` is rejected before the user file is saved.
+1. Debit 10 copper and move every campaign item. Spend one action point. Store `activeBattle` with a new `attackId`, a `battleSeed`, the tile, `committedItems`, `feeCopper` 10, `gameId` still empty, `resolved: false`. A wager chapter debits the kit onto `wager` instead.
+2. Create the game (extended, PvE, `NPC_1`, the garrison inventory as the NPC row, the moved items as the human row, campaign link set, including `campaignNpcAlgorithmId`). Human coins are 0. `campaign.name` is `Chapter I`. `level.name` is the tile difficulty. `rounds` is `BO5` or `BO7` from the match-length table. An algorithm other than `npc-v1` or `npc-greed-v1` is rejected before the user file is saved.
 3. Store `gameId` on `activeBattle`.
 
-If step 2 fails, refund the kit, restore the action point, and clear `activeBattle`.
+If step 2 fails, return the items and the 10 copper, restore the action point, and clear `activeBattle`. A wager chapter returns the kit.
 
 While `activeBattle` is set, map commands, Buy, and Leave are rejected. The player either plays the match on the game API, or sends Autobattle. Lobby games with no `campaignId` stay allowed; they do not move campaign items.
 
@@ -368,7 +370,7 @@ Autobattle is a way to finish the open campaign match without throwing. It is no
 
 The command is allowed only while this instance has an open battle whose game has no moves yet. A game that already contains a throw is played out by hand. Lobby games have no autobattle.
 
-The defender is the actor named on that tile's garrison. Chapter I is `npc-v1`, today's `NPC_1` actor. A linked game with no `campaignNpcAlgorithmId` is also `npc-v1`. Its random choices in this run come from `battleSeed`, stored on the battle when Attack creates it. A retry of an unfinished game with the same seed plays the same match. A game that is already finished is not simulated again. The repair path only applies the outcome.
+The defender is the actor named on that tile's garrison. `npc-v1` throws a size from 1 through min(cap, stock). `npc-greed-v1` throws size 1. The seat stays `NPC_1`. Chapter I uses `npc-v1`. A linked game with no `campaignNpcAlgorithmId` plays as `npc-v1`. Its random choices in this run come from `battleSeed`, stored on the battle when Attack creates it. A retry of an unfinished game with the same seed plays the same match. A game that is already finished is not simulated again. The repair path only applies the outcome.
 
 The player side is a fixed policy, so the spend stays near the best-of-5 estimate and a careful human can still do better by hand:
 
@@ -381,7 +383,7 @@ The player side is a fixed policy, so the spend stays near the best-of-5 estimat
 
 Size is lowered to the stock when the stock is at least 1 and below the planned size. A gesture that cannot be paid is skipped. No legal gesture means surrender, which is a loss. Effects that cannot be paid are omitted. No other effects are used.
 
-The loop stops when the game is `finished` or `broken`. A cap of 48 player throws treats a game that has not ended as `broken`, and the broken path refunds the wager. A best of 7 does not approach that cap.
+The loop stops when the game is `finished` or `broken`. A cap of 48 player throws treats a game that has not ended as `broken`, and the broken path returns the items and the fee. A best of 7 does not approach that cap.
 
 The response is the campaign view plus `battleOutcome`:
 
@@ -420,7 +422,7 @@ A best-of match ends with a winner. There is no draw result to handle. A surrend
 
 **Broken**
 
-- Refund the original wager, not the leftover game inventory.
+- Return `committedItems` and the 10 copper, not the leftover game inventory. A wager chapter returns the kit.
 - No reward. Tile unchanged. Restore the action point, because the match did not happen.
 - Clear `activeBattle`.
 
@@ -491,18 +493,18 @@ Chapter I examples, using the rewards below. The south stash is part of the rich
 
 | Run | turns | victories | silver gained | copper gained | total |
 |---|---|---|---|---|---|
-| Gate, then citadel | 2 | 2 | 3 | 14 | 214 |
-| South stash, then gate, then citadel | 3 | 3 | 5 | 18 | 228 |
-| That path, plus easy (1,0), then the gate and the citadel | 4 | 4 | 5 | 22 | 202 |
-| Lose the gate once, then the bare rush | 3 | 2 | 3 | 16 | 166 |
+| Gate, then citadel | 2 | 2 | 3 | 0 | 200 |
+| South stash, then gate, then citadel | 3 | 3 | 5 | 0 | 210 |
+| That path, plus easy (1,0), then the gate and the citadel | 4 | 4 | 5 | 0 | 180 |
+| Lose the gate once, then the bare rush | 3 | 2 | 3 | 0 | 150 |
 
-The remarkable finish of this chapter is the short path plus the south stash. The bare rush is close behind it. Wandering the rim, and losing a fight, score lower. These totals are a tuning target for ruleset 1, not a promise that every play of those routes matches the copper column; income depends on which tiles were owned at each End Turn. The routes above are the ones used to pick the weights.
+The remarkable finish of this chapter is the short path plus the south stash. The bare rush is close behind it. Wandering the rim, and losing a fight, score lower. Each attack that is played spends 10 copper, so these routes finish at or below the starting copper and the copper term is 0. These totals are a tuning target for ruleset 1, not a promise that every play of those routes matches the copper column; income depends on which tiles were owned at each End Turn. The routes above are the ones used to pick the weights.
 
 A finished instance is immutable.
 
 ## Chapter I ruleset version 1
 
-Definition id `chapter-i`. Title `Chapter I`. `rulesetVersion` 1. Every neutral garrison uses `npc-v1` (today's `NPC_1` actor) and starts from the easy, normal, or hard kit. `economyConsumesActionPoint` false. `actionPointsPerTurn` 1. Mine income is per tile, in the map table.
+Definition id `chapter-i`. Title `Chapter I`. `rulesetVersion` 1. Every neutral garrison uses `npc-v1` and starts from the easy, normal, or hard kit. A tile spec may set `npcAlgorithmId` to `npc-greed-v1` instead. `economyConsumesActionPoint` false. `actionPointsPerTurn` 1. Mine income is per tile, in the map table.
 
 Goal text, safe to show the client: "Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score."
 
@@ -512,13 +514,11 @@ Goal text, safe to show the client: "Take the citadel. Fewer turns, more victori
 |---|---|
 | stones 14, scissors 10, papers 14 | Two played-out best-of-5 fights, with a little over |
 | NA_effect_stone 2, NA_effect_scissors 2, NA_effect_papers 2, NT_effect 2 | Two effects of each kind |
-| gold 0, silver 0, copper 16 | Silver is found, not carried in. Copper pays for digs and searches. |
+| gold 0, silver 0, copper 16 | Silver is found, not carried in. Copper pays the 10 copper attack fee, then digs and searches. |
 
-### Battle kit (debited from the player)
+### Attack fee
 
-stones 8, scissors 5, papers 8, one of each `NA_effect_*`, `NT_effect` 1. No coins.
-
-That is the played-out best of 5, plus a few items so the stack does not run out on a draw. A played-out best of 7 spends this kit. Anything not thrown comes back.
+10 copper. The player's whole item stack moves into the match. Chapter I has no battle kit. A later chapter may still name one.
 
 ### Defender kits
 
@@ -627,7 +627,7 @@ The south stash pays its own search back in copper. The prize is 2 silver and on
 
 Chapter I does not auto-finish a poor player. The view reports stalls in `blockedReasons` so the client can explain them. The array may be empty, and it may hold more than one code. An action point of 0 is not a code. The client reads `actionPoints` for that.
 
-- Attack available on the map, but the inventory cannot pay the kit (`cannot_afford_battle`).
+- Attack available on the map, but the inventory cannot pay the 10 copper fee (`cannot_afford_battle`). A wager chapter uses this code when the kit is short.
 - No legal attack target (`no_attack_target`). This should not happen while the citadel is uncaptured and a path of enabled tiles remains; still report it if the map is ever mis-authored.
 - A battle is open (`battle_in_progress`).
 
@@ -643,7 +643,7 @@ Player commands, each one transaction on the user document. The client sends `If
 | End turn | `{ type: end_turn }` | Income, flags cleared, action points restored, turn incremented |
 | Attack | `{ type: attack, q, r, from? }` | Battle open, `gameId` returned. `from` is `{ q, r }` |
 | Autobattle | `{ type: autobattle }` | The open match is simulated. Response includes `battleOutcome` and the campaign view after resolution. |
-| Cancel attack | `{ type: cancel_attack }` | The open match has no throw. The game is `broken`, the kit and the action point return, and `activeBattle` is cleared. |
+| Cancel attack | `{ type: cancel_attack }` | The open match has no throw. The game is `broken`, the items, the 10 copper, and the action point return, and `activeBattle` is cleared. A wager chapter returns the kit. |
 | Dig | `{ type: dig, q, r }` | Updated campaign. That tile's `dugThisTurn` is true. |
 | Search | `{ type: search, q, r }` | Updated campaign, plus `found` for this response only. |
 | Increase mines | `{ type: increase_mines, q, r }` | Updated campaign. `mines` and `income.perTurn` rise. `increasedThisTurn` is true. |
@@ -685,7 +685,9 @@ The body is one object:
 | `digCost` | 4 copper |
 | `searchCost` | 6 copper |
 | `increaseMinesCost` | 6 copper |
-| `battleKit` | The attack kit: 8 stones, 5 scissors, 8 papers, one of each NA effect, 1 NT effect |
+| `battleEntry` | `fee` |
+| `attackFee` | 10 copper |
+| `battleKit` | Absent. A wager chapter sends the kit instead of `attackFee`. |
 | `marketplace` | The copper price of each item |
 | `scoreWeights` | `{ base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 }` |
 
@@ -723,7 +725,7 @@ Hidden cells are only coordinates. The seen gate (0,−1) shows normal difficult
 
 ### UC-5 Attack the gate
 
-Attack (0,−1) from (0,0). Kit leaves the campaign inventory. Action points become 0. Response includes `gameId`. The new game's `campaign.name` is `Chapter I`, and `campaignId` is this instance. A second attack, a dig, an end turn, and leave are all rejected while that game is unfinished. The player may play the match on the game API, or autobattle it.
+Attack (0,−1) from (0,0). 10 copper and every item leave the campaign inventory. Action points become 0. Response includes `gameId`. The new game's `campaign.name` is `Chapter I`, and `campaignId` is this instance. A second attack, a dig, an end turn, and leave are all rejected while that game is unfinished. The player may play the match on the game API, or autobattle it.
 
 ### UC-5b Autobattle the gate
 
@@ -731,7 +733,7 @@ Autobattle on that open game. The server plays the match, then resolves it. The 
 
 ### UC-6 Win the gate
 
-The match finishes with the player as winner. Leftover wager items return. The normal victory reward is added. (0,−1) is owned. Its newly seen neighbors are the citadel (0,−2), (−1,−1), and (1,−2). The citadel is visible as hard and objective. `activeBattle` is null. Action points stay 0 until End Turn.
+The match finishes with the player as winner. Items still in the game inventory return. The 10 copper stays spent. The normal victory reward is added. (0,−1) is owned. Its newly seen neighbors are the citadel (0,−2), (−1,−1), and (1,−2). The citadel is visible as hard and objective. `activeBattle` is null. Action points stay 0 until End Turn.
 
 ### UC-7 Lose the gate
 
@@ -739,7 +741,7 @@ The match finishes with the defender as winner, or the player surrenders. Leftov
 
 ### UC-8 Broken match
 
-The linked game becomes `broken`. The full wager returns. The action point returns. The tile stays neutral.
+The linked game becomes `broken`. The items and the 10 copper return. The action point returns. The tile stays neutral.
 
 ### UC-9 End the turn
 
@@ -787,7 +789,7 @@ The match is already finished and the campaign still shows that battle unresolve
 
 ### UC-19 External finish
 
-A support action finishes a started instance with reason `external`. No score is stored. Player commands stop. An open battle is not auto-played; support must not call this while `activeBattle` is set, and the domain rejects it in that case the same way Leave does. Closing the battle first is a support step (resolve the game, or mark it broken so the wager returns).
+A support action finishes a started instance with reason `external`. No score is stored. Player commands stop. An open battle is not auto-played; support must not call this while `activeBattle` is set, and the domain rejects it in that case the same way Leave does. Closing the battle first is a support step (resolve the game, or mark it broken so the items and the fee return).
 
 ### UC-20 A second victory
 
@@ -815,9 +817,9 @@ The player finishes again with a higher score. History has both totals. `bestSco
 
 **Created versus started on the game.** Today's processor often leaves a live match in `created` until it is `finished`. The campaign must not treat `created` as "battle over". Open means the game is not `finished` and not `broken`.
 
-**Leave during battle.** Rejected. The player surrenders or finishes the match first, which resolves loot, then Leave is allowed. This avoids a second writer deciding the fate of the wager.
+**Leave during battle.** Rejected. The player surrenders or finishes the match first, which resolves loot, then Leave is allowed. BACK inside the match is that surrender.
 
-**End Turn during battle.** Rejected, so income cannot be farmed while a wager is sitting in a match.
+**End Turn during battle.** Rejected, so income cannot be farmed while the item stacks are sitting in a match.
 
 **Action point and a failed attack.** Validation failures do not spend the point. Only a committed attack does. A broken game gives the point back.
 
@@ -851,7 +853,7 @@ The player finishes again with a higher score. History has both totals. `bestSco
 
 **Finished history grows the user file.** List history newest first. Chapter I runs are short, and keeping them on the player is the choice for this release. Do not embed games inside the campaign. The later cut, if one is needed, is finished instances and the old action log — not the active run.
 
-**Active game id empty.** Between debit and game create, a crash can leave a wager debited and no `gameId`. That battle record is an incomplete attack. The next read refunds the wager, restores the action point, and clears it, but only when `gameId` is empty. It must not refund a battle that already has a game id.
+**Active game id empty.** Between debit and game create, a crash can leave the fee and the items debited and no `gameId`. That battle record is an incomplete attack. The next read returns the items and the fee, restores the action point, and clears it, but only when `gameId` is empty. It must not refund a battle that already has a game id.
 
 **Another player's id.** Lookup is inside the caller's user document. An id that is not there is not found, including an id that belongs to someone else.
 
@@ -870,7 +872,7 @@ The html5 client gains a Chapter I path. Blitz stays. `BlitzGameScene` and `Test
 | Battle | Shown while `activeBattle` is set. Play opens the existing extended-game scene with `gameId`. Autobattle calls the command and shows `battleOutcome` here. |
 | Score | Shown when `campaign.score` is present. One line per input, using `rules.scoreWeights`, then `score.total`. Leave returns to the catalog. An external finish shows the reason and no score. |
 
-The action panel reads the tile view. An owned hex shows `income.product`, `income.perTurn`, and `mines` of `maxMines`. Dig is offered when `dugThisTurn` is false, at `rules.digCost`, including on a copper hex where the yield equals the cost. Search is offered when `searchAvailable` is true and `searchedThisTurn` is false, at `rules.searchCost`. Upgrade is offered when `increasedThisTurn` is false and `mines < maxMines`, at `rules.increaseMinesCost`. A seen hex shows `rounds` and offers Attack when it shares a side with an owned hex, `actionPoints` is at least 1, and `cannot_afford_battle` is absent. The button names the length: best of 5, or best of 7 on the citadel. The kit named as the cost is `rules.battleKit`. The shop lists `rules.marketplace` and spends copper from the inventory. A finished victory shows the map and the score, and offers none of these actions. Leave returns to the catalog. An external finish shows the reason and no score.
+The action panel reads the tile view. An owned hex shows `income.product`, `income.perTurn`, and `mines` of `maxMines`. Dig is offered when `dugThisTurn` is false, at `rules.digCost`, including on a copper hex where the yield equals the cost. Search is offered when `searchAvailable` is true and `searchedThisTurn` is false, at `rules.searchCost`. Upgrade is offered when `increasedThisTurn` is false and `mines < maxMines`, at `rules.increaseMinesCost`. A seen hex shows `rounds` and offers Attack when it shares a side with an owned hex, `actionPoints` is at least 1, and `cannot_afford_battle` is absent. The button names the length: best of 5, or best of 7 on the citadel. The price is `rules.attackFee`. A wager chapter names `rules.battleKit` instead. The shop lists `rules.marketplace` and spends copper from the inventory. A finished victory shows the map and the score, and offers none of these actions. Leave returns to the catalog. An external finish shows the reason and no score.
 
 After the extended-game scene sees the match `finished` or `broken`, it returns to the map. The map loads `GET /apiv2/external/campaigns/{id}` before drawing. It does not invent the loot from the game payload.
 

@@ -54,6 +54,8 @@ describe('Chapter I instance', () => {
     const citadel = tiles.find(tile => tile.q === 0 && tile.r === -2);
     expect(citadel).toEqual({ q: 0, r: -2, visibility: 'hidden' });
     expect(view.rules).not.toHaveProperty('economyConsumesActionPoint');
+    expect(view.rules).toMatchObject({ battleEntry: 'fee', attackFee: { copper: 10 } });
+    expect(view.rules).not.toHaveProperty('battleKit');
     expect(view).not.toHaveProperty('npcAlgorithmId');
     expect((campaign.toJSON() as { rules: { economyConsumesActionPoint: boolean } }).rules.economyConsumesActionPoint).toBe(false);
     expect(campaign.toJSON()).not.toHaveProperty('npcAlgorithmId');
@@ -107,16 +109,17 @@ describe('Chapter I instance', () => {
     const poor = Campaign.fromJSON({
       ...campaign.toJSON(),
       inventory: {
-        items: { ...campaign.inventory.items, stones: 0 },
-        currencies: campaign.inventory.toJSON().currencies
+        items: { ...campaign.inventory.items },
+        currencies: { ...campaign.inventory.toJSON().currencies, copper: 9 }
       }
     });
-    expect(() => poor.beginAttack(0, -1, undefined, 'a', 1, NOW)).toThrow(ValidationError);
+    expect(() => poor.beginAttack(0, -1, undefined, 'a', 1, NOW)).toThrow(/copper/);
+    expect(poor.blockedReasons()).toContain('cannot_afford_battle');
     const lost = broke.attachGame('game-1', NOW).applyBattle({
       attackId: 'a',
       gameId: 'game-1',
       kind: 'loss',
-      leftovers: { items: { ...(broke.activeBattle?.wager ?? {}) }, currencies: {} },
+      leftovers: { items: { ...stake(broke) }, currencies: {} },
       playerRoundWins: 0,
       npcRoundWins: 3
     }, NOW).campaign;
@@ -146,7 +149,7 @@ describe('Chapter I instance', () => {
     const next = afterCapture.endTurn(NOW);
     expect(next.inventory.items.stones).toBe(afterCapture.inventory.items.stones + 1);
 
-    const south = captureSouth(opened);
+    const south = captureSouth(opened).endTurn(NOW);
     const searched = south.search(0, 1, NOW);
     expect(searched.found).toEqual({ items: { scissors: 4 }, currencies: { silver: 2, copper: 6 } });
     expect(searched.campaign.inventory.currencies.silver).toBe(south.inventory.currencies.silver + 2);
@@ -213,8 +216,14 @@ describe('Chapter I instance', () => {
     expect(won.campaign.tiles.find(tile => tile.q === 1 && tile.r === -2)?.revealed).toBe(true);
     expect(won.campaign.actionPoints).toBe(0);
     const npcWouldHaveAdded = 9;
-    expect(won.campaign.inventory.items.stones).toBe(14 - 8 + 8 + 3);
-    expect(won.campaign.inventory.items.stones).not.toBe(14 - 8 + 8 + 3 + npcWouldHaveAdded);
+    expect(won.campaign.inventory.items.stones).toBe(14 + 3);
+    expect(won.campaign.inventory.items.stones).not.toBe(14 + 3 + npcWouldHaveAdded);
+    expect(won.campaign.inventory.currencies.copper).toBe(10);
+    expect(won.campaign.lastBattleOutcome).toEqual(won.outcome);
+    const stored = Campaign.fromJSON(won.campaign.toJSON());
+    expect(stored.lastBattleOutcome?.result).toBe('victory');
+    expect(stored.lastBattleOutcome?.reward?.items.stones).toBe(3);
+    expect(won.campaign.endTurn(NOW + 2).lastBattleOutcome).toBeNull();
     const again = won.campaign.applyBattle(facts('win', opened), NOW + 2);
     expect(again.outcome).toBeNull();
     expect(again.campaign.inventory.items.stones).toBe(won.campaign.inventory.items.stones);
@@ -232,14 +241,17 @@ describe('Chapter I instance', () => {
     expect(lostGate?.garrison).toMatchObject({ npcAlgorithmId: 'npc-v1' });
     expect(lostGate?.garrison).not.toHaveProperty('known');
     expect(lost.campaign.inventory.items.stones).toBe(14);
+    expect(lost.campaign.inventory.currencies.copper).toBe(6);
     expect(lost.campaign.actionPoints).toBe(0);
-    const worn = lost.campaign.endTurn(NOW + 2).beginAttack(0, -1, undefined, 'b', 2, NOW + 3);
+    expect(lost.campaign.lastBattleOutcome?.result).toBe('defeat');
+    expect(lost.campaign.lastBattleOutcome?.reward).toBeNull();
+    const worn = lost.campaign.endTurn(NOW + 2).endTurn(NOW + 3).beginAttack(0, -1, undefined, 'b', 2, NOW + 4);
     expect(worn.tiles.find(tile => tile.q === 0 && tile.r === -1)?.garrison?.inventory.items.stones).toBe(4);
     const emptied = worn.attachGame('game-2', NOW + 3).applyBattle({
       attackId: 'b',
       gameId: 'game-2',
       kind: 'loss',
-      leftovers: { items: { ...(worn.activeBattle?.wager ?? {}) }, currencies: {} },
+      leftovers: { items: { ...stake(worn) }, currencies: {} },
       npcLeftovers: { items: {}, currencies: {} },
       playerRoundWins: 0,
       npcRoundWins: 3
@@ -249,8 +261,11 @@ describe('Chapter I instance', () => {
 
     const broken = opened.applyBattle({ ...facts('broken', opened), leftovers: { items: { stones: 1 }, currencies: {} } }, NOW + 1);
     expect(broken.campaign.inventory.items.stones).toBe(14);
+    expect(broken.campaign.inventory.currencies.copper).toBe(16);
     expect(broken.campaign.actionPoints).toBe(1);
     expect(broken.campaign.activeBattle).toBeNull();
+    expect(broken.campaign.lastBattleOutcome).toBeNull();
+    expect(Campaign.fromJSON(fresh().toJSON()).lastBattleOutcome).toBeNull();
     expect(broken.campaign.tiles.find(tile => tile.q === 0 && tile.r === -1)?.garrison?.known).toBe(false);
     expect(broken.campaign.tiles.find(tile => tile.q === 0 && tile.r === -1)?.garrison?.inventory.items.stones).toBe(9);
     const hiddenGate = (toCampaignView(broken.campaign).tiles as Array<Record<string, unknown>>)
@@ -291,6 +306,9 @@ describe('Chapter I instance', () => {
     expect(won.status).toBe('finished');
     expect(won.finishReason).toBe('victory');
     expect(won.score?.total).toBeGreaterThan(0);
+    expect(won.lastBattleOutcome?.result).toBe('victory');
+    expect(won.lastBattleOutcome?.q).toBe(0);
+    expect(won.lastBattleOutcome?.r).toBe(-2);
     expect(() => won.endTurn(NOW)).toThrow(ConflictError);
     expect(() => won.beginAttack(1, 0, undefined, 'later', 1, NOW)).toThrow(ConflictError);
     const retry = won.applyBattle({
@@ -312,10 +330,26 @@ describe('Chapter I instance', () => {
 
   it('refunds an attack that never received a game id', () => {
     const debited = fresh().beginAttack(0, -1, undefined, 'attack-1', 1, NOW);
-    expect(debited.inventory.items.stones).toBe(6);
+    expect(debited.inventory.items.stones).toBe(0);
+    expect(debited.inventory.items.scissors).toBe(0);
+    expect(debited.inventory.items.NT_effect).toBe(0);
+    expect(debited.inventory.currencies.copper).toBe(6);
+    expect(debited.inventory.currencies.gold).toBe(0);
+    expect(debited.activeBattle?.committedItems).toMatchObject({
+      stones: 14,
+      scissors: 10,
+      papers: 14,
+      NA_effect_stone: 2,
+      NA_effect_scissors: 2,
+      NA_effect_papers: 2,
+      NT_effect: 2
+    });
+    expect(debited.activeBattle?.feeCopper).toBe(10);
+    expect(debited.activeBattle).not.toHaveProperty('wager');
     expect(debited.actionPoints).toBe(0);
     const refunded = debited.refundOpenAttack(NOW + 1);
     expect(refunded.inventory.items.stones).toBe(14);
+    expect(refunded.inventory.currencies.copper).toBe(16);
     expect(refunded.actionPoints).toBe(1);
     expect(refunded.activeBattle).toBeNull();
     expect(refunded.log.at(-1)?.type).toBe('battle_refunded');
@@ -370,17 +404,67 @@ describe('Chapter I instance', () => {
     expect(() => open.dig(0, 0, NOW)).toThrow(ConflictError);
     expect(() => open.leave(NOW)).toThrow(ConflictError);
     expect(() => open.finishExternal(NOW)).toThrow(ConflictError);
-    expect(open.inventory.currencies.copper).toBe(16);
+    expect(open.inventory.currencies.copper).toBe(6);
+    expect(open.inventory.items.stones).toBe(0);
+  });
+
+  it('keeps a kit debit when stored rules have no battle entry', () => {
+    const raw = fresh().toJSON() as {
+      rules: { battleEntry?: string; attackFee?: number; battleKit?: Record<string, number> };
+    };
+    delete raw.rules.battleEntry;
+    delete raw.rules.attackFee;
+    raw.rules.battleKit = {
+      stones: 8,
+      scissors: 5,
+      papers: 8,
+      NA_effect_stone: 1,
+      NA_effect_scissors: 1,
+      NA_effect_papers: 1,
+      NT_effect: 1
+    };
+    const campaign = Campaign.fromJSON(raw);
+    expect(toCampaignView(campaign).rules).toMatchObject({ battleEntry: 'wager' });
+    expect(toCampaignView(campaign).rules).not.toHaveProperty('attackFee');
+    const short = Campaign.fromJSON({
+      ...raw,
+      inventory: {
+        items: { ...campaign.inventory.items, stones: 7 },
+        currencies: campaign.inventory.toJSON().currencies
+      }
+    });
+    expect(() => short.beginAttack(0, -1, undefined, 'a', 1, NOW)).toThrow(/battle kit/);
+    expect(short.blockedReasons()).toContain('cannot_afford_battle');
+    const opened = campaign.beginAttack(0, -1, undefined, 'a', 1, NOW);
+    expect(opened.inventory.items.stones).toBe(6);
+    expect(opened.inventory.items.scissors).toBe(5);
+    expect(opened.inventory.currencies.copper).toBe(16);
+    expect(opened.activeBattle?.wager).toMatchObject({ stones: 8, scissors: 5 });
+    expect(opened.activeBattle?.committedItems).toBeUndefined();
+    expect(opened.activeBattle?.feeCopper).toBeUndefined();
+  });
+
+  it('rejects an attack with no action point while the fee can be paid', () => {
+    const raw = fresh().toJSON() as { actionPoints: number };
+    raw.actionPoints = 0;
+    const spent = Campaign.fromJSON(raw);
+    expect(() => spent.beginAttack(0, -1, undefined, 'a', 1, NOW)).toThrow(/No action point/);
+    expect(spent.inventory.currencies.copper).toBe(16);
+    expect(spent.inventory.items.stones).toBe(14);
   });
 });
 
+function stake(opened: Campaign): Record<string, number> {
+  const battle = opened.activeBattle;
+  return { ...(battle?.committedItems ?? battle?.wager ?? {}) };
+}
+
 function facts(kind: 'win' | 'loss' | 'broken', opened: Campaign) {
-  const wager = opened.activeBattle?.wager ?? {};
   return {
     attackId: 'attack-1',
     gameId: 'game-1',
     kind,
-    leftovers: { items: { ...wager }, currencies: { gold: 0, silver: 0, copper: 0 } },
+    leftovers: { items: { ...stake(opened) }, currencies: { gold: 0, silver: 0, copper: 0 } },
     npcLeftovers: { items: { stones: 4 }, currencies: {} },
     playerRoundWins: kind === 'win' ? 3 : 1,
     npcRoundWins: kind === 'win' ? 1 : 3
@@ -399,7 +483,7 @@ function captureSouth(campaign: Campaign): Campaign {
     attackId: 'attack-south',
     gameId: 'game-south',
     kind: 'win',
-    leftovers: { items: { ...(opened.activeBattle?.wager ?? {}) }, currencies: {} },
+    leftovers: { items: { ...stake(opened) }, currencies: {} },
     playerRoundWins: 3,
     npcRoundWins: 0
   }, NOW).campaign;
@@ -412,7 +496,7 @@ function takeCitadel(campaign: Campaign): Campaign {
     attackId: 'citadel',
     gameId: 'game-citadel',
     kind: 'win',
-    leftovers: { items: { ...(opened.activeBattle?.wager ?? {}) }, currencies: {} },
+    leftovers: { items: { ...stake(opened) }, currencies: {} },
     playerRoundWins: 4,
     npcRoundWins: 2
   }, NOW).campaign;

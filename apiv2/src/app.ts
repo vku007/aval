@@ -141,6 +141,7 @@ export function createRouter(): Router {
       .post('/apiv2/public/login', (req: HttpRequest) => authController.login(req))
 
       .get('/apiv2/external/me', ...authenticated(), (req: HttpRequest) => externalController.getMe(req))
+      .patch('/apiv2/external/me', ...authenticated(), (req: HttpRequest) => externalController.patchMe(req))
       .post('/apiv2/external/promote', ...authenticated(), (req: HttpRequest) => authController.promoteGuestToRegular(req))
       .post('/apiv2/external/games', ...authenticated(), (req: HttpRequest) => externalController.createGame(req))
       .get('/apiv2/external/games/:gameId', ...authenticated(), (req: HttpRequest) => externalController.getGame(req))

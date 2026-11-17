@@ -1,6 +1,6 @@
 import { Campaign, type BattleOutcome } from '../../domain/campaign/Campaign.js';
 import { assertSupportedNpcAlgorithm } from '../../domain/campaign/Garrison.js';
-import { findDefinition, listDefinitions } from '../../domain/campaign/CampaignDefinition.js';
+import { findDefinition, listDefinitions } from '../../domain/campaign/CampaignRegistry.js';
 import { toCampaignView } from '../../domain/campaign/CampaignView.js';
 import { User } from '../../domain/entity/User.js';
 import { etagsEqual } from '../../shared/etag.js';
@@ -71,10 +71,10 @@ export class CampaignService implements CampaignBattleSink {
     const campaign = this.requireCampaign(user, campaignId);
     const repaired = await repairCampaign(campaign, this.games, this.logger, Date.now());
     if (repaired === campaign) {
-      return { body: { campaign: toCampaignView(campaign) }, etag: user.metadata?.etag };
+      return { body: campaignBody(campaign), etag: user.metadata?.etag };
     }
     const saved = await this.users.save(this.replace(user, repaired), { ifMatch: user.metadata?.etag });
-    return { body: { campaign: toCampaignView(repaired) }, etag: saved.metadata?.etag };
+    return { body: campaignBody(repaired), etag: saved.metadata?.etag };
   }
 
   async act(userId: string, campaignId: string, action: CampaignAction, ifMatch: string): Promise<CampaignHttpResult> {
@@ -176,7 +176,7 @@ export class CampaignService implements CampaignBattleSink {
         rounds: tile.rounds === 'BO7' ? RoundsLength.BO7 : RoundsLength.BO5,
         levelName: tile.difficulty,
         title: begun.title,
-        humanItems: battle.wager,
+        humanItems: battle.committedItems ?? battle.wager ?? {},
         npcItems: tile.garrison.inventory.items,
         npcCurrencies: tile.garrison.inventory.currencies,
         npcAlgorithmId: tile.garrison.npcAlgorithmId
@@ -347,6 +347,14 @@ export class CampaignService implements CampaignBattleSink {
 
 function toBattleOutcome(outcome: BattleOutcome): BattleOutcome {
   return outcome;
+}
+
+function campaignBody(campaign: Campaign): Record<string, unknown> {
+  const body: Record<string, unknown> = { campaign: toCampaignView(campaign) };
+  if (campaign.lastBattleOutcome) {
+    body.battleOutcome = campaign.lastBattleOutcome;
+  }
+  return body;
 }
 
 function etagMatches(header: string, stored: string | undefined): boolean {
