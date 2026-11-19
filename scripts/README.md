@@ -20,6 +20,14 @@ Auth walkthrough: [INTEGRATION_TEST_QUICKSTART.md](INTEGRATION_TEST_QUICKSTART.m
 
 `create-test-user.sh` sets a permanent password, `custom:role` / `custom:display_name`, and the matching Cognito group.
 
+## Campaign editor shell
+
+```bash
+./scripts/deploy-editor.sh
+```
+
+Tests, builds `tools/campaign-editor`, and syncs it to `s3://vkp-consulting.fr/editor/`. It does not apply Terraform and it does not publish a chapter. The CloudFront behavior and the SSM signing key must already exist. See [apiv2/plans/campaign_editor_deploy.md](../apiv2/plans/campaign_editor_deploy.md).
+
 ## API checks
 
 ```bash

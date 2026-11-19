@@ -9,4 +9,5 @@ export { UnsupportedMediaTypeError } from './UnsupportedMediaTypeError.js';
 export { NotModifiedError } from './NotModifiedError.js';
 export { UnauthorizedError } from './UnauthorizedError.js';
 export { ForbiddenError } from './ForbiddenError.js';
+export { ServiceUnavailableError } from './ServiceUnavailableError.js';
 

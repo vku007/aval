@@ -6,6 +6,9 @@ dist/
 .vite/
 **/.vite/
 
+# CloudFront editor signing key. The public PEM is committed. The private PEM is not.
+terraform/editor-signing-private.pem
+
 # Archives
 *.zip
 

@@ -24,11 +24,16 @@ export class HttpResponse {
   constructor(
     public readonly statusCode: number,
     public readonly body?: unknown,
-    public readonly headers: Record<string, string> = {}
+    public readonly headers: Record<string, string> = {},
+    public readonly cookies: readonly string[] = []
   ) {}
 
   withHeader(key: string, value: string): HttpResponse {
-    return new HttpResponse(this.statusCode, this.body, { ...this.headers, [key]: value });
+    return new HttpResponse(this.statusCode, this.body, { ...this.headers, [key]: value }, this.cookies);
+  }
+
+  withCookies(cookies: readonly string[]): HttpResponse {
+    return new HttpResponse(this.statusCode, this.body, this.headers, cookies);
   }
 
   withETag(etag: string | undefined): HttpResponse {

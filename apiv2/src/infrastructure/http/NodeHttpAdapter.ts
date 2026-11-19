@@ -75,6 +75,9 @@ export class NodeHttpAdapter {
       body = typeof response.body === 'string' ? response.body : JSON.stringify(response.body);
     }
 
+    if (response.cookies.length > 0) {
+      res.setHeader('set-cookie', [...response.cookies]);
+    }
     res.writeHead(response.statusCode, headers);
     res.end(body);
   }

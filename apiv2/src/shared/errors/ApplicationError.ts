@@ -5,7 +5,7 @@ export abstract class ApplicationError extends Error {
   constructor(
     message: string,
     public readonly statusCode: number,
-    public readonly code: string
+    public readonly code?: string
   ) {
     super(message);
     this.name = this.constructor.name;

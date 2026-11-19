@@ -8,6 +8,7 @@ import {
 import type { CampaignDefinition } from './CampaignDefinition.js';
 import {
   CampaignInventory,
+  DIG_TURNS,
   positiveCurrencies,
   positiveItems,
   unitFor,
@@ -343,7 +344,7 @@ export class Campaign {
     }
     const actionPoints = this.spendEconomyPoint();
     const product = tile.product as MineProduct;
-    const yieldAmount = 2 * tile.mines * unitFor(product);
+    const yieldAmount = DIG_TURNS * tile.mines * unitFor(product);
     const inventory = this.state.inventory.debitCopper(this.state.rules.digCost).creditProduct(product, yieldAmount);
     return this.branch({
       inventory,

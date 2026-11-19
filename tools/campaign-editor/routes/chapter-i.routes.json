@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Bare rush",
+    "steps": [
+      { "type": "attack", "q": 0, "r": -1 },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -2 }
+    ]
+  },
+  {
+    "name": "South stash",
+    "steps": [
+      { "type": "attack", "q": 0, "r": 1 },
+      { "type": "search", "q": 0, "r": 1 },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -1 },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -2 }
+    ]
+  },
+  {
+    "name": "South stash plus (1,0)",
+    "steps": [
+      { "type": "attack", "q": 0, "r": 1 },
+      { "type": "search", "q": 0, "r": 1 },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 1, "r": 0 },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -1 },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -2 }
+    ]
+  },
+  {
+    "name": "Lose the gate once",
+    "steps": [
+      { "type": "attack", "q": 0, "r": -1, "result": "loss" },
+      { "type": "end_turn" },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -1 },
+      { "type": "end_turn" },
+      { "type": "end_turn" },
+      { "type": "end_turn" },
+      { "type": "attack", "q": 0, "r": -2 }
+    ]
+  }
+]

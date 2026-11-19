@@ -28,6 +28,8 @@ import { ExternalController } from './presentation/controllers/ExternalControlle
 import { CampaignController } from './presentation/controllers/CampaignController.js';
 import { AuthController } from './presentation/controllers/AuthController.js';
 import { CognitoUserAdminController } from './presentation/controllers/CognitoUserAdminController.js';
+import { EditorSessionController } from './presentation/controllers/EditorSessionController.js';
+import { openEditorSession } from './application/services/EditorSessionService.js';
 import { CognitoUserAdminService } from './application/services/CognitoUserAdminService.js';
 import { AuditLogService } from './application/services/AuditLogService.js';
 import type { IAuditLogRepository } from './application/dto/AuditLogDto.js';
@@ -132,6 +134,7 @@ export function createRouter(): Router {
 
     const adminOnly = () => [authMiddleware(), requireRole('admin')];
     const authenticated = () => [authMiddleware()];
+    const editorSessionController = new EditorSessionController(openEditorSession);
 
     router = new Router()
       .use(corsMiddleware(config))
@@ -154,6 +157,7 @@ export function createRouter(): Router {
       .post('/apiv2/external/campaigns/:id/actions', ...authenticated(), (req: HttpRequest) => campaignController.act(req))
 
       .post('/apiv2/internal/users/:userId/campaigns/:id/finish', ...adminOnly(), (req: HttpRequest) => campaignController.finishExternal(req))
+      .post('/apiv2/internal/editor-session', ...adminOnly(), () => editorSessionController.open())
 
       .get('/apiv2/internal/files', ...adminOnly(), (req: HttpRequest) => entityController.list(req))
       .get('/apiv2/internal/files/:id/meta', ...adminOnly(), (req: HttpRequest) => entityController.getMeta(req))

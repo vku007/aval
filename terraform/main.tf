@@ -143,12 +143,15 @@ module "lambda_api2" {
 
   environment_variables = merge(
     {
-      APP_TAG        = "vkp-api"
-      MAX_BODY_BYTES = tostring(var.max_body_bytes)
-      JSON_PREFIX    = var.json_prefix
-      ENVIRONMENT    = var.environment
-      BUCKET_NAME    = var.api_data_bucket_name
-      CORS_ORIGIN    = "https://${var.domain_name}"
+      APP_TAG                       = "vkp-api"
+      MAX_BODY_BYTES                = tostring(var.max_body_bytes)
+      JSON_PREFIX                   = var.json_prefix
+      ENVIRONMENT                   = var.environment
+      BUCKET_NAME                   = var.api_data_bucket_name
+      CORS_ORIGIN                   = "https://${var.domain_name}"
+      EDITOR_CLOUDFRONT_KEY_PAIR_ID = aws_cloudfront_public_key.editor.id
+      EDITOR_SIGNING_KEY_PARAMETER  = "/vkp/editor/cloudfront-private-key"
+      EDITOR_COOKIE_DOMAIN          = var.domain_name
     },
     var.enable_cognito_auth ? {
       USER_POOL_ID = module.cognito[0].user_pool_id
@@ -193,6 +196,22 @@ resource "aws_iam_role_policy" "lambda_cognito_access" {
           "cognito-idp:ListUsersInGroup"
         ]
         Resource = module.cognito[0].user_pool_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "lambda_editor_signing_key" {
+  name = "EditorSigningKeyRead"
+  role = module.lambda_api2.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/vkp/editor/cloudfront-private-key"
       }
     ]
   })
@@ -402,6 +421,7 @@ module "cloudfront" {
 
   acm_certificate_arn      = var.acm_certificate_arn
   minimum_protocol_version = "TLSv1.2_2021"
+  editor_key_group_id      = aws_cloudfront_key_group.editor.id
 
   tags = local.common_tags
 }

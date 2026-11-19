@@ -15,6 +15,7 @@ class CampaignBattleResultScene extends Phaser.Scene {
 
     create() {
         if (typeof exitTestsCanvas === 'function') exitTestsCanvas(this);
+        fxEnter(this);
         if (!this.instanceId || !this.battleOutcome) {
             this.leave();
             return;

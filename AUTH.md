@@ -32,6 +32,8 @@ CloudFront ──► API Gateway HTTP API (wmrksdxxml)
 | `authMiddleware` | Same JWT via JWKS; attaches `request.user` | `401` RFC 7807 from Lambda |
 | `requireRole` | `request.user.role` is in the allowed list | `403 Forbidden` |
 
+`POST /apiv2/internal/editor-session` is admin-only. It sets CloudFront signed cookies for `/editor/*`. The campaign editor shell is not readable without those cookies. `/editor/session.html` is the public page that calls this route after login. A missing cookie on `/editor/` redirects to `/login.html?next=/editor/session.html`.
+
 `/api/*` (simple Lambda) has **no** Cognito check.
 
 ## Identity (Cognito)

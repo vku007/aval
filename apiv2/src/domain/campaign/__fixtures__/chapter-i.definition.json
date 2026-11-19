@@ -1,0 +1,955 @@
+{
+  "id": "chapter-i",
+  "title": "Chapter I",
+  "goal": "Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score.",
+  "rulesetVersion": 1,
+  "rules": {
+    "digCost": 4,
+    "searchCost": 6,
+    "increaseMinesCost": 6,
+    "battleEntry": "fee",
+    "attackFee": 10,
+    "marketplace": {
+      "stones": 3,
+      "scissors": 4,
+      "papers": 3,
+      "NA_effect_stone": 8,
+      "NA_effect_scissors": 8,
+      "NA_effect_papers": 8,
+      "NT_effect": 12
+    },
+    "scoreWeights": {
+      "base": 200,
+      "perTurn": 50,
+      "perVictory": 20,
+      "perSilver": 20,
+      "perCopper": 1
+    },
+    "economyConsumesActionPoint": false,
+    "actionPointsPerTurn": 1
+  },
+  "startingInventory": {
+    "items": {
+      "stones": 14,
+      "scissors": 10,
+      "papers": 14,
+      "NA_effect_stone": 2,
+      "NA_effect_scissors": 2,
+      "NA_effect_papers": 2,
+      "NT_effect": 2
+    },
+    "currencies": {
+      "gold": 0,
+      "silver": 0,
+      "copper": 16
+    }
+  },
+  "tiles": [
+    {
+      "q": 0,
+      "r": 0,
+      "enabled": true,
+      "owner": "player",
+      "revealed": true,
+      "objective": false,
+      "product": "copper",
+      "mines": 1,
+      "maxMines": 3,
+      "stashes": [],
+      "difficulty": null,
+      "rounds": null,
+      "label": "camp",
+      "garrison": null,
+      "victoryReward": {
+        "items": {},
+        "currencies": {}
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 0,
+      "r": -1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": true,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 3,
+      "stashes": [],
+      "difficulty": "normal",
+      "rounds": "BO5",
+      "label": "gate",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 9,
+            "scissors": 4,
+            "papers": 7,
+            "NA_effect_stone": 1,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "stones": 3,
+          "scissors": 1
+        },
+        "currencies": {
+          "silver": 1,
+          "copper": 4
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 1,
+      "r": -1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": true,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(1,-1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 1,
+      "r": 0,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": true,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(1,0)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 0,
+      "r": 1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": true,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [
+        {
+          "id": "stash-0-1",
+          "items": {
+            "scissors": 4
+          },
+          "currencies": {
+            "silver": 2,
+            "copper": 6
+          },
+          "found": false
+        }
+      ],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(0,1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": true,
+      "objective": false,
+      "product": "copper",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-1,1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {},
+        "currencies": {
+          "copper": 4
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -1,
+      "r": 0,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": true,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-1,0)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 0,
+      "r": -2,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": true,
+      "product": "papers",
+      "mines": 2,
+      "maxMines": 4,
+      "stashes": [],
+      "difficulty": "hard",
+      "rounds": "BO7",
+      "label": "citadel",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 12,
+            "scissors": 8,
+            "papers": 8,
+            "NA_effect_stone": 1,
+            "NA_effect_scissors": 1,
+            "NA_effect_papers": 1,
+            "NT_effect": 1
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "stones": 2,
+          "papers": 4,
+          "NT_effect": 1
+        },
+        "currencies": {
+          "silver": 2,
+          "copper": 8
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 1,
+      "r": -2,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [
+        {
+          "id": "stash-1--2",
+          "items": {
+            "papers": 4,
+            "NA_effect_papers": 1
+          },
+          "currencies": {
+            "silver": 1,
+            "copper": 4
+          },
+          "found": false
+        }
+      ],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(1,-2)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 2,
+      "r": -2,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "stones",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(2,-2)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "stones": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 2,
+      "r": -1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "copper",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(2,-1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {},
+        "currencies": {
+          "copper": 4
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 2,
+      "r": 0,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(2,0)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 1,
+      "r": 1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "stones",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(1,1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "stones": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": 0,
+      "r": 2,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "copper",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(0,2)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {},
+        "currencies": {
+          "copper": 4
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -1,
+      "r": 2,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-1,2)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -2,
+      "r": 2,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-2,2)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -2,
+      "r": 1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "stones",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-2,1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "stones": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -2,
+      "r": 0,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "scissors",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-2,0)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "scissors": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    },
+    {
+      "q": -1,
+      "r": -1,
+      "enabled": true,
+      "owner": "neutral",
+      "revealed": false,
+      "objective": false,
+      "product": "papers",
+      "mines": 1,
+      "maxMines": 2,
+      "stashes": [
+        {
+          "id": "stash--1--1",
+          "items": {
+            "stones": 4,
+            "NA_effect_stone": 1
+          },
+          "currencies": {
+            "copper": 4
+          },
+          "found": false
+        }
+      ],
+      "difficulty": "easy",
+      "rounds": "BO5",
+      "label": "(-1,-1)",
+      "garrison": {
+        "npcAlgorithmId": "npc-v1",
+        "inventory": {
+          "items": {
+            "stones": 6,
+            "scissors": 3,
+            "papers": 4,
+            "NA_effect_stone": 0,
+            "NA_effect_scissors": 0,
+            "NA_effect_papers": 0,
+            "NT_effect": 0
+          },
+          "currencies": {
+            "gold": 0,
+            "silver": 0,
+            "copper": 0
+          }
+        },
+        "known": false
+      },
+      "victoryReward": {
+        "items": {
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
+      "dugThisTurn": false,
+      "searchedThisTurn": false,
+      "increasedThisTurn": false,
+      "acquiredTurn": null
+    }
+  ]
+}

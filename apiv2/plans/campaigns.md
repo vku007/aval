@@ -494,17 +494,19 @@ Chapter I examples, using the rewards below. The south stash is part of the rich
 | Run | turns | victories | silver gained | copper gained | total |
 |---|---|---|---|---|---|
 | Gate, then citadel | 2 | 2 | 3 | 0 | 200 |
-| South stash, then gate, then citadel | 3 | 3 | 5 | 0 | 210 |
-| That path, plus easy (1,0), then the gate and the citadel | 4 | 4 | 5 | 0 | 180 |
-| Lose the gate once, then the bare rush | 3 | 2 | 3 | 0 | 150 |
+| South stash, then gate, then citadel | — | — | — | — | Not payable. 6 copper at the citadel attack. |
+| That path, plus easy (1,0), then the gate and the citadel | — | — | — | — | Not payable. 4 copper at the gate attack. |
+| Lose the gate once, then the bare rush | 6 | 2 | 3 | 0 | 0 |
 
-The remarkable finish of this chapter is the short path plus the south stash. The bare rush is close behind it. Wandering the rim, and losing a fight, score lower. Each attack that is played spends 10 copper, so these routes finish at or below the starting copper and the copper term is 0. These totals are a tuning target for ruleset 1, not a promise that every play of those routes matches the copper column; income depends on which tiles were owned at each End Turn. The routes above are the ones used to pick the weights.
+These rows are the bundled `chapter-i.json` replayed on `Campaign`, every attack won except where the row says a loss. Each attack spends 10 copper, so every route finishes at or below the starting copper and the copper term is 0. Before the fee, the stash detour scored above the bare rush.
+
+**Open balance issue, ruleset 1.** Only the bare rush can be paid. The intended remarkable finish is the short path plus the south stash, and it is short 4 copper at the citadel. A lost fight costs two End Turns of camp income before the next attack. Raising the starting copper, lowering the fee, or adding copper to the rewards on the path fixes it; that is a designer choice and a `rulesetVersion` bump. The campaign editor's Routes tab ([campaign_editor.md](./campaign_editor.md)) is the check.
 
 A finished instance is immutable.
 
 ## Chapter I ruleset version 1
 
-Definition id `chapter-i`. Title `Chapter I`. `rulesetVersion` 1. Every neutral garrison uses `npc-v1` and starts from the easy, normal, or hard kit. A tile spec may set `npcAlgorithmId` to `npc-greed-v1` instead. `economyConsumesActionPoint` false. `actionPointsPerTurn` 1. Mine income is per tile, in the map table.
+Definition id `chapter-i`. Title `Chapter I`. `rulesetVersion` 1. Every neutral garrison uses `npc-v1` and starts from the easy, normal, or hard kit. A tile may name its own `defenderKit`, which replaces the difficulty kit whole; Chapter I version 1 uses none. A tile spec may set `npcAlgorithmId` to `npc-greed-v1` instead. `economyConsumesActionPoint` false. `actionPointsPerTurn` 1. Mine income is per tile, in the map table.
 
 Goal text, safe to show the client: "Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score."
 
@@ -528,7 +530,7 @@ Goal text, safe to show the client: "Take the citadel. Fewer turns, more victori
 | normal | 9 | 4 | 7 | 1 | 0 | 0 | 0 |
 | hard | 12 | 8 | 8 | 1 | 1 | 1 | 1 |
 
-Defender coins are 0.
+A tile may name its own `defenderKit`, which replaces the difficulty kit whole. Chapter I version 1 uses none. Defender coins are 0.
 
 ### Economy
 
@@ -621,7 +623,7 @@ Stashes, one pile each. Opening one costs 6 copper.
 
 The cell under "Mine, per level per turn" is the unit, not `mines` times the unit. A copper unit is 2, so the camp cell says 2 copper and a mines value of 1 pays 2. A stone unit is 1. The citadel's unit is 1 paper and its `mines` is 2, so the pay would be 2 paper. Chapter I ends before that pay happens. In the API, stone is `stones`, paper is `papers`, scissors is `scissors`, and copper is `copper`.
 
-The south stash pays its own search back in copper. The prize is 2 silver and one battle of scissors. That is why the three-turn route scores 228 against the two-turn rush at 214. The other two stashes replace a lost stack. They are not worth a turn for the score. A further easy hex scores 202. The citadel is not a neighbor of the camp. `enabled` remains on the tile for a later chapter that needs a blocked hex. Chapter I does not author one.
+The south stash pays its own search back in copper. The prize is 2 silver and one battle of scissors. It was meant to make the three-turn route beat the two-turn rush; with the attack fee, that route cannot pay the citadel attack (see the score examples). The other two stashes replace a lost stack. They are not worth a turn for the score. The citadel is not a neighbor of the camp. `enabled` remains on the tile for a later chapter that needs a blocked hex. Chapter I does not author one.
 
 ### Stalls
 
@@ -631,7 +633,7 @@ Chapter I does not auto-finish a poor player. The view reports stalls in `blocke
 - No legal attack target (`no_attack_target`). This should not happen while the citadel is uncaptured and a path of enabled tiles remains; still report it if the map is ever mis-authored.
 - A battle is open (`battle_in_progress`).
 
-Digging a gesture tile and ending the turn recovers that gesture. A copper tile's dig only returns the copper it cost. Tuning is meant to keep the starting wallet able to open the first battle, and able to open another after one lost fight if the player digs. That is a playtest check, not a hidden rule.
+Digging a gesture tile and ending the turn recovers that gesture. A copper tile's dig only returns the copper it cost. Tuning is meant to keep the starting wallet able to open the first battle, and able to open another after one lost fight if the player digs. That is a playtest check, not a hidden rule. Ruleset 1 misses it: after a lost gate the wallet is 6 copper, the camp dig nets 0, and the next attack waits two End Turns.
 
 ## Commands
 

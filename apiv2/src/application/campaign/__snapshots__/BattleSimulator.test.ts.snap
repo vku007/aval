@@ -1,0 +1,86 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`simulateBattles > pins the bundled citadel over 200 runs 1`] = `
+{
+  "averageRoundWins": {
+    "npc": 2.34,
+    "player": 3.48,
+  },
+  "capped": 0,
+  "cappedRate": 0,
+  "garrisonAfterLoss": {
+    "NA_effect_papers": 1,
+    "NA_effect_scissors": 1,
+    "NA_effect_stone": 1,
+    "NT_effect": 1,
+    "papers": 1.32,
+    "scissors": 2.21,
+    "stones": 2.68,
+  },
+  "itemsSpent": {
+    "average": {
+      "NA_effect_stone": 1,
+      "NT_effect": 1,
+      "papers": 6.5,
+      "scissors": 3.65,
+      "stones": 7.65,
+    },
+    "worst": {
+      "NA_effect_stone": 1,
+      "NT_effect": 1,
+      "papers": 9,
+      "scissors": 6,
+      "stones": 12,
+    },
+  },
+  "losses": 53,
+  "runs": 200,
+  "secondAttack": {
+    "runs": 53,
+    "winRate": 1,
+  },
+  "winRate": 0.74,
+  "wins": 147,
+}
+`;
+
+exports[`simulateBattles > pins the bundled gate over 200 runs 1`] = `
+{
+  "averageRoundWins": {
+    "npc": 1.52,
+    "player": 2.57,
+  },
+  "capped": 0,
+  "cappedRate": 0,
+  "garrisonAfterLoss": {
+    "NA_effect_stone": 1,
+    "papers": 1.65,
+    "scissors": 0.69,
+    "stones": 1.72,
+  },
+  "itemsSpent": {
+    "average": {
+      "NA_effect_stone": 1,
+      "NT_effect": 1,
+      "papers": 4.8,
+      "scissors": 2.37,
+      "stones": 5.6,
+    },
+    "worst": {
+      "NA_effect_stone": 1,
+      "NT_effect": 1,
+      "papers": 9,
+      "scissors": 4,
+      "stones": 9,
+    },
+  },
+  "losses": 54,
+  "runs": 200,
+  "secondAttack": {
+    "runs": 54,
+    "winRate": 1,
+  },
+  "winRate": 0.73,
+  "wins": 146,
+}
+`;

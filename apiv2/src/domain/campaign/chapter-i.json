@@ -119,7 +119,7 @@
     {
       "q": 0,
       "r": -1,
-      "product": "stones",
+      "product": "papers",
       "mines": 1,
       "maxMines": 3,
       "difficulty": "normal",
@@ -139,7 +139,7 @@
     {
       "q": 1,
       "r": -1,
-      "product": "stones",
+      "product": "papers",
       "mines": 1,
       "maxMines": 2,
       "difficulty": "easy",
@@ -159,7 +159,7 @@
     {
       "q": 0,
       "r": 1,
-      "product": "scissors",
+      "product": "papers",
       "mines": 1,
       "maxMines": 2,
       "difficulty": "easy",
@@ -188,7 +188,7 @@
     {
       "q": -1,
       "r": 0,
-      "product": "scissors",
+      "product": "papers",
       "mines": 1,
       "maxMines": 2,
       "difficulty": "easy",
@@ -290,7 +290,7 @@
     {
       "q": -1,
       "r": 2,
-      "product": "scissors",
+      "product": "papers",
       "mines": 1,
       "maxMines": 2,
       "difficulty": "easy",
@@ -330,7 +330,7 @@
     {
       "q": -1,
       "r": -1,
-      "product": "stones",
+      "product": "papers",
       "mines": 1,
       "maxMines": 2,
       "difficulty": "easy",

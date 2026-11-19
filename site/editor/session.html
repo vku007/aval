@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open the campaign editor</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
+    p { max-width: 36rem; }
+  </style>
+</head>
+<body>
+  <p id="status">Opening the campaign editor…</p>
+  <script>
+    const statusEl = document.getElementById('status');
+
+    function cookie(name) {
+      const row = document.cookie.split('; ').find((part) => part.startsWith(name + '='));
+      return row ? row.slice(name.length + 1) : '';
+    }
+
+    function fail(message) {
+      statusEl.textContent = message;
+    }
+
+    async function openEditor() {
+      const idToken = cookie('idToken');
+      if (!idToken) {
+        window.location.replace('/login.html?next=/editor/session.html');
+        return;
+      }
+      let response;
+      try {
+        response = await fetch('/apiv2/internal/editor-session', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'content-type': 'application/json',
+            authorization: 'Bearer ' + idToken
+          },
+          body: '{}'
+        });
+      } catch (error) {
+        fail('Could not reach the API.');
+        return;
+      }
+      if (response.status === 204) {
+        window.location.replace('/editor/');
+        return;
+      }
+      if (response.status === 401) {
+        window.location.replace('/login.html?next=/editor/session.html');
+        return;
+      }
+      if (response.status === 403) {
+        fail('The campaign editor is available to admin accounts.');
+        return;
+      }
+      fail('The editor session could not be opened (' + response.status + ').');
+    }
+
+    openEditor();
+  </script>
+</body>
+</html>

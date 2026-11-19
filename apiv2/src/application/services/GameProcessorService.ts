@@ -1,5 +1,4 @@
 import { CreateGameRequest } from '../dto/processor/CreateGameRequest.js';
-import { GameCreateContext } from '../dto/processor/GameCreateContext.js';
 import { CreateGameResponse } from '../dto/processor/CreateGameResponse.js';
 import { GameResponse } from '../dto/processor/response/GameResponse.js';
 import { UpdateGameResponse } from '../dto/processor/UpdateGameResponse.js';
@@ -18,13 +17,9 @@ import { GameEntity } from '../../domain/entity/GameEntity.js';
 import { NotFoundError, ValidationError } from '../../shared/errors/index.js';
 import { RoundState } from '../dto/processor/RoundState.js';
 import { SubRoundState } from '../dto/processor/SubRoundState.js';
-import { CURRENCY_KEYS, GamePlayerInventory, ITEM_KEYS, type InventoryItems } from '../../domain/value-object/GamePlayerInventory.js';
-import { GameType } from '../../domain/value-object/GameType.js';
-import { GameLevel } from '../../domain/value-object/GameLevel.js';
-import { CampaignContext } from '../../domain/value-object/CampaignContext.js';
-import type { CurrencyStack, ItemStack } from '../../domain/campaign/CampaignInventory.js';
-import { assertSupportedNpcAlgorithm } from '../../domain/campaign/Garrison.js';
+import { GamePlayerInventory } from '../../domain/value-object/GamePlayerInventory.js';
 import type { BattleGameSpec, CampaignBattleSink } from './CampaignGamePort.js';
+import { buildBattleGame } from '../campaign/BattleGameBuilder.js';
 import { campaignProcessor } from '../campaign/npcSeed.js';
 import type { EntityMetadata } from '../../shared/types/common.js';
 
@@ -129,39 +124,14 @@ export class GameProcessorService {
 
   /**
    * Creates a linked campaign battle and throws when the game is not stored.
-   * Inventories are the rows given to this method. Coins are 0.
    */
   async createBattle(spec: BattleGameSpec): Promise<{ gameId: string }> {
     if (!this.gameRepository) {
       throw new Error('Game repository is required to create a battle');
     }
-    assertSupportedNpcAlgorithm(spec.npcAlgorithmId);
-    const usersIds = [spec.userId, 'NPC_1'];
     const now = Date.now();
     const gameId = `game-${now}-${Math.random().toString(36).substring(2, 9)}`;
-    const game = new Game(
-      gameId,
-      usersIds,
-      GameStatus.Created,
-      new GameCreateContext(
-        GameType.PVE,
-        spec.rounds,
-        KindOfGame.Extended,
-        new GameLevel(spec.levelName),
-        new CampaignContext(spec.title)
-      )
-    );
-    game.inventories = [
-      zeroCoinInventory(spec.userId, spec.humanItems, now),
-      stackedInventory('NPC_1', spec.npcItems, spec.npcCurrencies, now)
-    ];
-    game.assignCampaignLink({
-      campaignId: spec.campaignId,
-      campaignTile: { ...spec.tile },
-      campaignAttackId: spec.attackId,
-      campaignBattleSeed: spec.seed,
-      campaignNpcAlgorithmId: spec.npcAlgorithmId
-    });
+    const game = buildBattleGame(spec, gameId, now);
     await this.gameRepository.save(this.toEntity(game), { ifNoneMatch: '*' });
     return { gameId };
   }
@@ -480,34 +450,5 @@ export class GameProcessorService {
       game.campaignLink()
     );
   }
-}
-
-function stackedInventory(
-  userId: string,
-  items: ItemStack,
-  currencies: CurrencyStack,
-  time: number
-): GamePlayerInventory {
-  const full = {} as InventoryItems;
-  for (const key of ITEM_KEYS) {
-    full[key] = items[key] ?? 0;
-  }
-  return new GamePlayerInventory(userId, full, {
-    gold: currencies.gold ?? 0,
-    silver: currencies.silver ?? 0,
-    copper: currencies.copper ?? 0
-  }, time);
-}
-
-function zeroCoinInventory(userId: string, items: ItemStack, time: number): GamePlayerInventory {
-  const full = {} as InventoryItems;
-  for (const key of ITEM_KEYS) {
-    full[key] = items[key] ?? 0;
-  }
-  const currencies = { gold: 0, silver: 0, copper: 0 };
-  for (const key of CURRENCY_KEYS) {
-    currencies[key] = 0;
-  }
-  return new GamePlayerInventory(userId, full, currencies, time);
 }
 

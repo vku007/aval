@@ -37,6 +37,9 @@ export function unitFor(product: MineProduct): number {
   return product === 'copper' ? 2 : 1;
 }
 
+/** Dig pays this many turns of that tile's mine income at once. */
+export const DIG_TURNS = 2;
+
 export function positiveItems(stack: ItemStack): ItemStack {
   const items: ItemStack = {};
   for (const key of ITEM_KEYS) {

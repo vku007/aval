@@ -141,13 +141,16 @@ describe('Chapter I instance', () => {
 
     const opened = captureGate(fresh());
     const gateDug = opened.dig(0, -1, NOW);
-    expect(gateDug.inventory.items.stones).toBe(opened.inventory.items.stones + 2);
+    expect(gateDug.inventory.items.papers).toBe(opened.inventory.items.papers + 2);
+    expect(gateDug.inventory.items.stones).toBe(opened.inventory.items.stones);
     expect(gateDug.inventory.currencies.copper).toBe(opened.inventory.currencies.copper - 4);
     const afterCapture = opened.endTurn(NOW);
     expect(afterCapture.inventory.items.stones).toBe(opened.inventory.items.stones);
+    expect(afterCapture.inventory.items.papers).toBe(opened.inventory.items.papers);
     expect(afterCapture.inventory.currencies.copper).toBe(opened.inventory.currencies.copper + 2);
     const next = afterCapture.endTurn(NOW);
-    expect(next.inventory.items.stones).toBe(afterCapture.inventory.items.stones + 1);
+    expect(next.inventory.items.stones).toBe(afterCapture.inventory.items.stones);
+    expect(next.inventory.items.papers).toBe(afterCapture.inventory.items.papers + 1);
 
     const south = captureSouth(opened).endTurn(NOW);
     const searched = south.search(0, 1, NOW);

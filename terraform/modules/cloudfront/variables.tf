@@ -78,12 +78,15 @@ variable "default_cache_policy_id" {
 variable "ordered_cache_behaviors" {
   description = "Ordered cache behaviors"
   type = list(object({
-    path_pattern             = string
-    target_origin_id         = string
-    allowed_methods          = list(string)
-    cached_methods           = list(string)
-    cache_policy_id          = string
-    origin_request_policy_id = optional(string)
+    path_pattern               = string
+    target_origin_id           = string
+    allowed_methods            = list(string)
+    cached_methods             = list(string)
+    cache_policy_id            = string
+    origin_request_policy_id   = optional(string)
+    function_arn               = optional(string)
+    trusted_key_group_ids      = optional(list(string))
+    response_headers_policy_id = optional(string)
   }))
   default = []
 }
@@ -114,5 +117,10 @@ variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
+}
+
+variable "editor_key_group_id" {
+  description = "CloudFront key group that signs cookies for /editor/*"
+  type        = string
 }
 

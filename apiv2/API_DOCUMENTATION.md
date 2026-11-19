@@ -67,6 +67,7 @@ The API supports CORS with the following configuration:
 | **Game profile** | `/apiv2/internal/cognito-users/{username}/game-profile` | PUT, PATCH | admin |
 | **User games** | `/apiv2/internal/cognito-users/{username}/games` | GET | admin |
 | **Audit logs** | `/apiv2/internal/audit-logs` | GET | admin |
+| **Editor session** | `/apiv2/internal/editor-session` | POST | admin |
 | **Games** | `/apiv2/internal/games` | GET, POST | admin |
 | **Game** | `/apiv2/internal/games/{id}` | GET, PUT, PATCH, DELETE | admin |
 | **Game Meta** | `/apiv2/internal/games/{id}/meta` | GET | admin |
@@ -1214,6 +1215,12 @@ Scans up to 100 game objects and returns those whose `usersIds` include the user
 | `cursor` | string | S3 continuation token |
 
 Actions: `create`, `update`, `delete`, `set-group`, `set-password`, `enable`, `disable`, `upsert-game-profile`.
+
+### Editor session
+
+**POST** `/apiv2/internal/editor-session`
+
+Admin only. Body is `{}`. Response is **204** with three `Set-Cookie` headers (`CloudFront-Policy`, `CloudFront-Signature`, `CloudFront-Key-Pair-Id`) scoped to `/editor/` for one hour. The browser then loads `https://vkp-consulting.fr/editor/`. This route does not accept or store a chapter file. **503** when the signing key is not configured.
 
 ---
 

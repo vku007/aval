@@ -94,11 +94,15 @@ export class ApiGatewayAdapter {
       }
     }
 
-    return {
+    const result: APIGatewayProxyResultV2 = {
       statusCode: response.statusCode,
       headers,
       body
     };
+    if (response.cookies.length > 0) {
+      result.cookies = [...response.cookies];
+    }
+    return result;
   }
 }
 

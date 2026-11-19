@@ -28,6 +28,11 @@ Living documentation for the VKP Consulting infrastructure and APIs.
 - [apiv2/plans/](apiv2/plans/) — design notes, not ops docs
 - [apiv2/plans/chapter_i_gameplay.md](apiv2/plans/chapter_i_gameplay.md) — Chapter I, as a run plays
 - [apiv2/plans/local_dev.md](apiv2/plans/local_dev.md) — local HTTP host and filesystem store
+- [tools/campaign-editor/README.md](tools/campaign-editor/README.md) — local Chapter I editor
+- [apiv2/plans/campaign_editor.md](apiv2/plans/campaign_editor.md) — campaign editor design
+- [apiv2/plans/campaign_editor_build.md](apiv2/plans/campaign_editor_build.md) — campaign editor build tasks
+- [apiv2/plans/campaign_editor_review.md](apiv2/plans/campaign_editor_review.md) — campaign editor design review
+- [apiv2/plans/campaign_editor_deploy.md](apiv2/plans/campaign_editor_deploy.md) — campaign editor deployment plan (not implemented)
 
 ## Operations
 

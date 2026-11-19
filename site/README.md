@@ -34,6 +34,8 @@ Auth: [AUTH.md](../AUTH.md). Deploy: sync this folder to S3, then invalidate Clo
 | https://vkp-consulting.fr/games/ | Admin games |
 | https://vkp-consulting.fr/html5Simple/ | Game client (`/apiv2/public` + `/apiv2/external/games`); logical canvas 390×844, Scale.FIT. Scene copy and transitions: [html5Simple/SCENES.md](html5Simple/SCENES.md) |
 | https://vkp-consulting.fr/errors/ | Preview of branded HTTP error pages |
+| https://vkp-consulting.fr/editor/session.html | Admin bootstrap for the campaign editor |
+| https://vkp-consulting.fr/editor/ | Campaign editor shell (CloudFront signed cookies) |
 
 CloudFront maps 400/403/404/500 to `/api/errors/{code}.html` (see [terraform/main.tf](../terraform/main.tf)). Folder URLs (`/aval/`, `/users/`, …) are rewritten to `index.html` by CloudFront Function `vkp-rewrite-index` (S3 behavior only). `errors/` is the same family of pages for humans; CloudFront does not serve 429/502/503/504 from that gallery.
 
@@ -48,8 +50,15 @@ Mint a token for curl: [scripts/README.md](../scripts/README.md).
 ## Deploy
 
 ```bash
-aws s3 sync site/ s3://vkp-consulting.fr/ --exclude ".DS_Store"
+aws s3 sync site/ s3://vkp-consulting.fr/ --exclude ".DS_Store" --exclude "editor/*"
+aws s3 cp site/editor/session.html s3://vkp-consulting.fr/editor/session.html --cache-control "no-cache"
 aws cloudfront create-invalidation --distribution-id EJWBLACWDMFAZ --paths "/*"
+```
+
+The editor shell is a separate build. Do not let this sync delete it.
+
+```bash
+./scripts/deploy-editor.sh
 ```
 
 `--delete` removes S3 keys that are not in `site/` (including anything still live that was moved to `obsolete/`).
