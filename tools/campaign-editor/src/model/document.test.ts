@@ -185,6 +185,45 @@ describe('reduce', () => {
     expect(state.selection).toEqual([{ q: 1, r: -1 }]);
   });
 
+  it('makes a tile unavailable in one step and restores a neutral fight', () => {
+    const state = reduce(createEditorState(bundled(), 'bundled'), {
+      type: 'setUnavailable',
+      cells: [gate],
+      unavailable: true
+    });
+    const wall = tileAt(state.doc, 0, -1);
+    expect(wall.unavailable).toBe(true);
+    expect(wall.owner).toBeUndefined();
+    expect(wall.objective).toBeUndefined();
+    expect(wall.difficulty).toBeNull();
+    expect(wall.mines).toBe(0);
+    expect(wall.maxMines).toBe(0);
+    expect(wall.reward).toBeUndefined();
+    expect(wall.defenderKit).toBeUndefined();
+    expect(wall.stash).toBeUndefined();
+    expect(wall.label).toBe('gate');
+    expect(wall.product).toBe('papers');
+
+    const camp = reduce(state, { type: 'setUnavailable', cells: [{ q: 0, r: 0 }], unavailable: true });
+    expect(tileAt(camp.doc, 0, 0).owner).toBeUndefined();
+    expect(tileAt(camp.doc, 0, 0).unavailable).toBe(true);
+    expect(tileAt(camp.doc, 0, 0).product).toBe('copper');
+
+    const restored = reduce(state, { type: 'setUnavailable', cells: [gate], unavailable: false });
+    const fight = tileAt(restored.doc, 0, -1);
+    expect(fight.unavailable).toBeUndefined();
+    expect(fight).toMatchObject({
+      difficulty: 'easy',
+      mines: 1,
+      maxMines: 1,
+      product: 'papers',
+      revealed: true,
+      label: 'gate'
+    });
+    expect(fight.reward).toBeUndefined();
+    expect(fight.defenderKit).toBeUndefined();
+  });
+
   it('keeps the baseline independent of the document', () => {
     const state: EditorState = createEditorState(bundled(), 'bundled');
     state.doc.title = 'Changed';

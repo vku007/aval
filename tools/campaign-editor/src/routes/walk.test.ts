@@ -26,10 +26,10 @@ describe('reference routes on the bundled chapter', () => {
     ]);
   });
 
-  it('scores the bare rush at 200 in 2 turns', () => {
+  it('scores the bare rush at 325 in 2 turns', () => {
     const result = walkRoute(settings, routeNamed('Bare rush'));
     expect(result.completed).toBe(true);
-    expect(result.score).toEqual({ total: 200, turns: 2, victories: 2, silver: 3, copper: 0 });
+    expect(result.score).toEqual({ total: 325, turns: 2, victories: 2, silver: 3, copper: 0 });
     expect(result.steps.at(-1)).toMatchObject({ ok: true, turn: 2 });
   });
 
@@ -56,10 +56,10 @@ describe('reference routes on the bundled chapter', () => {
     expect(result.steps.at(-1)?.error).toContain('Not enough copper');
   });
 
-  it('finishes a lost gate then the rush in 6 turns at 0', () => {
+  it('finishes a lost gate then the rush in 6 turns at 225', () => {
     const result = walkRoute(settings, routeNamed('Lose the gate once'));
     expect(result.completed).toBe(true);
-    expect(result.score).toMatchObject({ total: 0, turns: 6 });
+    expect(result.score).toEqual({ total: 225, turns: 6, victories: 2, silver: 3, copper: 0 });
     expect(result.steps[0]).toMatchObject({ ok: true, owned: 1, copper: 6, turn: 1 });
   });
 

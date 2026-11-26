@@ -2,13 +2,13 @@
 
 How a run of Chapter I feels in the hand. The rulebook is [campaigns.md](./campaigns.md). The numbers live there and in `ChapterI.ts`. When this page and those disagree, those win.
 
-Goal the player can read: **Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score.**
+Goal the player can read: **Take the citadel. Each victory is 125. Two turns per victory stay free. Further turns cost 50. Silver and copper you keep are added. Eight victories in sixteen turns score 1000.**
 
 ## The promise
 
 Chapter I is a short hex campaign wrapped around the extended rock-paper-scissors match. The player starts with a camp, a full kit, and sixteen copper. The citadel sits two steps due north, behind one gate. Everything else on the map is a choice about whether that step is worth a turn.
 
-A remarkable clear is three fights: the south stash, the gate, the citadel. The bare rush is two fights and scores just behind it. A fourth fight, or a lost fight, scores lower. The chapter is built so the player feels that clock on the second turn, while the land still offers silver, scissors, and a safer rematch if the gate goes badly.
+Each fight inside the pace adds 125. The bare rush is two fights and scores 325. The south stash, the gate, and the citadel are three fights and score 500 when the citadel fee can be paid. A turn past two per victory costs 50. The land still offers silver, scissors, and a safer rematch if the gate goes badly.
 
 There is no defeat screen. Land, once taken, stays taken. An empty wallet leaves the run open. The player can wait on the camp's copper, buy what they are short, or leave. Leaving writes no score.
 
@@ -135,7 +135,7 @@ The player learns the product by owning the hex. Until then the cell is only a d
 
 **Dig** costs 4 copper, once per owned hex per turn. It pays two turns of that mine immediately and does not raise the mine. A stone mine at 1 returns 2 stones. The camp returns 4 copper, which is the dig paid back. A copper hex is held for its income. Digging it does not fill the wallet.
 
-**Upgrade** costs 6 copper, once per owned hex per turn, and raises the mine by one up to the cap. Income later that turn uses the new level. The camp can grow to 3 and pay 6 copper a turn. That is a long bet. The score charges 50 points for every turn the citadel is still standing, and an upgrade does not take a hex.
+**Upgrade** costs 6 copper, once per owned hex per turn, and raises the mine by one up to the cap. Income later that turn uses the new level. The camp can grow to 3 and pay 6 copper a turn. That is a long bet. Two turns per victory stay free. A further turn costs 50, and an upgrade does not take a hex.
 
 **Search** costs 6 copper, once per owned hex per turn, and only on a hex that still has an unfound pile. The sheet does not preview the pile. The player sees it when it lands.
 
@@ -149,9 +149,9 @@ Three hexes hide one pile each. Opening the pile is the search.
 | West of the citadel `(-1,-1)` | Revealed when the gate falls. Easy. Stone mine. | 4 stones, 1 Stone NA, 4 copper |
 | East of the citadel `(1,-2)` | Revealed when the gate falls. Easy. Paper mine. | 1 silver, 4 papers, 1 Paper NA, 4 copper |
 
-The south pile pays its own search back in copper. The prize is 2 silver and a battle's worth of scissors, on a hex the player can take before they ever see the citadel. That is the detour the score is tuned to reward.
+The south pile pays its own search back in copper. The prize is 2 silver and a battle's worth of scissors, on a hex the player can take before they ever see the citadel. That hex is another victory. Inside the pace the victory is 125 and the two silver add 50.
 
-The other two piles replace a stack that was spent or lost. One of them also holds a single silver. Neither is worth a turn on a run that is chasing the high score. They are the safety the player uses after a bad gate, once that shoulder hex is visible.
+The other two piles replace a stack that was spent or lost. One of them also holds a single silver, which is 25. Taking the hex is another victory. They are also the safety the player uses after a bad gate, once that shoulder hex is visible.
 
 ## The shop
 
@@ -172,45 +172,47 @@ A purchase spends no attack and does not advance the turn. It is refused during 
 
 Only a citadel victory has a score. Leaving, and a finish from outside the game, store none. A missing score is not a zero.
 
-The total is frozen when the citadel falls. Later changes to the weights do not rewrite it.
+The total is frozen when the citadel falls. Later changes to the weights do not rewrite it. A run already started on ruleset 1 keeps that run's weights.
 
 ```
-total = max(0, 200 − turns × 50 + victories × 20 + silver × 20 + copper × 1)
+pace  = victories × 2
+extra = max(0, turns − pace)
+total = max(0, victories × 125 − extra × 50 + silver × 25 + copper × 1)
 ```
 
 | Input | What counts |
 |---|---|
-| Turns | The counter on the map, including the turn the citadel falls. The player does not End Turn after that fight, and the turn still counts. |
-| Victories | Owned hexes, minus the camp. A loss adds none. |
-| Silver | Silver in the wallet above the start. The start is 0, so every silver found counts. |
-| Copper | Copper in the wallet above the start of 16. |
+| Turns | The counter on the map, including the turn the citadel falls. The player does not End Turn after that fight, and the turn still counts. Two turns per victory stay free. Each turn past that costs 50. |
+| Victories | Owned hexes, minus the camp. A loss adds none. Each one is 125. |
+| Silver | Silver in the wallet above the start. The start is 0, so every silver found counts. 25 each. |
+| Copper | Copper in the wallet above the start of 16. 1 each. |
 
-Stones, papers, scissors, effects, and gold are how the run is played. They are not on the score. One turn costs as much as one victory plus one silver plus a little more, or as much as 50 copper. A lost battle adds a turn and no victory.
+Stones, papers, scissors, effects, and gold are how the run is played. They are not on the score. Eight victories in sixteen turns, with nothing kept, score 1000. A turn inside that pace does not add a speed bonus. Two silver tie one extra turn. A lost battle adds a turn and no victory.
 
-The tuned totals for ruleset 1:
+| Run | Turns | Victories | Extra | Silver | Copper above 16 | Total |
+|---|---|---|---|---|---|---|
+| Eight victories on pace | 16 | 8 | 0 | 0 | 0 | 1000 |
+| One turn past that pace | 17 | 8 | 1 | 0 | 0 | 950 |
+| Gate, then citadel | 2 | 2 | 0 | 3 | 0 | 325 |
+| South pile, then gate, then citadel | 3 | 3 | 0 | 5 | 0 | 500 |
+| That path, plus the easy paper hex `(1,0)` | 4 | 4 | 0 | 5 | 0 | 625 |
+| One lost gate, then the rush | 3 | 2 | 0 | 3 | 0 | 325 |
 
-| Run | Turns | Victories | Silver | Copper above 16 | Total |
-|---|---|---|---|---|---|
-| Gate, then citadel | 2 | 2 | 3 | 0 | 200 |
-| South pile, then gate, then citadel | 3 | 3 | 5 | 0 | 210 |
-| That path, plus the easy paper hex `(1,0)`, then the gate and the citadel | 4 | 4 | 5 | 0 | 180 |
-| Lose the gate once, then the bare rush | 3 | 2 | 3 | 0 | 150 |
-
-Silver on the rush is the gate's 1 plus the citadel's 2. The south pile adds 2, which is why three turns can beat two. Each of these attacks spends 10 copper, and the rewards and the camp's payday do not climb back to 16, so the copper term is 0. Income depends on which tiles were owned at each End Turn; the table is the tuning target for these routes.
+Silver on the rush is the gate's 1 plus the citadel's 2. The south pile adds 2. Each of these attacks spends 10 copper, and the rewards and the camp's payday do not climb back to 16, so the copper term is 0. The south-stash routes in the bundled file still stop short of the citadel fee. The bundled lost-gate route waits on the camp and finishes in 6 turns at 225.
 
 The catalog keeps the best victory total, and a history of victories. An abandoned run stays on the player and is omitted from that list.
 
 ## The runs worth playing
 
-**The rush.** Turn 1, attack the gate from the camp. It is the northern neighbor, marked normal, best of 5. Win it. The citadel and the two shoulder piles appear. End Turn: the camp pays 2 copper, and the gate does not pay yet. Turn 2, attack the citadel, best of 7. Win it. Score 200 if the silver is the two rewards and the copper finishes at or below 16.
+**The rush.** Turn 1, attack the gate from the camp. It is the northern neighbor, marked normal, best of 5. Win it. The citadel and the two shoulder piles appear. End Turn: the camp pays 2 copper, and the gate does not pay yet. Turn 2, attack the citadel, best of 7. Win it. Score 325 if the silver is the two rewards and the copper finishes at or below 16.
 
 Copper along that line, if nothing else is bought or dug: start 16, fee 10, gate reward 4, camp payday 2, citadel fee 10, citadel reward 8. The wallet ends at 10.
 
-**The south line.** Turn 1, take the south hex and search it. The search returns its 6 copper, and the wallet gains 2 silver and 4 scissors on top of the easy reward (2 scissors and 2 copper). End Turn pays the camp's copper and, next time, the south mine's scissors. Turn 2, the gate. Turn 3, the citadel. Score 210 on the tuning target. This is the finish the chapter is aiming the player at: one deliberate detour, then the road north.
+**The south line.** Turn 1, take the south hex and search it. The search returns its 6 copper, and the wallet gains 2 silver and 4 scissors on top of the easy reward (2 scissors and 2 copper). End Turn pays the camp's copper and, next time, the south mine's scissors. Turn 2, the gate. Turn 3, the citadel. Score 500 when the wallet can pay the citadel fee. This is one more victory inside the pace, plus the two silver.
 
-**A wider walk.** Another easy hex is another victory and another turn. Four turns with the south silver scores 180, under the rush. The rim is there to be taken. The score says it is a walk, not a high finish.
+**A wider walk.** Another easy hex is another victory and another turn. Four turns with the south silver score 625. The rim scores higher while the clear stays inside two turns per victory.
 
-**A lost gate.** The fee and the thrown items are gone. The gate's remaining stack is now visible, so the rematch is a smaller defender. The only mine the player owns is still the camp, which pays copper. Digging the camp returns the dig's cost. Gesture income starts when a gesture hex is owned. Until then the player waits on 2 copper a turn, and buys the missing gestures if the wallet can cover them. After one loss and then the rush, the tuning score is 150.
+**A lost gate.** The fee and the thrown items are gone. The gate's remaining stack is now visible, so the rematch is a smaller defender. The only mine the player owns is still the camp, which pays copper. Digging the camp returns the dig's cost. Gesture income starts when a gesture hex is owned. Until then the player waits on 2 copper a turn, and buys the missing gestures if the wallet can cover them. One loss and then the rush, in 3 turns, still sits inside the pace and scores 325. The bundled route that waits out the fee takes 6 turns and scores 225.
 
 The shoulders are the other recovery. Once the gate has fallen, `(-1,-1)` refills stones and a Stone NA, and `(1,-2)` refills papers, a Paper NA, and one silver. They cost a turn each. They are how a wounded army restocks in sight of the citadel.
 

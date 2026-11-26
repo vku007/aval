@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import chapterI from './chapter-i.json';
-import { parseChapterSettings, safeParseChapterSettings } from './ChapterSettingsSchema.js';
+import { parseChapterSettings, safeParseChapterFile, safeParseChapterSettings } from './ChapterSettingsSchema.js';
 
 function clone(): any {
   return structuredClone(chapterI);
@@ -80,6 +80,23 @@ describe('ChapterSettingsSchema', () => {
     const doc = clone();
     doc.tiles[1].owner = 'npc';
     expect(issueFor(doc).path).toEqual(['tiles', 1, 'owner']);
+  });
+
+  it('rejects a linear score weight on a new chapter file', () => {
+    const doc = clone();
+    doc.rules.scoreWeights = { base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 };
+    expect(issueFor(doc).path[0]).toBe('rules');
+    expect(issueFor(doc).path[1]).toBe('scoreWeights');
+  });
+
+  it('accepts the deployed editor score weights on a file start', () => {
+    const doc = clone();
+    doc.rules.scoreWeights = { base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 };
+    const parsed = safeParseChapterFile(doc);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.settings.rules.scoreWeights).toEqual(doc.rules.scoreWeights);
+    }
   });
 
   it('rejects a file with no rules', () => {

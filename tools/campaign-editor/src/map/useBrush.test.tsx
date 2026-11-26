@@ -120,6 +120,20 @@ describe('brushAction', () => {
     });
   });
 
+  it('paints a wall, including the camp, and skips a wall that is already painted', () => {
+    const owned = tileAt(settings, camp);
+    const gateTile = tileAt(settings, gate);
+    expect(brushAction({ field: 'unavailable' }, camp, owned)).toEqual({
+      type: 'setUnavailable',
+      cells: [camp],
+      unavailable: true
+    });
+    const wall = { ...gateTile, unavailable: true as const };
+    expect(brushAction({ field: 'unavailable' }, gate, wall)).toBeNull();
+    expect(brushAction(hard, gate, wall)).toBeNull();
+    expect(brushAction({ field: 'kit', value: 'default' }, gate, { ...wall, defenderKit: { scissors: 1 } })).toBeNull();
+  });
+
   it('skips a cell that already has the painted value', () => {
     const normal = tileAt(settings, gate);
     expect(brushAction({ field: 'difficulty', value: 'normal' }, gate, normal)).toBeNull();

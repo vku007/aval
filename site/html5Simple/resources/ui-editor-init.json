@@ -191,7 +191,7 @@
   ],
   "highlighters": [
     {
-      "name": "Login",
+      "name": "Account",
       "isVisible": true,
       "cycling": false,
       "params": {
@@ -213,101 +213,11 @@
       },
       "center": {
         "col": 64.5,
-        "row": 68.3412
+        "row": 113.4597
       },
       "target": {
         "col": 64.5,
-        "row": 68.3412
-      }
-    },
-    {
-      "name": "Register",
-      "isVisible": true,
-      "cycling": false,
-      "params": {
-        "speed": 6,
-        "delay": 0.5,
-        "gap": 0.4
-      },
-      "from": {
-        "width": 106,
-        "height": 18,
-        "angle": 0,
-        "heat": 0.1
-      },
-      "to": {
-        "width": 108,
-        "height": 22,
-        "angle": 0,
-        "heat": 0.9
-      },
-      "center": {
-        "col": 64.5,
-        "row": 92.2275
-      },
-      "target": {
-        "col": 64.5,
-        "row": 92.2275
-      }
-    },
-    {
-      "name": "Logout",
-      "isVisible": true,
-      "cycling": false,
-      "params": {
-        "speed": 6,
-        "delay": 0.5,
-        "gap": 0.4
-      },
-      "from": {
-        "width": 106,
-        "height": 18,
-        "angle": 0,
-        "heat": 0.1
-      },
-      "to": {
-        "width": 108,
-        "height": 22,
-        "angle": 0,
-        "heat": 0.9
-      },
-      "center": {
-        "col": 64.5,
-        "row": 116.1137
-      },
-      "target": {
-        "col": 64.5,
-        "row": 116.1137
-      }
-    },
-    {
-      "name": "Inventory",
-      "isVisible": true,
-      "cycling": false,
-      "params": {
-        "speed": 6,
-        "delay": 0.5,
-        "gap": 0.4
-      },
-      "from": {
-        "width": 106,
-        "height": 18,
-        "angle": 0,
-        "heat": 0.1
-      },
-      "to": {
-        "width": 108,
-        "height": 22,
-        "angle": 0,
-        "heat": 0.9
-      },
-      "center": {
-        "col": 64.5,
-        "row": 140
-      },
-      "target": {
-        "col": 64.5,
-        "row": 140
+        "row": 113.4597
       }
     },
     {
@@ -333,11 +243,11 @@
       },
       "center": {
         "col": 64.5,
-        "row": 165.2133
+        "row": 138.6730
       },
       "target": {
         "col": 64.5,
-        "row": 165.2133
+        "row": 138.6730
       }
     },
     {
@@ -363,11 +273,11 @@
       },
       "center": {
         "col": 64.5,
-        "row": 190.4265
+        "row": 163.8863
       },
       "target": {
         "col": 64.5,
-        "row": 190.4265
+        "row": 163.8863
       }
     },
     {
@@ -393,11 +303,11 @@
       },
       "center": {
         "col": 64.5,
-        "row": 214.3128
+        "row": 187.7725
       },
       "target": {
         "col": 64.5,
-        "row": 214.3128
+        "row": 187.7725
       }
     },
     {

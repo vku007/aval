@@ -439,6 +439,16 @@ export class Campaign {
       .finish('abandoned', now, [...this.state.log, this.entry(now, 'left', 'abandoned')]);
   }
 
+  /**
+   * Abandon a started run so a chapter file can replace it.
+   * An open battle is dropped and is not refunded. No score is stored.
+   */
+  supersede(now: number): Campaign {
+    this.assertStarted();
+    return this.branch({ lastBattleOutcome: null, activeBattle: null })
+      .finish('abandoned', now, [...this.state.log, this.entry(now, 'left', 'abandoned')]);
+  }
+
   finishExternal(now: number): Campaign {
     this.assertStarted();
     this.assertNoBattle();

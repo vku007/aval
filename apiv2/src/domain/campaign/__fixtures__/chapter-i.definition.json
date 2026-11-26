@@ -1,8 +1,8 @@
 {
   "id": "chapter-i",
   "title": "Chapter I",
-  "goal": "Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score.",
-  "rulesetVersion": 1,
+  "goal": "Take the citadel. Each victory is 125. Two turns per victory stay free. Further turns cost 50. Silver and copper you keep are added. Eight victories in sixteen turns score 1000.",
+  "rulesetVersion": 2,
   "rules": {
     "digCost": 4,
     "searchCost": 6,
@@ -19,10 +19,10 @@
       "NT_effect": 12
     },
     "scoreWeights": {
-      "base": 200,
-      "perTurn": 50,
-      "perVictory": 20,
-      "perSilver": 20,
+      "perVictory": 125,
+      "turnsPerVictory": 2,
+      "perExtraTurn": 50,
+      "perSilver": 25,
       "perCopper": 1
     },
     "economyConsumesActionPoint": false,

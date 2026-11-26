@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { bundled, tileAt } from './__fixtures__/chapterSettings.js';
 import { Campaign } from './Campaign.js';
 import { CHAPTER_I } from './ChapterI.js';
 import { campaignScore } from './CampaignScore.js';
 import { toCampaignView } from './CampaignView.js';
+import { buildChapterDefinition } from './ChapterDefinitionBuilder.js';
+import type { ChapterSettings } from './ChapterSettingsSchema.js';
 import { ConflictError, ValidationError } from '../../shared/errors/index.js';
 
 const NOW = 1_700_000_000_000;
@@ -10,11 +13,32 @@ const NOW = 1_700_000_000_000;
 describe('Campaign score', () => {
   const weights = CHAPTER_I.rules.scoreWeights;
 
-  it('matches the Chapter I tuning rows', () => {
-    expect(campaignScore({ turns: 2, victories: 2, silver: 3, copper: 14, weights }).total).toBe(214);
-    expect(campaignScore({ turns: 3, victories: 3, silver: 5, copper: 18, weights }).total).toBe(228);
-    expect(campaignScore({ turns: 4, victories: 4, silver: 5, copper: 22, weights }).total).toBe(202);
-    expect(campaignScore({ turns: 3, victories: 2, silver: 3, copper: 16, weights }).total).toBe(166);
+  it('scores eight victories in sixteen turns at 1000', () => {
+    expect(campaignScore({ turns: 16, victories: 8, silver: 0, copper: 0, weights }).total).toBe(1000);
+  });
+
+  it('matches the pace rows', () => {
+    expect(campaignScore({ turns: 17, victories: 8, silver: 0, copper: 0, weights }).total).toBe(950);
+    expect(campaignScore({ turns: 15, victories: 8, silver: 0, copper: 0, weights }).total).toBe(1000);
+    expect(campaignScore({ turns: 17, victories: 8, silver: 2, copper: 0, weights }).total).toBe(1000);
+    expect(campaignScore({ turns: 16, victories: 8, silver: 5, copper: 10, weights }).total).toBe(1135);
+    expect(campaignScore({ turns: 2, victories: 2, silver: 3, copper: 0, weights }).total).toBe(325);
+    expect(campaignScore({ turns: 3, victories: 3, silver: 5, copper: 0, weights }).total).toBe(500);
+    expect(campaignScore({ turns: 4, victories: 4, silver: 5, copper: 0, weights }).total).toBe(625);
+    expect(campaignScore({ turns: 3, victories: 2, silver: 3, copper: 0, weights }).total).toBe(325);
+    expect(campaignScore({ turns: 5, victories: 2, silver: 3, copper: 0, weights }).total).toBe(275);
+  });
+
+  it('floors a long camp at 0', () => {
+    expect(campaignScore({ turns: 40, victories: 2, silver: 0, copper: 0, weights }).total).toBe(0);
+  });
+
+  it('keeps the ruleset 1 formula when the weights still name a per-turn cost', () => {
+    const linear = { base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 };
+    expect(campaignScore({ turns: 2, victories: 2, silver: 3, copper: 14, weights: linear }).total).toBe(214);
+    expect(campaignScore({ turns: 3, victories: 3, silver: 5, copper: 18, weights: linear }).total).toBe(228);
+    expect(campaignScore({ turns: 4, victories: 4, silver: 5, copper: 22, weights: linear }).total).toBe(202);
+    expect(campaignScore({ turns: 3, victories: 2, silver: 3, copper: 16, weights: linear }).total).toBe(166);
   });
 });
 
@@ -331,6 +355,32 @@ describe('Chapter I instance', () => {
     expect(() => left.leave(NOW)).toThrow(ConflictError);
   });
 
+  it('supersede abandons a started run and drops an open battle', () => {
+    const replaced = fresh().supersede(NOW);
+    expect(replaced.status).toBe('finished');
+    expect(replaced.finishReason).toBe('abandoned');
+    expect(replaced.score).toBeUndefined();
+    expect(replaced.activeBattle).toBeNull();
+
+    const raw = fresh().toJSON() as Record<string, unknown>;
+    raw.activeBattle = {
+      attackId: 'attack-1',
+      battleSeed: 1,
+      gameId: 'game-1',
+      q: 0,
+      r: -1,
+      resolved: false
+    };
+    const open = Campaign.fromJSON(raw);
+    expect(open.activeBattle?.gameId).toBe('game-1');
+    const dropped = open.supersede(NOW);
+    expect(dropped.status).toBe('finished');
+    expect(dropped.finishReason).toBe('abandoned');
+    expect(dropped.activeBattle).toBeNull();
+    expect(dropped.score).toBeUndefined();
+    expect(() => dropped.supersede(NOW)).toThrow(ConflictError);
+  });
+
   it('refunds an attack that never received a game id', () => {
     const debited = fresh().beginAttack(0, -1, undefined, 'attack-1', 1, NOW);
     expect(debited.inventory.items.stones).toBe(0);
@@ -456,6 +506,53 @@ describe('Chapter I instance', () => {
     expect(spent.inventory.items.stones).toBe(14);
   });
 });
+
+describe('Unavailable tile', () => {
+  it('refuses the attack, reveals the wall as blocked, and does not attack from it', () => {
+    const settings = bundled();
+    wallAt(settings, 1, -1);
+    const campaign = Campaign.start(buildChapterDefinition(settings), NOW, 'campaign-wall');
+    const before = toCampaignView(campaign).tiles as Array<Record<string, unknown>>;
+    expect(before.find(tile => tile.q === 1 && tile.r === -1)).toEqual({
+      q: 1,
+      r: -1,
+      visibility: 'blocked'
+    });
+    expect(() => campaign.beginAttack(1, -1, undefined, 'a', 1, NOW)).toThrow(/blocked/);
+    expect(campaign.actionPoints).toBe(1);
+
+    const taken = captureGate(campaign).endTurn(NOW);
+    const wall = taken.tiles.find(tile => tile.q === 1 && tile.r === -1);
+    expect(wall).toMatchObject({ enabled: false, owner: null, revealed: true });
+    const after = toCampaignView(taken).tiles as Array<Record<string, unknown>>;
+    expect(after.find(tile => tile.q === 1 && tile.r === -1)).toEqual({
+      q: 1,
+      r: -1,
+      visibility: 'blocked'
+    });
+    expect(after.find(tile => tile.q === 2 && tile.r === -1)).toEqual({
+      q: 2,
+      r: -1,
+      visibility: 'hidden'
+    });
+    expect(() => taken.beginAttack(1, -1, undefined, 'b', 2, NOW)).toThrow(/blocked/);
+    expect(() => taken.beginAttack(1, 0, { q: 1, r: -1 }, 'c', 3, NOW)).toThrow(/owned neighbor/);
+  });
+});
+
+function wallAt(settings: ChapterSettings, q: number, r: number): void {
+  const tile = tileAt(settings, q, r);
+  delete tile.owner;
+  delete tile.objective;
+  delete tile.reward;
+  delete tile.stash;
+  delete tile.defenderKit;
+  delete tile.npcAlgorithmId;
+  tile.unavailable = true;
+  tile.difficulty = null;
+  tile.mines = 0;
+  tile.maxMines = 0;
+}
 
 function stake(opened: Campaign): Record<string, number> {
   const battle = opened.activeBattle;

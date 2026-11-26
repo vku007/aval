@@ -13,7 +13,7 @@ No API change. The fee is still 10 copper on Chapter I, read from `rules.attackF
 | `battleEntry` `fee` | The card. No request yet. |
 | `battleEntry` `wager`, or a rules object with no `battleEntry` | The attack posts, as it does today. |
 
-The button is still offered only when the cell is attackable, `actionPoints >= 1`, and `cannot_afford_battle` is absent. The card is not a second price check. The stall line **You need 10 copper to attack.** stays for a wallet that cannot pay.
+The button is still offered only when the cell is attackable, `actionPoints >= 1`, `cannot_afford_battle` is absent, and the inventory holds at least one Stone, Scissors, or Paper. NA effects and Core do not count. The card is not a second price check. The stall line **You need 10 copper to attack.** stays for a wallet that cannot pay.
 
 ## The card
 

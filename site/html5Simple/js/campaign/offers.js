@@ -16,10 +16,29 @@ const CampaignOffers = {
         lines.push('You need the battle kit before you can attack.');
       }
     }
+    if (
+      reasons.indexOf('no_attack_target') === -1
+      && this.playable(campaign)
+      && !this.hasAttackItem(campaign)
+    ) {
+      lines.push('You need a Stone, Scissors, or Paper to attack.');
+    }
     if (reasons.indexOf('no_attack_target') !== -1) {
       lines.push('No neighboring tile to attack.');
     }
     return lines;
+  },
+
+  /**
+   * A throwable gesture. NA effects and Core do not count.
+   */
+  hasAttackItem(campaign) {
+    const items = campaign && campaign.inventory && campaign.inventory.items;
+    if (!items) return false;
+    return ['stones', 'scissors', 'papers'].some((key) => {
+      const count = items[key];
+      return typeof count === 'number' && count >= 1;
+    });
   },
 
   playable(campaign) {
@@ -60,7 +79,7 @@ const CampaignOffers = {
   tileSheet(campaign, tile) {
     if (!tile) return { lines: [], actions: [], garrison: null };
     if (tile.visibility === 'hidden') return { lines: ['Hidden'], actions: [], garrison: null };
-    if (tile.visibility === 'blocked') return { lines: ['Blocked'], actions: [], garrison: null };
+    if (tile.visibility === 'blocked') return { lines: ['Unavailable'], actions: [], garrison: null };
     if (tile.visibility === 'seen') {
       const lines = [];
       const difficulty = CampaignLabels.difficulty(tile.difficulty);
@@ -90,6 +109,7 @@ const CampaignOffers = {
     if (!(campaign.actionPoints >= 1)) return null;
     const reasons = campaign.blockedReasons || [];
     if (reasons.indexOf('cannot_afford_battle') !== -1) return null;
+    if (!this.hasAttackItem(campaign)) return null;
     const rules = campaign.rules || {};
     const price = rules.battleEntry === 'fee'
       ? `${rules.attackFee && rules.attackFee.copper} copper`

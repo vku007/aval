@@ -5,14 +5,15 @@ Phaser scenes in [`js/game.js`](js/game.js). Layout (`?layout=`) and FX (`?fx=`)
 ```mermaid
 flowchart TD
   Boot[BootScene] -->|start after auth| Menu[MenuScene]
-  Menu -->|launch overlay| Login[LoginModalScene]
-  Menu -->|launch overlay| Register[RegisterModalScene]
-  Login -->|stop| Menu
-  Register -->|stop| Menu
+  Menu -->|launch overlay| Account[AccountModalScene]
+  Account -->|stop| Menu
   Menu -->|START GAME| Select[GameSelectScene]
   Select -->|CHAPTER I| Catalog[CampaignCatalogScene]
+  Select -->|CUSTOM CAMPAIGN| Setup[CampaignSetupScene]
+  Setup -->|FROM CAMPAIGN FILE| Map[CampaignMapScene]
+  Setup -->|BACK| Select
   Catalog -->|BACK| Select
-  Catalog -->|START or CONTINUE or history| Map[CampaignMapScene]
+  Catalog -->|START or CONTINUE or history| Map
   Map -->|BACK| Catalog
   Map -->|PLAY| Blitz
   Select -->|BLITZ GAME| Blitz[BlitzGameScene]
@@ -25,6 +26,8 @@ flowchart TD
   Tests -->|BACK| Menu
   Tests -->|OLD UI TESTS| OldUi[OldUiScenes]
   Tests -->|COMPOSITE UI EDITOR| CompositeEditor[CompositeUIEditorScene]
+  Tests -->|TEST INVENTORIES| Inventories[TestInventoriesScene]
+  Inventories -->|BACK| Tests
   Tests -->|MOVE HOT ROD| HotRod[MoveHotRodScene]
   Tests -->|BACK HIGHLIGHT| BackHighlight[BackHighlightScene]
   Tests -->|SHARD| Shard[ShardScene]
@@ -57,7 +60,7 @@ flowchart TD
   Error -->|stop| Classic
   Error -->|stop| Extended
   Error -->|stop| Tests
-  Menu -->|logout reload| Boot
+  Account -->|log out reload| Boot
 ```
 
 ClassicGameScene and ExtendedGameScene extend [`GamePlayScene`](js/scenes/GamePlayScene.js), which owns layout, HUD, Stage, scores, and GO. Subclasses only set move size and cancel rules.
@@ -67,18 +70,19 @@ ClassicGameScene and ExtendedGameScene extend [`GamePlayScene`](js/scenes/GamePl
 | Scene | File | Kind | Player copy |
 |-------|------|------|-------------|
 | BootScene | [`js/scenes/BootScene.js`](js/scenes/BootScene.js) | Full screen | Title **Warm Adventure**. Subtitle **Getting ready...**, then **Tap to continue** after auth. |
-| MenuScene | [`js/scenes/MenuScene.js`](js/scenes/MenuScene.js) | Full screen | Title **Warm Adventure**. Subtitle **Pick a match**. Player name in the corner. Buttons: LOGIN, REGISTER, LOGOUT, INVENTORY (stub), START GAME, UI TESTS, EXIT (stub). Bottom **SKIN IN/OFF**: **IN** fills the menu background with the heat-map preset ([`resources/ui-editor-init.json`](resources/ui-editor-init.json)), including a highlight on each of the seven menu buttons, and cuts the button labels out of a black fill so the heat map shows through the letters; **OFF** keeps the blank background and outline buttons. |
-| GameSelectScene | [`js/scenes/GameSelectScene.js`](js/scenes/GameSelectScene.js) | Full screen | Title **Warm Adventure**. Subtitle **Choose a game**. Buttons: CHAPTER I, BLITZ GAME, BACK. |
+| MenuScene | [`js/scenes/MenuScene.js`](js/scenes/MenuScene.js) | Full screen | Title **Warm Adventure**. Subtitle **Pick a match**. Player name in the corner. Buttons: **SIGN IN** or **LOG OUT** (from the token role), START GAME, UI TESTS, EXIT (stub). Bottom **SKIN IN/OFF**: **IN** fills the menu background with the heat-map preset ([`resources/ui-editor-init.json`](resources/ui-editor-init.json)), including a highlight named **Account** on the first button plus **Start Game**, **UI Tests**, and **Exit**, and cuts the button labels out of a black fill so the heat map shows through the letters; **OFF** keeps the blank background and outline buttons. |
+| GameSelectScene | [`js/scenes/GameSelectScene.js`](js/scenes/GameSelectScene.js) | Full screen | Title **Warm Adventure**. Subtitle **Choose a game**. Buttons: CHAPTER I, CUSTOM CAMPAIGN, BLITZ GAME, BACK. **CUSTOM CAMPAIGN** opens Setup campaign. |
+| CampaignSetupScene | [`js/scenes/CampaignSetupScene.js`](js/scenes/CampaignSetupScene.js) | Full screen, **390×844** | Title **Warm Adventure**. Subtitle **Setup campaign**. **FROM CAMPAIGN FILE** reads an editor `chapter-i.json` and starts Chapter I from that file. A Chapter I run that is already going is left with no score, and the file becomes the run. The map opens on success. A failure shows the detail. **Reload** appears when the catalog cannot be read. BACK stays active after a failure and returns to Choose a game. |
 | CampaignCatalogScene | [`js/scenes/CampaignCatalogScene.js`](js/scenes/CampaignCatalogScene.js) | Full screen, **390×844** | Opened from Choose a game **CHAPTER I**. One block per definition: title, goal, **Best** when a victory total exists, **START** or **CONTINUE**, and history rows. BACK returns to Choose a game. |
 | CampaignMapScene | [`js/scenes/CampaignMapScene.js`](js/scenes/CampaignMapScene.js) | Full screen, **390×844** | The chapter map. Header shows the title, **Turn**, and **Attack ready** or **Attack spent**. Inventory, nineteen hexes, and one bottom sheet: the selected cell, the shop, the log, the battle, or the score. **PLAY** opens the Blitz match that Attack already created. On a fee chapter, **Attack** opens a card that names the copper cost; **ATTACK** sends the command and **BACK** closes the card. BACK on the map returns to the catalog. Confirming **LEAVE** finishes the run with no score and opens the catalog. Autobattle opens the battle result scene. |
 | CampaignBattleResultScene | [`js/scenes/CampaignBattleResultScene.js`](js/scenes/CampaignBattleResultScene.js) | Full screen, **390×844** | After a campaign win or loss. **Victory** or **Defeat**, **Spent** when items were thrown, and **Gained** for the victory reward. **OK** returns to the map. |
-| BlitzGameScene | [`js/scenes/BlitzGameScene.js`](js/scenes/BlitzGameScene.js) | Full screen | Opened from Choose a game **BLITZ GAME**, and from the campaign map **PLAY**. A full-scene heat map. The player builds a stack and sends it as the move. The enemy stock is the same storage tables as the player inventory. Lobby play creates an extended best-of-5 match. A finished lobby match opens the results scene; OK there returns to the menu. BACK returns to Choose a game. Campaign play loads the existing match, including a best-of-7 citadel. BACK surrenders and opens the battle result scene. A finished campaign match opens that scene. A broken campaign match returns to the map. |
-| TestsScene | [`js/scenes/TestsScene.js`](js/scenes/TestsScene.js) | Full screen, **780×844** (2× game width) | Title **Tests**. Subtitle **Pick a sandbox**. Buttons in two columns: left SIMPLE GAME, EXTENDED GAME, RESULTS, OLD UI TESTS, BUTTONS, SKINNED BUTTON, COMPOSITE UI EDITOR; right MOVE HOT ROD, BACK HIGHLIGHT, SHARD, ALTER SHEET, MOVE HOT CIRCLE, BACK. Entering this hub widens the Phaser canvas. SIMPLE GAME and EXTENDED GAME shrink it back to **390×844** before the match. RESULTS opens a finished-match preview and OK returns here. BACK to Menu restores **390×844**. |
+| BlitzGameScene | [`js/scenes/BlitzGameScene.js`](js/scenes/BlitzGameScene.js) | Full screen | Opened from Choose a game **BLITZ GAME**, and from the campaign map **PLAY**. A full-scene heat map. The player builds a stack and sends it as the move. The enemy stock is the same storage tables as the player inventory. Each table is a grid. The default is 4 by 6 item slots, 2 by 4 NA dots, and 2 by 3 Core dots. Scene init `inventoryGrids.player` and `inventoryGrids.enemy` can replace any of those tables. The slot cap is columns times rows, and each mark fills that table's frame. Lobby play creates an extended best-of-5 match. A finished lobby match opens the results scene; OK there returns to the menu. BACK returns to Choose a game. Campaign play loads the existing match, including a best-of-7 citadel. BACK surrenders and opens the battle result scene. A finished campaign match opens that scene. A broken campaign match returns to the map. |
+| TestsScene | [`js/scenes/TestsScene.js`](js/scenes/TestsScene.js) | Full screen, **780×844** (2× game width) | Title **Tests**. Subtitle **Pick a sandbox**. Buttons in two columns: left SIMPLE GAME, EXTENDED GAME, RESULTS, OLD UI TESTS, BUTTONS, SKINNED BUTTON, COMPOSITE UI EDITOR, TEST INVENTORIES; right MOVE HOT ROD, BACK HIGHLIGHT, SHARD, ALTER SHEET, MOVE HOT CIRCLE, BACK. Entering this hub widens the Phaser canvas. SIMPLE GAME and EXTENDED GAME shrink it back to **390×844** before the match. RESULTS opens a finished-match preview and OK returns here. BACK to Menu restores **390×844**. |
 | OldUiScenes | [`js/scenes/OldUiScenes.js`](js/scenes/OldUiScenes.js) | Full screen, **780×844** | Title **Old UI tests**. Subtitle **Pick a sandbox**. Buttons in two columns: left UI EDITOR, UI PLAZMA BALL, HOT MAP BALL; right ROTATED HOT MAP BALL, SHEET, BACK. BACK returns to Tests. |
 | CompositeUIEditorScene | [`js/scenes/CompositeUIEditorScene.js`](js/scenes/CompositeUIEditorScene.js) | Stage **390×844**, tools canvas beside it | Copy of UIEditorScene. Same stage and tools layout. Tools canvas is [`CompositeUIEditorToolsScene`](js/scenes/CompositeUIEditorToolsScene.js). BACK returns to Tests. |
-| UIEditorScene | [`js/scenes/UIEditorScene.js`](js/scenes/UIEditorScene.js) | Stage **390×844**, tools canvas beside it | Two canvases. The stage canvas is the main game frame, same size and scale as the main screen. **STAGE** hosts one [`UiHeatMap`](js/ui/UiHeatMap.js) with three [`UiHotBall`](js/ui/UiHotBall.js), three [`UiHotRod`](js/ui/UiHotRod.js), and two [`UiBackHighlighter`](js/ui/UiBackHighlighter.js) emitters. Green frames ([`UiStageMarkup`](js/ui/UiStageMarkup.js)) sit on top of that field in the same places as the main-scene panels and buttons for the active layout, including the extended Effects row. They are transparent, non-interactive markup; taps pass through to the heat field. **EFFECTS** **HEAT** **FRAMES** (ON/OFF) shows or hides them. **MENU** (ON/OFF, starts OFF) shows the same kind of frames for the menu: LOGIN, REGISTER, LOGOUT, INVENTORY, START GAME, UI TESTS, EXIT, SKIN, LAYOUT, and FX. The second canvas ([`UIEditorToolsScene`](js/scenes/UIEditorToolsScene.js)) holds **EFFECTS** (FRAMES, MENU, DIFFUSE, COOL, VIEW, PLAY / STEP / STOP) above **PROPS**, with **OBJECTS** on its right. Title **UI Editor** sits on that canvas. The page scrolls sideways when both canvases do not fit. **OBJECTS** is a scrollable name-and-type list with **COPY** and **DEL** on each row. A click selects that object and updates **PROPS**. **COPY** duplicates the type and props, shifts rod **START X/Y** or ball/highlight **CENTER X/Y**, and adds the suffix **copy**. **SAVE** / **LOAD** a local JSON preset. **PROPS** edits that object: balls (VISIBLE, DOT SIZE/HEAT, GEO including PHASE and live CENTER X/Y), rods (VISIBLE, LINE HEAT, GEO, MOVE with START/END X% Y% from −200 to 200, START/END ANG, DELAY at end, GAP at start), or back highlights (FIELD VISIBLE, CYCLING, SPEED, DELAY, GAP, CENTER X% Y%; FROM/TO WIDTH, HEIGHT, ANGLE, HEAT). A highlight eases FROM → TO, pauses DELAY, eases back when CYCLING is on, pauses GAP, then repeats. Tap Stage to move the selected object. BACK on the tools canvas returns to Old UI tests and restores the Tests width. |
-| LoginModalScene | [`js/scenes/LoginModalScene.js`](js/scenes/LoginModalScene.js) | Overlay | Title **LOGIN**. Subtitle **Sign in to keep your games**. |
-| RegisterModalScene | [`js/scenes/RegisterModalScene.js`](js/scenes/RegisterModalScene.js) | Overlay | Title **Create account**. Subtitle **Save this guest as a real player**. Fields reset on each open. |
+| TestInventoriesScene | [`js/scenes/TestInventoriesScene.js`](js/scenes/TestInventoriesScene.js) | Stage **390×844**, tools canvas beside it | Opened from Tests **TEST INVENTORIES**. The stage is the Blitz panel at the match size: the same six bands and the same storage tables, filled with the extended start (21 stones, 12 scissors, 12 papers, and the effect stacks). The tools canvas edits columns and rows for Items, NA, and Core, separately for **PLAYER** and **ENEMY**. The cap is columns times rows. A step past 12 on a side, or past a cap of 64, stays put. BACK on the tools canvas returns to Tests. |
+| UIEditorScene | [`js/scenes/UIEditorScene.js`](js/scenes/UIEditorScene.js) | Stage **390×844**, tools canvas beside it | Two canvases. The stage canvas is the main game frame, same size and scale as the main screen. **STAGE** hosts one [`UiHeatMap`](js/ui/UiHeatMap.js) with three [`UiHotBall`](js/ui/UiHotBall.js), three [`UiHotRod`](js/ui/UiHotRod.js), and two [`UiBackHighlighter`](js/ui/UiBackHighlighter.js) emitters. Green frames ([`UiStageMarkup`](js/ui/UiStageMarkup.js)) sit on top of that field in the same places as the main-scene panels and buttons for the active layout, including the extended Effects row. They are transparent, non-interactive markup; taps pass through to the heat field. **EFFECTS** **HEAT** **FRAMES** (ON/OFF) shows or hides them. **MENU** (ON/OFF, starts OFF) shows the same kind of frames for the menu: SIGN IN, START GAME, UI TESTS, EXIT, and SKIN. The second canvas ([`UIEditorToolsScene`](js/scenes/UIEditorToolsScene.js)) holds **EFFECTS** (FRAMES, MENU, DIFFUSE, COOL, VIEW, PLAY / STEP / STOP) above **PROPS**, with **OBJECTS** on its right. Title **UI Editor** sits on that canvas. The page scrolls sideways when both canvases do not fit. **OBJECTS** is a scrollable name-and-type list with **COPY** and **DEL** on each row. A click selects that object and updates **PROPS**. **COPY** duplicates the type and props, shifts rod **START X/Y** or ball/highlight **CENTER X/Y**, and adds the suffix **copy**. **SAVE** / **LOAD** a local JSON preset. **PROPS** edits that object: balls (VISIBLE, DOT SIZE/HEAT, GEO including PHASE and live CENTER X/Y), rods (VISIBLE, LINE HEAT, GEO, MOVE with START/END X% Y% from −200 to 200, START/END ANG, DELAY at end, GAP at start), or back highlights (FIELD VISIBLE, CYCLING, SPEED, DELAY, GAP, CENTER X% Y%; FROM/TO WIDTH, HEIGHT, ANGLE, HEAT). A highlight eases FROM → TO, pauses DELAY, eases back when CYCLING is on, pauses GAP, then repeats. Tap Stage to move the selected object. BACK on the tools canvas returns to Old UI tests and restores the Tests width. |
+| AccountModalScene | [`js/scenes/AccountModalScene.js`](js/scenes/AccountModalScene.js) | Overlay | **SIGN IN** opens one card. Choice title **Sign in**. **LOG IN** and **CREATE ACCOUNT** (when this session has a token) open HTML fields on that card. **BACK** returns to the choice and clears the fields. **CANCEL** closes the card. **LOG OUT** opens a short card. **STAY** closes it. **LOG OUT** on that card clears the game token and reloads. The dim layer does not close the card. |
 | ErrorModalScene | [`js/scenes/ErrorModalScene.js`](js/scenes/ErrorModalScene.js) | Overlay | Caller title and message (for example **Move Failed**). OK closes. |
 | ClassicGameScene | [`js/scenes/ClassicGameScene.js`](js/scenes/ClassicGameScene.js) | Full screen | Status: **Loading match...** · **Pick Stone, Scissors, or Paper** · **{move} ready — tap GO** · **Sending {move}...** · **Match over**. BACK returns to Tests. GO sends `size: 0`. |
 | ExtendedGameScene | [`js/scenes/ExtendedGameScene.js`](js/scenes/ExtendedGameScene.js) | Full screen | Same layout as classic, plus **EffectsPanel** (buttons **NEG**, **OVER**, **PROT**, **SIZE**) under the current-move status. First tap on a type selects it at size 1 (`STONE 1`). Same tap increments (max 10). Status: **{move} {size} ready — tap GO**. GO sends that size and the selected effects (`effects[]`). At most one size effect and one type effect; tapping a second in the same category replaces the first. Round tiles show the player's used size. Cancel is inactive until a type is selected; at size 1 it clears the type; at size 2+ it shows **MINUS** and decrements size. Opened from Tests, BACK returns to Tests and a finished match stays here. Started with a `campaignId`, BACK surrenders and a finished match opens the battle result scene. A broken match returns to the map. The campaign map opens Blitz instead. |
@@ -91,7 +95,7 @@ ClassicGameScene and ExtendedGameScene extend [`GamePlayScene`](js/scenes/GamePl
 | SheetScene | [`js/scenes/SheetScene.js`](js/scenes/SheetScene.js) | Full screen | Title **Sheet**. Subtitle **Cosine sheet. Glisten repeats**. The ribbon centerline is cos from 0 to 2π. **WIDTH** is one turn, **HEIGHT** the thickness, **BEND** the wave height, **PHASE** shifts the cosine (degrees, eased FROM → TO), and **SKEW** leans the cross-section. The wave stays horizontal. Heat eases **FROM** to **TO**. **GLISTEN** on **FIELD** turns a bright band on or off. When on, a hot band sweeps along the curve on **GL SPEED**, pauses **GL DELAY**, and repeats. **GL POWER** is how much heat that band stamps into the field. **BALL** is two hot dots (**DOT SIZE**, **DOT HEAT**). One runs the centerline start to end, **DELTA** cells below it. The other runs end to start, **DELTA** cells above it. Both repeat ([`SheetFx`](js/fx/SheetFx.js)). BACK returns to Old UI tests. |
 | MoveHotCircleScene | [`js/scenes/MoveHotCircleScene.js`](js/scenes/MoveHotCircleScene.js) | Full screen | Title **Move hot circle**. Subtitle **Tap to move the circle**. A hot ring sits on the heat field; a tap eases its center to the tap. GEO **RADIUS**, **THICKNESS**, and **TILT X/Y/Z**. **WIND** blows the heat and **X SPEED** scrolls every cell horizontally ([`HotCircleFx`](js/fx/HotCircleFx.js)). **SettingsPanel** tabs **HEAT**, **GEO**, **WIND**. BACK returns to Tests. |
 
-Inventory and Exit are still stubs (no scenes). Logout reloads the page so Boot can mint a new guest token.
+Exit is still a stub (no scene). Approving **LOG OUT** reloads the page so Boot can mint a new guest token. Local play signs the admin back in.
 
 ## Transitions
 
@@ -115,6 +119,9 @@ Helpers in [`js/uiFx.js`](js/uiFx.js). Duration comes from the active FX preset 
 | Tests | Move hot circle | Fade (MOVE HOT CIRCLE). |
 | Game select | Menu | Fade (BACK). |
 | Game select | Campaign catalog | Fade (CHAPTER I). Arcade also flashes. |
+| Game select | Setup campaign | Fade (CUSTOM CAMPAIGN). Arcade also flashes. |
+| Setup campaign | Game select | Fade (BACK). |
+| Setup campaign | Campaign map | Fade (FROM CAMPAIGN FILE). |
 | Campaign catalog | Game select | Fade (BACK). |
 | Campaign catalog | Campaign map | Fade (START, CONTINUE, or a history row). |
 | Campaign map | Campaign catalog | Fade (BACK). |
@@ -133,8 +140,8 @@ Helpers in [`js/uiFx.js`](js/uiFx.js). Duration comes from the active FX preset 
 | Classic / Extended | Tests | Fade (BACK). |
 | Results | Tests | Fade (OK), when opened from Tests. |
 | Results | Menu | Fade (OK), when a match finishes. |
-| Menu | Login / Register | Overlay fade + card pop. Parent scene input is paused. |
-| Login / Register | Menu | Card pop-out, then stop. |
+| Menu | Account | Overlay fade + card pop. Parent scene input is paused. |
+| Account | Menu | Card pop-out, then stop. |
 | Classic / Extended / Tests | Error | Overlay fade + card pop. Parent scene input is paused. |
 | Error | Classic / Extended / Tests | Card pop-out, then stop. |
 

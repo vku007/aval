@@ -1,5 +1,6 @@
 import { Game } from '../../domain/entity/Game.js';
 import { Action } from '../../domain/value-object/Action.js';
+import { ActionContext } from '../../domain/value-object/ActionContext.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
 import { Round } from '../../domain/value-object/Round.js';
@@ -7,12 +8,15 @@ import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { SubRound } from '../../domain/value-object/SubRound.js';
 import { SubRoundStatus } from '../../domain/value-object/SubRoundStatus.js';
 import { RoundsLength } from '../../domain/value-object/RoundsLength.js';
-import { Move } from '../../domain/value-object/Move.js';
+import { Move, MoveType } from '../../domain/value-object/Move.js';
+import { gestureItemKey } from '../../domain/value-object/GamePlayerInventory.js';
 import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { ValidationError } from '../../shared/errors/index.js';
 import { Logger } from '../../shared/logging/Logger.js';
 import type { GameResolver } from './GameResolver.js';
 import { NpcActor } from './NpcActor.js';
+
+const GESTURE_TYPES = [MoveType.Stone, MoveType.Paper, MoveType.Scissors];
 
 /**
  * Processes player actions: rounds, surrender, and victory.
@@ -29,6 +33,28 @@ export class GameProcessor {
   ) {
     this.logger = logger ?? new Logger();
     this.npcActor = npcActor ?? new NpcActor(this.logger);
+  }
+
+  /**
+   * Applies one player action, the NPC reply, then an empty-inventory surrender.
+   * An extended opening move is not charged when either side has no playable gesture.
+   * The opener surrenders if they cannot throw. Otherwise the opponent surrenders.
+   * After the exchange, the opener is checked first, then the opponent.
+   * Classic play does not surrender for an empty inventory.
+   */
+  playTurn(game: Game, action: Action, userId: string): Game {
+    if (this.concedeBlockedOpening(game, action, userId)) {
+      return game;
+    }
+
+    this.processAction(game, action, userId);
+    if (this.isVictoryAchieved(game)) {
+      this.endingGame(game);
+    } else {
+      this.doNpcAction(game);
+    }
+    this.concedeExhaustedSide(game, userId);
+    return game;
   }
 
   /**
@@ -401,6 +427,91 @@ export class GameProcessor {
       subRound.finishedAt = currentTime;
     }
 
+  }
+
+  /**
+   * Extended opening move. The mover surrenders when they have no playable gesture.
+   * Otherwise an opponent with no playable gesture surrenders and this move is not charged.
+   * Returns true when a surrender replaced the move.
+   */
+  private concedeBlockedOpening(game: Game, action: Action, userId: string): boolean {
+    if (!this.extendedInPlay(game) || action.type !== ActionType.Move || !action.context.move) {
+      return false;
+    }
+    if (!this.isOpeningMove(game, userId)) {
+      return false;
+    }
+    if (!this.canThrow(game, userId)) {
+      this.surrenderBecauseEmpty(game, userId);
+      return true;
+    }
+    const opponentId = game.usersIds.find(id => id !== userId);
+    if (opponentId && !this.canThrow(game, opponentId)) {
+      this.surrenderBecauseEmpty(game, opponentId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * After an extended exchange that is still open, the opener surrenders when they
+   * cannot throw. Otherwise the other participant surrenders when they cannot.
+   */
+  private concedeExhaustedSide(game: Game, openerId: string): void {
+    if (!this.extendedInPlay(game) || !game.usersIds.includes(openerId)) {
+      return;
+    }
+    if (!this.canThrow(game, openerId)) {
+      this.surrenderBecauseEmpty(game, openerId);
+      return;
+    }
+    const opponentId = game.usersIds.find(id => id !== openerId);
+    if (opponentId && !this.canThrow(game, opponentId)) {
+      this.surrenderBecauseEmpty(game, opponentId);
+    }
+  }
+
+  private surrenderBecauseEmpty(game: Game, userId: string): void {
+    this.logger.info('Extended side surrenders because no move can be paid', {
+      gameId: game.id,
+      userId
+    });
+    this.processAction(game, new Action(ActionType.Surrender, new ActionContext()), userId);
+  }
+
+  private extendedInPlay(game: Game): boolean {
+    return game.createContext?.kind === KindOfGame.Extended
+      && game.status !== GameStatus.Finished
+      && game.status !== GameStatus.Broken;
+  }
+
+  /** A playable gesture has stock of at least 1 and a turn cap of at least 1. */
+  private canThrow(game: Game, userId: string): boolean {
+    return GESTURE_TYPES.some(moveType =>
+      this.gestureCount(game, userId, moveType) >= 1
+      && (game.createContext?.capFor(moveType) ?? 0) >= 1
+    );
+  }
+
+  private gestureCount(game: Game, userId: string, moveType: MoveType): number {
+    const inventory = game.inventories.find(item => item.userId === userId);
+    if (!inventory) {
+      return 0;
+    }
+    return inventory.items[gestureItemKey(moveType)];
+  }
+
+  /** True when this move would open an exchange rather than answer one. */
+  private isOpeningMove(game: Game, userId: string): boolean {
+    const round = game.getLastRound();
+    if (!round || round.status === RoundStatus.Finished) {
+      return true;
+    }
+    const subRound = round.getLastSubRound();
+    if (!subRound || subRound.status === SubRoundStatus.Done || subRound.status === SubRoundStatus.Surrendered) {
+      return true;
+    }
+    return !subRound.moves.some(move => move.userId !== userId);
   }
 
   /**

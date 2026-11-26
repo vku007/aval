@@ -450,4 +450,41 @@ describe('HmVerticalTableAmountIndicator', () => {
         expect(named.columns).toBe(2);
         expect(named.items[0].emitter.center.col).toBeLessThan(named.items[3].emitter.center.col);
     });
+
+    it('derives the cap from columns and rows', () => {
+        const ctx = loadHeat();
+        const indicator = makeTable(ctx, { columns: 2, rows: 2 });
+        expect(indicator.rows).toBe(2);
+        expect(indicator.maxAmount).toBe(4);
+        expect(indicator.items).toHaveLength(4);
+        indicator.set('columns', 6);
+        expect(indicator.columns).toBe(6);
+        expect(indicator.rows).toBe(2);
+        expect(indicator.maxAmount).toBe(12);
+        indicator.set('rows', 5);
+        expect(indicator.maxAmount).toBe(30);
+        const plain = makeTable(ctx, { columns: 2 });
+        expect(plain.rows).toBeNull();
+        expect(plain.maxAmount).toBe(8);
+        plain.nudgeParam('rows', 1);
+        expect(plain.rows).toBe(5);
+        expect(plain.maxAmount).toBe(10);
+    });
+
+    it('fills the frame when fitGap is set and keeps the 10-cell aim otherwise', () => {
+        const ctx = loadHeat();
+        const fitted = makeTable(ctx, { columns: 2, rows: 2, fitGap: 2, width: 44 });
+        const fittedGap = fitted.items[2].emitter.center.col
+            - fitted.items[0].emitter.center.col
+            - fitted.items[0].emitter.current.width;
+        expect(fittedGap).toBeCloseTo(2, 5);
+        expect(fitted.items[0].emitter.current.width).toBeCloseTo(21, 5);
+
+        const editor = makeTable(ctx, { columns: 2, width: 44 });
+        const editorGap = editor.items[4].emitter.center.col
+            - editor.items[0].emitter.center.col
+            - editor.items[0].emitter.current.width;
+        expect(editorGap).toBeCloseTo(10, 5);
+        expect(editor.items[0].emitter.current.width).toBeCloseTo(17, 5);
+    });
 });

@@ -85,9 +85,11 @@ describe('stone storage indicators', () => {
         const effects = scene.stoneNaIndicator;
         expect(stones).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
         expect(stones.columns).toBe(4);
+        expect(stones.rows).toBe(6);
         expect(stones.direction).toBe('desc');
         expect(stones.shape).toBe('rectangle');
-        expect(stones.maxAmount).toBe(21);
+        expect(stones.maxAmount).toBe(24);
+        expect(stones.items).toHaveLength(24);
         expect(stones.stored).toBe(20);
         expect(stones.selected).toBe(3);
         expect(stones.items[0].kind).toBe('back-highlight');
@@ -118,17 +120,19 @@ describe('stone storage indicators', () => {
 
         scene.gameData = inventory(15, 1);
         scene.syncStoneStorageIndicators();
-        expect(stones.maxAmount).toBe(21);
+        expect(stones.maxAmount).toBe(24);
+        expect(stones.rows).toBe(6);
         expect(stones.stored).toBe(15);
         expect(effects.maxAmount).toBe(8);
+        expect(effects.rows).toBe(4);
         expect(effects.stored).toBe(1);
 
-        expect(scene.scissorsIndicator.maxAmount).toBe(21);
+        expect(scene.scissorsIndicator.maxAmount).toBe(24);
         expect(scene.scissorsIndicator.stored).toBe(12);
         expect(scene.scissorsIndicator.selected).toBe(0);
         expect(scene.scissorsNaIndicator.stored).toBe(5);
         expect(scene.scissorsNaIndicator.selected).toBe(0);
-        expect(scene.paperIndicator.maxAmount).toBe(21);
+        expect(scene.paperIndicator.maxAmount).toBe(24);
         expect(scene.paperIndicator.stored).toBe(10);
         expect(scene.paperIndicator.selected).toBe(0);
         expect(scene.scissorsIndicator.shape).toBe('rectangle');
@@ -157,6 +161,7 @@ describe('stone storage indicators', () => {
         expect(ntTextVisible).toBe(false);
         expect(nt).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
         expect(nt.columns).toBe(2);
+        expect(nt.rows).toBe(3);
         expect(nt.direction).toBe('asc');
         expect(nt.shape).toBe('round');
         expect(nt.maxAmount).toBe(6);

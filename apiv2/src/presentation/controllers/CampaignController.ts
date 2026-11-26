@@ -31,7 +31,9 @@ export class CampaignController {
     const userId = this.requireCaller(request);
     const ifMatch = this.requireIfMatch(request);
     const body = parseCampaignBody(StartCampaignSchema, request.body);
-    const result = await this.campaigns.start(userId, body.definitionId, ifMatch);
+    const result = 'settings' in body
+      ? await this.campaigns.startFromFile(userId, body.settings, ifMatch)
+      : await this.campaigns.start(userId, body.definitionId, ifMatch);
     return HttpResponse.ok(result.body).withETag(result.etag);
   }
 

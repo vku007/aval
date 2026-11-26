@@ -1,8 +1,8 @@
 {
   "id": "chapter-i",
   "title": "Chapter I",
-  "goal": "Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score.",
-  "rulesetVersion": 1,
+  "goal": "Take the citadel. Each victory is 125. Two turns per victory stay free. Further turns cost 50. Silver and copper you keep are added. Eight victories in sixteen turns score 1000.",
+  "rulesetVersion": 2,
   "tileCount": 19,
   "rules": {
     "digCost": 4,
@@ -13,17 +13,14 @@
     "marketplace": {
       "stones": 3,
       "papers": 3,
-      "scissors": 4,
       "NA_effect_stone": 8,
-      "NA_effect_scissors": 8,
-      "NA_effect_papers": 8,
-      "NT_effect": 12
+      "NA_effect_papers": 8
     },
     "scoreWeights": {
-      "base": 200,
-      "perTurn": 50,
-      "perVictory": 20,
-      "perSilver": 20,
+      "perVictory": 125,
+      "turnsPerVictory": 2,
+      "perExtraTurn": 50,
+      "perSilver": 25,
       "perCopper": 1
     },
     "economyConsumesActionPoint": false,
@@ -31,18 +28,18 @@
   },
   "startingInventory": {
     "items": {
-      "stones": 14,
-      "scissors": 10,
-      "papers": 14,
-      "NA_effect_stone": 2,
-      "NA_effect_scissors": 2,
-      "NA_effect_papers": 2,
-      "NT_effect": 2
+      "stones": 6,
+      "scissors": 0,
+      "papers": 0,
+      "NA_effect_stone": 1,
+      "NA_effect_scissors": 0,
+      "NA_effect_papers": 0,
+      "NT_effect": 0
     },
     "currencies": {
       "gold": 0,
       "silver": 0,
-      "copper": 16
+      "copper": 10
     }
   },
   "defenderKits": {
@@ -109,21 +106,21 @@
       "q": 0,
       "r": 0,
       "product": "copper",
-      "mines": 1,
-      "maxMines": 3,
+      "mines": 0,
+      "maxMines": 0,
       "difficulty": null,
-      "revealed": true,
-      "owner": "player",
+      "revealed": false,
+      "unavailable": true,
       "label": "camp"
     },
     {
       "q": 0,
       "r": -1,
-      "product": "papers",
+      "product": "copper",
       "mines": 1,
       "maxMines": 3,
       "difficulty": "normal",
-      "revealed": true,
+      "revealed": false,
       "label": "gate",
       "reward": {
         "items": {
@@ -142,29 +139,64 @@
       "product": "papers",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": true,
-      "label": "(1,-1)"
+      "difficulty": "normal",
+      "revealed": false,
+      "label": "(1,-1)",
+      "defenderKit": {
+        "stones": 12,
+        "papers": 4
+      },
+      "reward": {
+        "items": {
+          "stones": 2,
+          "papers": 2,
+          "NA_effect_papers": 1
+        },
+        "currencies": {}
+      }
     },
     {
       "q": 1,
       "r": 0,
-      "product": "papers",
+      "product": "copper",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": true,
-      "label": "(1,0)"
+      "difficulty": "normal",
+      "revealed": false,
+      "label": "(1,0)",
+      "defenderKit": {
+        "stones": 10
+      },
+      "reward": {
+        "items": {
+          "stones": 2,
+          "NA_effect_stone": 1
+        },
+        "currencies": {}
+      }
     },
     {
       "q": 0,
       "r": 1,
-      "product": "papers",
+      "product": "stones",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
+      "difficulty": "normal",
       "revealed": true,
       "label": "(0,1)",
+      "npcAlgorithmId": "npc-greed-v1",
+      "defenderKit": {
+        "stones": 4
+      },
+      "reward": {
+        "items": {
+          "stones": 2,
+          "NA_effect_stone": 1
+        },
+        "currencies": {
+          "copper": 2
+        }
+      },
       "stash": {
         "items": {
           "scissors": 4
@@ -181,9 +213,20 @@
       "product": "copper",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": true,
-      "label": "(-1,1)"
+      "difficulty": "normal",
+      "revealed": false,
+      "label": "(-1,1)",
+      "defenderKit": {
+        "stones": 12,
+        "papers": 2
+      },
+      "reward": {
+        "items": {
+          "stones": 2,
+          "papers": 2
+        },
+        "currencies": {}
+      }
     },
     {
       "q": -1,
@@ -191,9 +234,22 @@
       "product": "papers",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": true,
-      "label": "(-1,0)"
+      "difficulty": "normal",
+      "revealed": false,
+      "label": "(-1,0)",
+      "defenderKit": {
+        "stones": 6,
+        "papers": 4
+      },
+      "reward": {
+        "items": {
+          "stones": 2,
+          "papers": 2
+        },
+        "currencies": {
+          "copper": 4
+        }
+      }
     },
     {
       "q": 0,
@@ -201,7 +257,7 @@
       "product": "papers",
       "mines": 2,
       "maxMines": 4,
-      "difficulty": "hard",
+      "difficulty": "normal",
       "revealed": false,
       "objective": true,
       "label": "citadel",
@@ -220,12 +276,21 @@
     {
       "q": 1,
       "r": -2,
-      "product": "papers",
+      "product": "stones",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
+      "difficulty": "normal",
       "revealed": false,
       "label": "(1,-2)",
+      "reward": {
+        "items": {
+          "stones": 1,
+          "papers": 1,
+          "NA_effect_stone": 1,
+          "NA_effect_papers": 1
+        },
+        "currencies": {}
+      },
       "stash": {
         "items": {
           "papers": 4,
@@ -241,40 +306,44 @@
       "q": 2,
       "r": -2,
       "product": "stones",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
       "revealed": false,
+      "unavailable": true,
       "label": "(2,-2)"
     },
     {
       "q": 2,
       "r": -1,
       "product": "copper",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
       "revealed": false,
+      "unavailable": true,
       "label": "(2,-1)"
     },
     {
       "q": 2,
       "r": 0,
       "product": "papers",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
       "revealed": false,
+      "unavailable": true,
       "label": "(2,0)"
     },
     {
       "q": 1,
       "r": 1,
       "product": "stones",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": false,
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
+      "revealed": true,
+      "unavailable": true,
       "label": "(1,1)"
     },
     {
@@ -282,60 +351,73 @@
       "r": 2,
       "product": "copper",
       "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": false,
-      "label": "(0,2)"
+      "maxMines": 3,
+      "difficulty": null,
+      "revealed": true,
+      "owner": "player",
+      "label": "Start"
     },
     {
       "q": -1,
       "r": 2,
       "product": "papers",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
-      "revealed": false,
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
+      "revealed": true,
+      "unavailable": true,
       "label": "(-1,2)"
     },
     {
       "q": -2,
       "r": 2,
       "product": "papers",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
       "revealed": false,
+      "unavailable": true,
       "label": "(-2,2)"
     },
     {
       "q": -2,
       "r": 1,
       "product": "stones",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
       "revealed": false,
+      "unavailable": true,
       "label": "(-2,1)"
     },
     {
       "q": -2,
       "r": 0,
       "product": "scissors",
-      "mines": 1,
-      "maxMines": 2,
-      "difficulty": "easy",
+      "mines": 0,
+      "maxMines": 0,
+      "difficulty": null,
       "revealed": false,
+      "unavailable": true,
       "label": "(-2,0)"
     },
     {
       "q": -1,
       "r": -1,
-      "product": "papers",
+      "product": "scissors",
       "mines": 1,
       "maxMines": 2,
-      "difficulty": "easy",
+      "difficulty": "normal",
       "revealed": false,
       "label": "(-1,-1)",
+      "reward": {
+        "items": {
+          "scissors": 2
+        },
+        "currencies": {
+          "copper": 4
+        }
+      },
       "stash": {
         "items": {
           "stones": 4,

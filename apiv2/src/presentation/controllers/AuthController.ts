@@ -7,7 +7,16 @@
 import type { HttpRequest } from '../../infrastructure/http/HttpTypes.js';
 import { HttpResponse } from '../../infrastructure/http/HttpTypes.js';
 import type { Logger } from '../../shared/logging/Logger.js';
-import { ApplicationError } from '../../shared/errors/index.js';
+import {
+  ApplicationError,
+  ConflictError,
+  ForbiddenError,
+  InternalError,
+  NotFoundError,
+  RateLimitError,
+  UnauthorizedError,
+  ValidationError
+} from '../../shared/errors/index.js';
 import { 
   CognitoIdentityProviderClient, 
   AdminCreateUserCommand, 
@@ -31,9 +40,10 @@ export class AuthController {
 
   constructor(
     private readonly logger: Logger,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    cognito?: CognitoIdentityProviderClient
   ) {
-    this.cognito = new CognitoIdentityProviderClient({ 
+    this.cognito = cognito ?? new CognitoIdentityProviderClient({ 
       region: process.env.REGION || process.env.AWS_REGION || 'eu-north-1' 
     });
     this.userPoolId = process.env.USER_POOL_ID || '';
@@ -100,7 +110,7 @@ export class AuthController {
       }));
 
       if (!authResponse.AuthenticationResult) {
-        throw new ApplicationError(500, 'Failed to authenticate guest user');
+        throw new InternalError('Failed to authenticate guest user', 'GUEST_CREATION_FAILED');
       }
 
       this.logger.info('Guest user authenticated successfully');
@@ -126,8 +136,7 @@ export class AuthController {
         throw error;
       }
       
-      throw new ApplicationError(
-        500, 
+      throw new InternalError(
         `Failed to create guest user: ${error.message}`,
         'GUEST_CREATION_FAILED'
       );
@@ -145,7 +154,7 @@ export class AuthController {
       const body = request.body as { email?: string; password?: string };
       
       if (!body?.email || !body?.password) {
-        throw new ApplicationError(400, 'Email and password are required');
+        throw new ValidationError('Email and password are required');
       }
 
       const { email, password } = body;
@@ -153,7 +162,7 @@ export class AuthController {
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        throw new ApplicationError(400, 'Invalid email format');
+        throw new ValidationError('Invalid email format');
       }
 
       this.logger.info('Attempting authentication', { email });
@@ -169,7 +178,7 @@ export class AuthController {
       }));
 
       if (!authResponse.AuthenticationResult) {
-        throw new ApplicationError(500, 'Authentication failed');
+        throw new InternalError('Authentication failed', 'LOGIN_FAILED');
       }
 
       this.logger.info('User authenticated successfully', { email });
@@ -195,27 +204,19 @@ export class AuthController {
       }
       
       // Handle specific Cognito errors
-      if (error.name === 'NotAuthorizedException') {
-        throw new ApplicationError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
-      }
-      
-      if (error.name === 'UserNotFoundException') {
-        throw new ApplicationError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+      if (error.name === 'NotAuthorizedException' || error.name === 'UserNotFoundException') {
+        throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
       }
       
       if (error.name === 'TooManyRequestsException') {
-        throw new ApplicationError(429, 'Too many login attempts. Please try again later.', 'RATE_LIMIT');
+        throw new RateLimitError('Too many login attempts. Please try again later.');
       }
       
       if (error.name === 'UserNotConfirmedException') {
-        throw new ApplicationError(403, 'Email not verified. Please check your email.', 'EMAIL_NOT_VERIFIED');
+        throw new ForbiddenError('Email not verified. Please check your email.', 'EMAIL_NOT_VERIFIED');
       }
       
-      throw new ApplicationError(
-        500, 
-        'Login failed. Please try again.',
-        'LOGIN_FAILED'
-      );
+      throw new InternalError('Login failed. Please try again.', 'LOGIN_FAILED');
     }
   }
 
@@ -232,7 +233,7 @@ export class AuthController {
       const currentGroups = authRequest.user?.groups || [];
       
       if (!userId || !currentEmail) {
-        throw new ApplicationError(401, 'User not authenticated');
+        throw new UnauthorizedError('User not authenticated');
       }
       
       this.logger.info('Promotion attempt', { userId, currentEmail, groups: currentGroups });
@@ -240,14 +241,14 @@ export class AuthController {
       // Validate user is actually a guest
       const isGuest = currentEmail.includes('@vkp.local') || currentGroups.includes('guest');
       if (!isGuest) {
-        throw new ApplicationError(400, 'User is already a regular user', 'ALREADY_REGULAR');
+        throw new ValidationError('You are already a registered user.', undefined, 'ALREADY_REGULAR');
       }
 
       // Parse and validate request body
       const body = request.body as { email?: string; password?: string; displayName?: string };
       
       if (!body?.email || !body?.password) {
-        throw new ApplicationError(400, 'Email and password are required');
+        throw new ValidationError('Email and password are required');
       }
 
       const { email, password, displayName } = body;
@@ -255,32 +256,32 @@ export class AuthController {
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        throw new ApplicationError(400, 'Invalid email format');
+        throw new ValidationError('Invalid email format');
       }
 
       // Prevent using dummy email domains
       if (email.includes('@vkp.local') || email.includes('@example.com') || email.includes('@test.com')) {
-        throw new ApplicationError(400, 'Please use a valid email address');
+        throw new ValidationError('Please use a valid email address');
       }
 
       // Validate password strength (must match Cognito policy: 12 chars minimum)
       if (password.length < 12) {
-        throw new ApplicationError(400, 'Password must be at least 12 characters');
+        throw new ValidationError('Password must be at least 12 characters');
       }
 
       if (password.length > 256) {
-        throw new ApplicationError(400, 'Password is too long (max 256 characters)');
+        throw new ValidationError('Password is too long (max 256 characters)');
       }
 
       // Check password complexity (at least one letter and one number)
       if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-        throw new ApplicationError(400, 'Password must contain at least one letter and one number');
+        throw new ValidationError('Password must contain at least one letter and one number');
       }
 
       // Validate display name if provided
       const finalDisplayName = displayName || email.split('@')[0];
       if (finalDisplayName.length < 2 || finalDisplayName.length > 100) {
-        throw new ApplicationError(400, 'Display name must be between 2 and 100 characters');
+        throw new ValidationError('Display name must be between 2 and 100 characters');
       }
 
       this.logger.info('Validation passed', { userId, newEmail: email });
@@ -299,7 +300,7 @@ export class AuthController {
           
           if (existingUserId !== userId) {
             this.logger.warn('Email already in use', { userId, email, existingUserId });
-            throw new ApplicationError(409, 'Email address is already in use', 'EMAIL_EXISTS');
+            throw new ConflictError('Email address is already in use', undefined, 'EMAIL_EXISTS');
           }
         }
       } catch (error: any) {
@@ -319,7 +320,7 @@ export class AuthController {
         this.logger.info('Current user verified', { userId, username: currentEmail });
       } catch (error: any) {
         if (error.name === 'UserNotFoundException') {
-          throw new ApplicationError(404, 'User not found in authentication system', 'USER_NOT_FOUND');
+          throw new NotFoundError('User not found in authentication system', 'USER_NOT_FOUND');
         }
         throw error;
       }
@@ -398,11 +399,14 @@ export class AuthController {
         }));
       } catch (error: any) {
         this.logger.error('Failed to authenticate after promotion', { userId, error: error.message });
-        throw new ApplicationError(500, 'User promoted but authentication failed. Please login with your new credentials.', 'AUTH_AFTER_PROMOTION_FAILED');
+        throw new InternalError(
+          'User promoted but authentication failed. Please login with your new credentials.',
+          'AUTH_AFTER_PROMOTION_FAILED'
+        );
       }
 
       if (!authResponse.AuthenticationResult) {
-        throw new ApplicationError(500, 'Failed to get authentication tokens after promotion');
+        throw new InternalError('Failed to get authentication tokens after promotion', 'AUTH_AFTER_PROMOTION_FAILED');
       }
 
       this.logger.info('User promoted successfully', { userId, newEmail: email });
@@ -442,30 +446,26 @@ export class AuthController {
       
       // Handle specific Cognito errors
       if (error.name === 'UserNotFoundException') {
-        throw new ApplicationError(404, 'User not found', 'USER_NOT_FOUND');
+        throw new NotFoundError('User not found', 'USER_NOT_FOUND');
       }
       
       if (error.name === 'UsernameExistsException' || error.name === 'AliasExistsException') {
-        throw new ApplicationError(409, 'Email address is already in use', 'EMAIL_EXISTS');
+        throw new ConflictError('Email address is already in use', undefined, 'EMAIL_EXISTS');
       }
       
       if (error.name === 'InvalidPasswordException') {
-        throw new ApplicationError(400, 'Password does not meet requirements', 'INVALID_PASSWORD');
+        throw new ValidationError('Password does not meet requirements', undefined, 'INVALID_PASSWORD');
       }
       
       if (error.name === 'InvalidParameterException') {
-        throw new ApplicationError(400, 'Invalid email or password format', 'INVALID_PARAMETER');
+        throw new ValidationError('Invalid email or password format', undefined, 'INVALID_PARAMETER');
       }
       
       if (error.name === 'TooManyRequestsException') {
-        throw new ApplicationError(429, 'Too many requests. Please try again later.', 'RATE_LIMIT');
+        throw new RateLimitError('Too many requests. Please try again later.');
       }
       
-      throw new ApplicationError(
-        500, 
-        'Registration failed. Please try again.',
-        'PROMOTION_FAILED'
-      );
+      throw new InternalError('Registration failed. Please try again.', 'PROMOTION_FAILED');
     }
   }
 

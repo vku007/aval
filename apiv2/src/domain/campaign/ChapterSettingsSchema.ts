@@ -25,6 +25,14 @@ const rewardSchema = z.object({
 }).strict();
 
 const scoreWeightsSchema = z.object({
+  perVictory: count,
+  turnsPerVictory: count,
+  perExtraTurn: count,
+  perSilver: count,
+  perCopper: count
+}).strict();
+
+const linearScoreWeightsSchema = z.object({
   base: count,
   perTurn: count,
   perVictory: count,
@@ -79,6 +87,8 @@ const tileSchema = z.object({
   revealed: z.boolean(),
   owner: z.literal('player').optional(),
   objective: z.boolean().optional(),
+  /** A wall. The player can see it and cannot attack it. Omitted on a fight or the camp. */
+  unavailable: z.literal(true).optional(),
   label: z.string().optional(),
   npcAlgorithmId: z.string().min(1).optional(),
   reward: rewardSchema.optional(),
@@ -98,6 +108,13 @@ export const ChapterSettingsSchema = z.object({
   rounds: roundsSchema,
   easyRewards: easyRewardsSchema,
   tiles: z.array(tileSchema)
+}).strict();
+
+/** The deployed editor still writes `base` and `perTurn`. A file start keeps that linear score. */
+export const ChapterFileSchema = ChapterSettingsSchema.extend({
+  rules: rulesSchema.extend({
+    scoreWeights: z.union([scoreWeightsSchema, linearScoreWeightsSchema])
+  }).strict()
 }).strict();
 
 export type ChapterSettings = z.infer<typeof ChapterSettingsSchema>;
@@ -146,7 +163,24 @@ export function parseChapterSettings(value: unknown): ChapterSettings {
 export function safeParseChapterSettings(value: unknown):
   | { ok: true; settings: ChapterSettings }
   | { ok: false; issues: SettingsIssue[] } {
-  const parsed = ChapterSettingsSchema.safeParse(value);
+  return parsedSettings(ChapterSettingsSchema.safeParse(value));
+}
+
+export function safeParseChapterFile(value: unknown):
+  | { ok: true; settings: ChapterSettings }
+  | { ok: false; issues: SettingsIssue[] } {
+  const current = safeParseChapterSettings(value);
+  if (current.ok) return current;
+  const legacy = ChapterFileSchema.safeParse(value);
+  if (legacy.success) {
+    return { ok: true, settings: legacy.data as ChapterSettings };
+  }
+  return { ok: false, issues: issuesFrom(legacy.error) };
+}
+
+function parsedSettings(parsed: z.SafeParseReturnType<unknown, ChapterSettings>):
+  | { ok: true; settings: ChapterSettings }
+  | { ok: false; issues: SettingsIssue[] } {
   if (parsed.success) {
     return { ok: true, settings: parsed.data };
   }
@@ -180,7 +214,13 @@ export type ProblemCode =
   | 'mines-zero'
   | 'dig-net'
   | 'kit-size'
-  | 'kit-no-gestures';
+  | 'kit-no-gestures'
+  | 'unavailable-owned'
+  | 'unavailable-objective'
+  | 'unavailable-field'
+  | 'unavailable-mines'
+  | 'objective-sealed'
+  | 'tile-sealed';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -317,6 +357,9 @@ function tileDuplicateProblems(settings: ChapterSettings): Problem[] {
 function minesRangeProblems(settings: ChapterSettings): Problem[] {
   const problems: Problem[] = [];
   settings.tiles.forEach((tile, index) => {
+    if (tile.unavailable === true) {
+      return;
+    }
     if (tile.mines > tile.maxMines) {
       problems.push(tileProblem('error', 'mines-range', index, 'mines', 'mines is above maxMines', tile));
     }
@@ -361,6 +404,9 @@ function objectiveOwnedProblems(settings: ChapterSettings): Problem[] {
 function difficultyMissingProblems(settings: ChapterSettings): Problem[] {
   const problems: Problem[] = [];
   settings.tiles.forEach((tile, index) => {
+    if (tile.unavailable === true) {
+      return;
+    }
     if (tile.owner !== 'player' && tile.difficulty === null) {
       problems.push(tileProblem(
         'error',
@@ -632,7 +678,7 @@ function rewardEmptyProblems(settings: ChapterSettings): Problem[] {
 function minesZeroProblems(settings: ChapterSettings): Problem[] {
   const problems: Problem[] = [];
   settings.tiles.forEach((tile, index) => {
-    if (tile.mines !== 0) {
+    if (tile.unavailable === true || tile.mines !== 0) {
       return;
     }
     const message = tile.owner === 'player' ? 'This owned tile has no mines' : 'This tile has no mines';
@@ -700,6 +746,179 @@ function kitSizeProblems(settings: ChapterSettings): Problem[] {
   return problems;
 }
 
+function unavailableProblems(settings: ChapterSettings): Problem[] {
+  const problems: Problem[] = [];
+  settings.tiles.forEach((tile, index) => {
+    if (tile.unavailable !== true) {
+      return;
+    }
+    if (tile.owner === 'player') {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-owned',
+        index,
+        'owner',
+        'An unavailable tile cannot be owned',
+        tile
+      ));
+    }
+    if (tile.objective === true) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-objective',
+        index,
+        'objective',
+        'An unavailable tile cannot be an objective',
+        tile
+      ));
+    }
+    if (tile.difficulty !== null) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-field',
+        index,
+        'difficulty',
+        'An unavailable tile cannot have a difficulty',
+        tile
+      ));
+    }
+    if (tile.reward !== undefined) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-field',
+        index,
+        'reward',
+        'An unavailable tile cannot have a reward',
+        tile
+      ));
+    }
+    if (tile.stash !== undefined) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-field',
+        index,
+        'stash',
+        'An unavailable tile cannot have a stash',
+        tile
+      ));
+    }
+    if (tile.defenderKit !== undefined) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-field',
+        index,
+        'defenderKit',
+        'An unavailable tile cannot have a defenderKit',
+        tile
+      ));
+    }
+    if (tile.npcAlgorithmId !== undefined) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-field',
+        index,
+        'npcAlgorithmId',
+        'An unavailable tile cannot have an npcAlgorithmId',
+        tile
+      ));
+    }
+    if (tile.mines !== 0) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-mines',
+        index,
+        'mines',
+        'An unavailable tile has no mines',
+        tile
+      ));
+    }
+    if (tile.maxMines !== 0) {
+      problems.push(tileProblem(
+        'error',
+        'unavailable-mines',
+        index,
+        'maxMines',
+        'An unavailable tile has no mines',
+        tile
+      ));
+    }
+  });
+  return problems;
+}
+
+/** Owned tiles, then every capturable neighbor. An unavailable hex is not entered. */
+function capturableReach(settings: ChapterSettings): Set<string> {
+  const byKey = new Map<string, TileSettings>();
+  for (const tile of settings.tiles) {
+    const key = `${tile.q},${tile.r}`;
+    if (!byKey.has(key)) byKey.set(key, tile);
+  }
+  const reached = new Set<string>();
+  const queue: string[] = [];
+  for (const tile of settings.tiles) {
+    if (tile.owner !== 'player' || tile.unavailable === true) continue;
+    const key = `${tile.q},${tile.r}`;
+    if (reached.has(key)) continue;
+    reached.add(key);
+    queue.push(key);
+  }
+  let cursor = 0;
+  while (cursor < queue.length) {
+    const key = queue[cursor];
+    cursor += 1;
+    if (key === undefined) continue;
+    const tile = byKey.get(key);
+    if (!tile) continue;
+    for (const neighbor of neighborsOnMap(tile.q, tile.r)) {
+      const next = `${neighbor.q},${neighbor.r}`;
+      if (reached.has(next)) continue;
+      const other = byKey.get(next);
+      if (!other || other.unavailable === true) continue;
+      reached.add(next);
+      queue.push(next);
+    }
+  }
+  return reached;
+}
+
+function objectiveSealedProblems(settings: ChapterSettings): Problem[] {
+  const reached = capturableReach(settings);
+  const problems: Problem[] = [];
+  settings.tiles.forEach((tile, index) => {
+    if (!onMap(tile.q, tile.r) || tile.objective !== true || reached.has(`${tile.q},${tile.r}`)) {
+      return;
+    }
+    problems.push(tileProblem(
+      'warning',
+      'objective-sealed',
+      index,
+      'objective',
+      'No capturable path reaches this objective',
+      tile
+    ));
+  });
+  return problems;
+}
+
+function tileSealedProblems(settings: ChapterSettings): Problem[] {
+  const reached = capturableReach(settings);
+  const problems: Problem[] = [];
+  settings.tiles.forEach((tile, index) => {
+    if (!onMap(tile.q, tile.r) || tile.unavailable === true || tile.owner === 'player' || reached.has(`${tile.q},${tile.r}`)) {
+      return;
+    }
+    problems.push(tileProblem(
+      'warning',
+      'tile-sealed',
+      index,
+      'difficulty',
+      'No capturable path reaches this tile',
+      tile
+    ));
+  });
+  return problems;
+}
+
 function kitNoGesturesProblems(settings: ChapterSettings): Problem[] {
   const problems: Problem[] = [];
   settings.tiles.forEach((tile, index) => {
@@ -732,6 +951,7 @@ export function checkChapterSettings(
     ...objectiveOwnedProblems(settings),
     ...difficultyMissingProblems(settings),
     ...ownedFieldProblems(settings),
+    ...unavailableProblems(settings),
     ...npcUnknownProblems(settings),
     ...entryFieldProblems(settings),
     ...priceZeroProblems(settings),
@@ -742,6 +962,8 @@ export function checkChapterSettings(
     ...economyPointProblems(settings),
     ...neighborHiddenProblems(settings),
     ...objectiveAdjacentProblems(settings),
+    ...objectiveSealedProblems(settings),
+    ...tileSealedProblems(settings),
     ...labelDuplicateProblems(settings),
     ...feeUnaffordableProblems(settings),
     ...objectiveStashProblems(settings),

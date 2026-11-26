@@ -31,6 +31,11 @@ export function MapTools({ brush, overlay, hoverReveal, onBrush, onOverlay, onHo
       <div class="map-tool-row" role="group" aria-label="Brush">
         <span class="map-tool-label">Brush</span>
         <BrushButton pressed={brush === null} label="None" onClick={() => onBrush(null)} />
+        <BrushButton
+          pressed={brush?.field === 'unavailable'}
+          label="Unavailable"
+          onClick={() => onBrush({ field: 'unavailable' })}
+        />
         <span class="map-tool-label">Difficulty</span>
         {DIFFICULTIES.map((item) => (
           <BrushButton

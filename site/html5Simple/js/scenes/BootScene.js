@@ -81,8 +81,10 @@ class BootScene extends Phaser.Scene {
             }
         }
 
-        console.log('[BootScene] Storing user in registry:', user);
+        const role = gameAPI.localMode ? 'admin' : tokenRole(gameAPI.token);
+        console.log('[BootScene] Storing user in registry:', user, 'role:', role);
         this.registry.set('currentUser', user);
+        this.registry.set('role', role);
 
         this.authDone = true;
         if (this.subtitleText) {

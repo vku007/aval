@@ -48,6 +48,9 @@ class HmHorisontalAmountIndicator extends HotMapUiComposite {
             AMOUNT_INDICATOR_CAP
         );
         this.columns = amountIndicatorColumns(opts.columns, 1, this.maxAmount);
+        this.fitGap = typeof opts.fitGap === 'number' && Number.isFinite(opts.fitGap) && opts.fitGap >= 0
+            ? opts.fitGap
+            : null;
         this.shape = amountIndicatorShape(opts.shape);
         this.duration = Math.max(
             0,

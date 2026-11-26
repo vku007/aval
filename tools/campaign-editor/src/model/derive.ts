@@ -27,7 +27,7 @@ export interface TileFacts {
   kitDiff: KitDelta[];
 }
 
-export type StartVisibility = 'owned' | 'seen' | 'hidden';
+export type StartVisibility = 'owned' | 'seen' | 'hidden' | 'blocked';
 
 export interface KitUsage {
   defaultCount: number;
@@ -56,6 +56,10 @@ export function tileFacts(settings: ChapterSettings, cell: Cell): TileFacts {
 export function startView(settings: ChapterSettings): Record<string, StartVisibility> {
   const view: Record<string, StartVisibility> = {};
   for (const tile of settings.tiles) {
+    if (tile.unavailable === true) {
+      view[cellKey(tile)] = tile.revealed ? 'blocked' : 'hidden';
+      continue;
+    }
     view[cellKey(tile)] = tile.owner === 'player' ? 'owned' : tile.revealed ? 'seen' : 'hidden';
   }
   return view;

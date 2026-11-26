@@ -13,9 +13,11 @@
  * Sending an NT turn keeps that Core up and the selected stack hidden. The result takes balls off the Core.
  * A finished lobby match opens AdvancedGameResultsScene. OK there returns to the main menu.
  * A campaign match returns to the map when it finishes or breaks, and BACK surrenders.
- * Each gesture storage panel shows two tables. The items sit on the left: 21 descending
- * rectangles in four columns. That gesture's NA effects sit on the right: eight ascending
- * rounds in two columns. The NT panel shows six ascending rounds in two columns.
+ * Each gesture storage panel shows two tables. The items sit on the left. The default
+ * grid is 4 columns by 6 rows of descending rectangles. That gesture's NA effects sit
+ * on the right: 2 columns by 4 rows of ascending rounds. The NT panel shows 2 columns
+ * by 3 rows of ascending rounds. The slot cap is columns times rows. Scene init
+ * inventoryGrids can set a different grid for the player and for the enemy.
  * A move result replaces those counts with the spent inventory. Until the player adds an item
  * for the next move, every occupied slot stays stored. Nothing is shown selected.
  * The enemy_inventory band matches that inventory band. Its tables show the NPC stacks
@@ -31,6 +33,7 @@ class BlitzGameScene extends Phaser.Scene {
         this.adoptGameId = data && data.gameId || null;
         this.campaignId = data && data.campaignId || null;
         this.returnTo = data && data.returnTo || null;
+        this.inventoryGrids = resolveInventoryGrids(data && data.inventoryGrids);
         this._campaignLeaving = false;
         this._forfeiting = false;
     }
@@ -268,10 +271,11 @@ class BlitzGameScene extends Phaser.Scene {
             if (statusLower === 'failed' || statusLower === 'error') {
                 throw new Error(response.message || response.detail || 'The move could not be processed.');
             }
+            const exchangeBefore = this.completedExchangeKey(this.gameData);
             this.acceptMoveInventory(response);
             this._deferHealth = true;
             this.refreshMatchReadout();
-            await this.playMoveResult(user.id);
+            await this.playMoveResult(user.id, exchangeBefore);
             if (!this.fieldLive(field)) {
                 return;
             }
@@ -460,7 +464,7 @@ class BlitzGameScene extends Phaser.Scene {
         return !!(result && result.status === 'finished');
     }
 
-    async playMoveResult(userId) {
+    async playMoveResult(userId, beforeKey) {
         this.holdNtCoreForTurn();
         const field = this.heatMap && this.heatMap.field;
         if (!this.fieldLive(field)) {
@@ -468,7 +472,17 @@ class BlitzGameScene extends Phaser.Scene {
         }
         const exchange = this.latestExchange(userId);
         if (!exchange || !exchange.enemyType) {
+            if (!(await this.playSurrenderStrikes(userId))) {
+                return;
+            }
+            if (!this.fieldLive(field) || this.emptyInventoryLoser(userId)) {
+                return;
+            }
             this.placeResultRod();
+            return;
+        }
+        if (beforeKey !== undefined && this.completedExchangeKey(this.gameData) === beforeKey) {
+            await this.playSurrenderStrikes(userId);
             return;
         }
         const playerComposite = this.playerByType[exchange.playerType];
@@ -535,7 +549,10 @@ class BlitzGameScene extends Phaser.Scene {
                 playerComposite.reset({ items: 'spec' });
                 this.syncShownNtCore(playerComposite);
             }
-            await this.finishRun(this.playPlayerVictoryPulse(), field);
+            if (!(await this.finishRun(this.playPlayerVictoryPulse(), field))) {
+                return;
+            }
+            this.fadeLeadingHealthBar(this.enemyHealthBars, 'left');
         } else if (enemyWon) {
             if (!(await this.finishRun(this.playUserPostMortemPulse(), field))) {
                 return;
@@ -543,8 +560,106 @@ class BlitzGameScene extends Phaser.Scene {
             if (this.fieldLive(field) && enemyComposite) {
                 enemyComposite.reset({ items: 'spec' });
             }
-            await this.finishRun(this.playEnemyVictoryPulse(), field);
+            if (!(await this.finishRun(this.playEnemyVictoryPulse(), field))) {
+                return;
+            }
+            this.fadeLeadingHealthBar(this.healthBars, 'right');
         }
+        await this.playSurrenderStrikes(userId);
+    }
+
+    completedExchangeKey(gameData) {
+        if (typeof SimpleGameSceneUtil === 'undefined') {
+            return '';
+        }
+        const sub = SimpleGameSceneUtil.getLastCompletedSubRound(gameData);
+        if (!sub) {
+            return '';
+        }
+        const moves = sub.moves || [];
+        return `${sub.idNum}:${moves.map((move) => {
+            const context = move.context || {};
+            return `${move.userId}:${context.moveType}:${context.size}:${move.time}`;
+        }).join(',')}`;
+    }
+
+    /**
+     * The side that surrendered with no playable gesture, or null.
+     * @returns {'player'|'enemy'|null}
+     */
+    emptyInventoryLoser(userId) {
+        if (typeof SimpleGameSceneUtil === 'undefined' || !SimpleGameSceneUtil.isGameFinished(this.gameData)) {
+            return null;
+        }
+        const rounds = this.gameData.payload
+            && this.gameData.payload.playerContext
+            && this.gameData.payload.playerContext.roundStates
+            || [];
+        let winnerId = null;
+        let surrendered = false;
+        rounds.forEach((round) => {
+            (round.subRoundStates || []).forEach((sub) => {
+                if (String(sub.status || '').toLowerCase() !== 'surrendered') {
+                    return;
+                }
+                surrendered = true;
+                winnerId = sub.winnerId || round.winnerId || winnerId;
+            });
+        });
+        if (!surrendered || !winnerId) {
+            return null;
+        }
+        const playerLost = String(winnerId) !== String(userId);
+        const playerItems = this.gameData.payload.playerContext.inventory
+            && this.gameData.payload.playerContext.inventory.items;
+        const enemyInventory = this.gameData.payload.enemyContext
+            && this.gameData.payload.enemyContext.inventory;
+        const items = playerLost ? playerItems : enemyInventory && enemyInventory.items;
+        if (!items || canPayGesture(items, this.gameData)) {
+            return null;
+        }
+        return playerLost ? 'player' : 'enemy';
+    }
+
+    /**
+     * One lose strike for each health bar the empty side still has.
+     * @returns {Promise<boolean>}
+     */
+    async playSurrenderStrikes(userId) {
+        const side = this.emptyInventoryLoser(userId);
+        if (!side) {
+            return true;
+        }
+        const field = this.heatMap && this.heatMap.field;
+        if (!this.fieldLive(field)) {
+            return false;
+        }
+        const bars = side === 'player' ? this.healthBars : this.enemyHealthBars;
+        const edge = side === 'player' ? 'right' : 'left';
+        const pulse = side === 'player'
+            ? () => this.playEnemyVictoryPulse()
+            : () => this.playPlayerVictoryPulse();
+        while (leadingHealthBar(this.heatMap, bars, edge)) {
+            if (!(await this.finishRun(pulse(), field))) {
+                return false;
+            }
+            if (!this.fieldLive(field)) {
+                return false;
+            }
+            this.fadeLeadingHealthBar(bars, edge);
+        }
+        return true;
+    }
+
+    fadeLeadingHealthBar(bars, edge) {
+        const bar = leadingHealthBar(this.heatMap, bars, edge);
+        if (!bar || bar._faded) {
+            return;
+        }
+        if (typeof bar.setHovered === 'function') {
+            bar.setHovered(true);
+        }
+        bar._faded = true;
     }
 
     dramaticClear(composite, count) {
@@ -1088,9 +1203,9 @@ class BlitzGameScene extends Phaser.Scene {
         this.ntEffectText.panelBox = nt;
         this.fitInventoryPanelLabels(boxes);
         this.createStoneStorageIndicators(stone);
-        this.createStorageIndicators(scissors, inventoryStorageSpec('Scissors'));
-        this.createStorageIndicators(paper, inventoryStorageSpec('Paper'));
-        this.createNtEffectsIndicator(nt);
+        this.createStorageIndicators(scissors, inventoryStorageSpec('Scissors'), 'player');
+        this.createStorageIndicators(paper, inventoryStorageSpec('Paper'), 'player');
+        this.createNtEffectsIndicator(nt, 'ntEffectsIndicator', 'player');
         this.refreshInventoryReadout();
     }
 
@@ -1099,10 +1214,10 @@ class BlitzGameScene extends Phaser.Scene {
         const scissors = boxes.find((box) => box.label === 'enemy_scissors_storage_panel');
         const paper = boxes.find((box) => box.label === 'enemy_paper_storage_panel');
         const nt = boxes.find((box) => box.label === 'enemy_NT_effects_panel');
-        this.createStorageIndicators(stone, enemyInventoryStorageSpec('Stone'));
-        this.createStorageIndicators(scissors, enemyInventoryStorageSpec('Scissors'));
-        this.createStorageIndicators(paper, enemyInventoryStorageSpec('Paper'));
-        this.createNtEffectsIndicator(nt, 'enemyNtEffectsIndicator');
+        this.createStorageIndicators(stone, enemyInventoryStorageSpec('Stone'), 'enemy');
+        this.createStorageIndicators(scissors, enemyInventoryStorageSpec('Scissors'), 'enemy');
+        this.createStorageIndicators(paper, enemyInventoryStorageSpec('Paper'), 'enemy');
+        this.createNtEffectsIndicator(nt, 'enemyNtEffectsIndicator', 'enemy');
         this.refreshEnemyStock();
     }
 
@@ -1110,24 +1225,27 @@ class BlitzGameScene extends Phaser.Scene {
         this.createStorageIndicators(panel, inventoryStorageSpec('Stone'));
     }
 
-    createStorageIndicators(panel, spec) {
+    createStorageIndicators(panel, spec, which) {
         if (!panel || !spec || !this.heatMap || typeof HmVerticalTableAmountIndicator !== 'function') {
             return;
         }
+        const side = inventorySide(this, which || 'player');
         const frames = stoneStorageIndicatorFrames(panel);
         const left = heatMapIndicatorOptions(this.heatMap, frames.left);
         const right = heatMapIndicatorOptions(this.heatMap, frames.right);
         this[spec.itemsName] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
             name: spec.itemsLabel,
-            maxAmount: GESTURE_ITEM_INDICATOR_MAX,
-            columns: GESTURE_ITEM_INDICATOR_COLUMNS,
+            columns: side.items.columns,
+            rows: side.items.rows,
+            fitGap: INVENTORY_FIT_GAP,
             direction: 'desc',
             shape: 'rectangle'
         }, left));
         this[spec.effectsName] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
             name: spec.effectsLabel,
-            maxAmount: GESTURE_EFFECT_INDICATOR_MAX,
-            columns: GESTURE_EFFECT_INDICATOR_COLUMNS,
+            columns: side.na.columns,
+            rows: side.na.rows,
+            fitGap: INVENTORY_FIT_GAP,
             direction: 'asc',
             shape: 'round'
         }, right));
@@ -1139,16 +1257,18 @@ class BlitzGameScene extends Phaser.Scene {
         }
     }
 
-    createNtEffectsIndicator(panel, fieldName) {
+    createNtEffectsIndicator(panel, fieldName, which) {
         if (!panel || !this.heatMap || typeof HmVerticalTableAmountIndicator !== 'function') {
             return;
         }
         const key = fieldName || 'ntEffectsIndicator';
+        const side = inventorySide(this, which || (key === 'enemyNtEffectsIndicator' ? 'enemy' : 'player'));
         const placed = heatMapIndicatorOptions(this.heatMap, ntEffectsIndicatorFrame(panel));
         this[key] = new HmVerticalTableAmountIndicator(this.heatMap, Object.assign({
             name: key === 'enemyNtEffectsIndicator' ? 'Enemy NT Effects' : 'NT Effects',
-            maxAmount: NT_EFFECT_INDICATOR_MAX,
-            columns: NT_EFFECT_INDICATOR_COLUMNS,
+            columns: side.nt.columns,
+            rows: side.nt.rows,
+            fitGap: INVENTORY_FIT_GAP,
             direction: 'asc',
             shape: 'round'
         }, placed));
@@ -1190,11 +1310,11 @@ class BlitzGameScene extends Phaser.Scene {
             const picked = selection && selection.moveType === moveType
                 ? activePartCount(this[spec.compositeKey])
                 : 0;
-            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, GESTURE_ITEM_INDICATOR_COLUMNS, count, picked);
+            const side = inventorySide(this, 'player');
+            syncTableAmountIndicator(storedItems, side.items, count, picked);
             syncTableAmountIndicator(
                 effects,
-                GESTURE_EFFECT_INDICATOR_MAX,
-                GESTURE_EFFECT_INDICATOR_COLUMNS,
+                side.na,
                 naCount,
                 naEffectPicked(moveType, selection, pickedEffects)
             );
@@ -1202,8 +1322,7 @@ class BlitzGameScene extends Phaser.Scene {
         const ntCount = items && Number.isFinite(items.NT_effect) ? items.NT_effect : null;
         syncTableAmountIndicator(
             this.ntEffectsIndicator,
-            NT_EFFECT_INDICATOR_MAX,
-            NT_EFFECT_INDICATOR_COLUMNS,
+            inventorySide(this, 'player').nt,
             ntCount,
             ntEffectPicked(pickedEffects)
         );
@@ -1220,11 +1339,11 @@ class BlitzGameScene extends Phaser.Scene {
             }
             const count = items && Number.isFinite(items[spec.itemKey]) ? items[spec.itemKey] : null;
             const naCount = items && Number.isFinite(items[spec.effectKey]) ? items[spec.effectKey] : null;
-            syncTableAmountIndicator(storedItems, GESTURE_ITEM_INDICATOR_MAX, GESTURE_ITEM_INDICATOR_COLUMNS, count, 0);
+            const side = inventorySide(this, 'enemy');
+            syncTableAmountIndicator(storedItems, side.items, count, 0);
             syncTableAmountIndicator(
                 effects,
-                GESTURE_EFFECT_INDICATOR_MAX,
-                GESTURE_EFFECT_INDICATOR_COLUMNS,
+                side.na,
                 naCount,
                 0
             );
@@ -1232,8 +1351,7 @@ class BlitzGameScene extends Phaser.Scene {
         const ntCount = items && Number.isFinite(items.NT_effect) ? items.NT_effect : null;
         syncTableAmountIndicator(
             this.enemyNtEffectsIndicator,
-            NT_EFFECT_INDICATOR_MAX,
-            NT_EFFECT_INDICATOR_COLUMNS,
+            inventorySide(this, 'enemy').nt,
             ntCount,
             0
         );
@@ -2176,35 +2294,73 @@ function createLocalAdvancedComposite(Ctor, heatMap, boxes, spawnPixel, centerBo
     return group;
 }
 
-function hotHealthBarPoint(heatMap, bars, edge) {
-    if (!heatMap || !bars || !bars.length) {
+function leadingHealthBar(heatMap, bars, edge) {
+    if (!bars || !bars.length) {
         return null;
     }
     const pickLeft = edge !== 'right';
-    const field = heatMap.field;
-    const bounds = heatMap.bounds;
-    const colSpan = Math.max(field.cols - 1, 1);
-    const rowSpan = Math.max(field.rows - 1, 1);
     let best = null;
+    let bestX = 0;
     bars.forEach((bar) => {
         if (!bar || bar._faded) {
             return;
         }
-        const cell = bar.emitter && bar.emitter.target;
-        const pose = bar.emitter && bar.emitter.from;
-        if (!cell || !pose) {
+        const x = healthBarX(heatMap, bar);
+        if (x == null) {
             return;
         }
-        const point = {
-            x: bounds.x + (cell.col / colSpan) * bounds.width,
-            y: bounds.y + (cell.row / rowSpan) * bounds.height,
-            width: (pose.width / colSpan) * bounds.width
-        };
-        if (!best || (pickLeft ? point.x < best.x : point.x > best.x)) {
-            best = point;
+        if (!best || (pickLeft ? x < bestX : x > bestX)) {
+            best = bar;
+            bestX = x;
         }
     });
     return best;
+}
+
+function healthBarX(heatMap, bar) {
+    const cell = bar.emitter && bar.emitter.target;
+    const field = heatMap && heatMap.field;
+    const bounds = heatMap && heatMap.bounds;
+    if (cell && field && bounds) {
+        const colSpan = Math.max(field.cols - 1, 1);
+        return bounds.x + (cell.col / colSpan) * bounds.width;
+    }
+    if (typeof bar._x === 'number') {
+        return bar._x;
+    }
+    return null;
+}
+
+function hotHealthBarPoint(heatMap, bars, edge) {
+    const bar = leadingHealthBar(heatMap, bars, edge);
+    if (!bar || !heatMap) {
+        return null;
+    }
+    const cell = bar.emitter && bar.emitter.target;
+    const pose = bar.emitter && bar.emitter.from;
+    const field = heatMap.field;
+    const bounds = heatMap.bounds;
+    if (!cell || !pose || !field || !bounds) {
+        if (typeof bar._x === 'number') {
+            return { x: bar._x, y: bar._y || 0, width: bar._width || 0 };
+        }
+        return null;
+    }
+    const colSpan = Math.max(field.cols - 1, 1);
+    const rowSpan = Math.max(field.rows - 1, 1);
+    return {
+        x: bounds.x + (cell.col / colSpan) * bounds.width,
+        y: bounds.y + (cell.row / rowSpan) * bounds.height,
+        width: (pose.width / colSpan) * bounds.width
+    };
+}
+
+function canPayGesture(items, gameData) {
+    return [
+        ['Stone', 'stones'],
+        ['Scissors', 'scissors'],
+        ['Paper', 'papers']
+    ].some(([type, key]) => (items[key] || 0) >= 1 && SimpleGameSceneUtil.turnCap(gameData, type) >= 1);
 }
 
 function pointerInsideStageButton(scene, button) {
@@ -2288,15 +2444,17 @@ function inventoryStorageSpec(moveType) {
     };
 }
 
-const GESTURE_ITEM_INDICATOR_MAX = 21;
-const GESTURE_ITEM_INDICATOR_COLUMNS = 4;
+const INVENTORY_GRID_AXIS_MAX = 12;
+const INVENTORY_GRID_CAP = 64;
+const INVENTORY_FIT_GAP = 2;
+const INVENTORY_GRID_DEFAULTS = {
+    items: { columns: 4, rows: 6 },
+    na: { columns: 2, rows: 4 },
+    nt: { columns: 2, rows: 3 }
+};
 // 18 heat cells: four bars at 3 cells (75% of the old 4-cell bar) with the gap cap of 2.
 // A storage panel is 0.3 of the 390 stage, and that stage is 129 cells across.
 const GESTURE_ITEM_FRAME_SHARE = 18 / (0.3 * 129);
-const GESTURE_EFFECT_INDICATOR_MAX = 8;
-const GESTURE_EFFECT_INDICATOR_COLUMNS = 2;
-const NT_EFFECT_INDICATOR_MAX = 6;
-const NT_EFFECT_INDICATOR_COLUMNS = 2;
 const INVENTORY_LABEL_RESERVE = 14;
 const INVENTORY_SLOT_PAD = 4;
 const INVENTORY_FRAME_TITLES = {
@@ -2353,17 +2511,63 @@ function heatMapIndicatorOptions(heatMap, frame) {
     };
 }
 
-function syncTableAmountIndicator(indicator, max, columns, stored, selected) {
+function resolveInventoryTable(value, fallback) {
+    if (!value || typeof value !== 'object') {
+        return { columns: fallback.columns, rows: fallback.rows };
+    }
+    const columns = value.columns;
+    const rows = value.rows;
+    if (!Number.isInteger(columns) || !Number.isInteger(rows)) {
+        return { columns: fallback.columns, rows: fallback.rows };
+    }
+    if (columns < 1 || columns > INVENTORY_GRID_AXIS_MAX || rows < 1 || rows > INVENTORY_GRID_AXIS_MAX) {
+        return { columns: fallback.columns, rows: fallback.rows };
+    }
+    if (columns * rows > INVENTORY_GRID_CAP) {
+        return { columns: fallback.columns, rows: fallback.rows };
+    }
+    return { columns: columns, rows: rows };
+}
+
+function resolveInventorySide(value) {
+    const side = value && typeof value === 'object' ? value : {};
+    return {
+        items: resolveInventoryTable(side.items, INVENTORY_GRID_DEFAULTS.items),
+        na: resolveInventoryTable(side.na, INVENTORY_GRID_DEFAULTS.na),
+        nt: resolveInventoryTable(side.nt, INVENTORY_GRID_DEFAULTS.nt)
+    };
+}
+
+function resolveInventoryGrids(value) {
+    const grids = value && typeof value === 'object' ? value : {};
+    return {
+        player: resolveInventorySide(grids.player),
+        enemy: resolveInventorySide(grids.enemy)
+    };
+}
+
+function inventorySide(scene, which) {
+    const grids = scene && scene.inventoryGrids;
+    return resolveInventorySide(grids && grids[which]);
+}
+
+function syncTableAmountIndicator(indicator, grid, stored, selected) {
     if (!indicator) {
         return;
     }
-    const cap = Math.max(1, Math.round(Number.isFinite(max) && max > 0 ? max : indicator.maxAmount));
-    if (indicator.maxAmount !== cap) {
-        indicator.set('maxAmount', cap);
+    if (grid && Number.isInteger(grid.columns) && Number.isInteger(grid.rows)) {
+        if (indicator.rows !== grid.rows) {
+            indicator.set('rows', grid.rows);
+        }
+        if (indicator.columns !== grid.columns) {
+            indicator.set('columns', grid.columns);
+        }
+        const cap = grid.columns * grid.rows;
+        if (indicator.maxAmount !== cap) {
+            indicator.set('maxAmount', cap);
+        }
     }
-    if (indicator.columns !== columns) {
-        indicator.set('columns', columns);
-    }
+    const cap = Math.max(1, indicator.maxAmount);
     const held = Math.max(0, Math.min(cap, Number.isFinite(stored) ? Math.round(stored) : 0));
     const picked = Math.max(0, Math.min(held, Number.isFinite(selected) ? Math.round(selected) : 0));
     if (indicator.stored !== held || indicator.selected !== picked) {

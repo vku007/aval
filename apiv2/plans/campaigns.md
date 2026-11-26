@@ -38,7 +38,7 @@ Missing from the brief, and decided here:
 
 Chapter I is a short map campaign around the existing rock-paper-scissors match.
 
-The player owns one camp on a hex map. Each turn they may scout the economy of tiles they own, and they may attack one neighboring hex. An attack costs 10 copper and an action point. Every item in the campaign inventory goes into the match, and every item in that tile's garrison goes in for the defender. A win takes the tile. Taking the citadel ends the chapter. The result that matters is the score: a faster clear, more victories, and more silver and copper. They may abandon, which records no score. They may start the chapter again later; the old run stays as history.
+The player owns one camp on a hex map. Each turn they may scout the economy of tiles they own, and they may attack one neighboring hex. An attack costs 10 copper and an action point. Every item in the campaign inventory goes into the match, and every item in that tile's garrison goes in for the defender. A win takes the tile. Taking the citadel ends the chapter. The result that matters is the score: each victory adds, two turns per victory stay free, further turns cost, and silver and copper kept above the start add. They may abandon, which records no score. They may start the chapter again later; the old run stays as history.
 
 A match started from the lobby, with no campaign, is unchanged.
 
@@ -418,7 +418,7 @@ The same server path that finishes or breaks the game resolves the battle before
 - The action point stays spent.
 - Clear `activeBattle`.
 
-A best-of match ends with a winner. There is no draw result to handle. A surrendered match is a loss.
+A best-of match ends with a winner. A surrendered match is a loss. A finished extended match where neither side reached the best-of wins is a loss for the attacker, on the same leftover, fee, and garrison path. A tied throw does not finish the match. A broken match is still a refund.
 
 **Broken**
 
@@ -471,44 +471,52 @@ The score is an integer, frozen at the finish. Later tuning of the weights does 
 
 Inputs, all taken after the citadel reward is in the inventory:
 
-| Input | Meaning | Weight in Chapter I |
+| Input | Meaning | Weight in Chapter I, ruleset 2 |
 |---|---|---|
-| `turns` | `turnNumber + 1`. The winning turn counts, even though the player does not End Turn after the citadel. | Strong. 50 points subtracted per turn. |
-| `victories` | Tiles the player owns, minus the camp they started with. A lost battle does not add one. | Medium. 20 points each. |
-| `silver` | `max(0, silver in inventory − silver at start)`. Chapter I starts at 0. | Medium. 20 points each. |
-| `copper` | `max(0, copper in inventory − copper at start)`. | Low. 1 point each. |
+| `turns` | `turnNumber + 1`. The winning turn counts, even though the player does not End Turn after the citadel. | Two turns per victory stay free. Each turn past that costs 50. |
+| `victories` | Tiles the player owns, minus the camp they started with. A lost battle does not add one. | 125 each. Eight victories are 1000 before coins and extra turns. |
+| `silver` | `max(0, silver in inventory − silver at start)`. Chapter I starts at 0. | 25 each. Two silver tie one extra turn. |
+| `copper` | `max(0, copper in inventory − copper at start)`. | 1 each. |
 
 Gold, stones, papers, scissors, and effects are not scored. They are how a run is played. Silver and copper are what a remarkable finish shows.
 
 ```
-raw = 200 − turns × 50 + victories × 20 + silver × 20 + copper × 1
+pace  = victories × 2
+extra = max(0, turns − pace)
+raw   = victories × 125 − extra × 50 + silver × 25 + copper × 1
 total = max(0, raw)
 ```
 
-The stored object is `{ total, turns, victories, silver, copper }`. The four inputs are the amounts used, not the points. The client can show the points from the weights of that ruleset.
+Eight victories in sixteen turns, with nothing kept, score 1000. A turn inside the pace leaves the battle score as it is. The stored object is `{ total, turns, victories, silver, copper }`. The four inputs are the amounts used, not the points. The client shows the lines from the weights stored on that run.
 
-One turn costs more than one victory or one silver. It costs as much as 50 copper. A single detour that adds a victory, a silver, and a small pile of copper can beat a bare rush. A second detour, or several turns of mine income, cannot. A lost battle adds a turn and no victory.
+A clear that takes more land, inside two turns per victory, scores higher. A first loss on a one-attack-per-turn clear spends the spare turn. A further loss costs 50. Waiting on the camp for copper is 1 point per copper against that 50, once the pace is used up.
 
-Chapter I examples, using the rewards below. The south stash is part of the rich finish.
+A run started on ruleset 1 still has `base` and `perTurn` and still uses `max(0, base − turns × perTurn + victories × perVictory + silver × perSilver + copper × perCopper)`.
 
-| Run | turns | victories | silver gained | copper gained | total |
-|---|---|---|---|---|---|
-| Gate, then citadel | 2 | 2 | 3 | 0 | 200 |
-| South stash, then gate, then citadel | — | — | — | — | Not payable. 6 copper at the citadel attack. |
-| That path, plus easy (1,0), then the gate and the citadel | — | — | — | — | Not payable. 4 copper at the gate attack. |
-| Lose the gate once, then the bare rush | 6 | 2 | 3 | 0 | 0 |
+| Run | turns | victories | extra | silver | copper | total |
+|---|---|---|---|---|---|---|
+| Eight victories on pace | 16 | 8 | 0 | 0 | 0 | 1000 |
+| One turn past that pace | 17 | 8 | 1 | 0 | 0 | 950 |
+| One turn inside that pace | 15 | 8 | 0 | 0 | 0 | 1000 |
+| One turn past, paid by 2 silver | 17 | 8 | 1 | 2 | 0 | 1000 |
+| On pace, 5 silver and 10 copper kept | 16 | 8 | 0 | 5 | 10 | 1135 |
+| Gate, then citadel | 2 | 2 | 0 | 3 | 0 | 325 |
+| South stash, then gate, then citadel | 3 | 3 | 0 | 5 | 0 | 500 |
+| That path, plus one more easy hex | 4 | 4 | 0 | 5 | 0 | 625 |
+| One lost gate, then the rush | 3 | 2 | 0 | 3 | 0 | 325 |
+| Losses that push the rush to 5 turns | 5 | 2 | 1 | 3 | 0 | 275 |
 
-These rows are the bundled `chapter-i.json` replayed on `Campaign`, every attack won except where the row says a loss. Each attack spends 10 copper, so every route finishes at or below the starting copper and the copper term is 0. Before the fee, the stash detour scored above the bare rush.
+The bundled routes replayed on `Campaign`: the gate-then-citadel rush finishes at 325. The south-stash routes still stop short of copper, so they store no score. The bundled "Lose the gate once" route waits on camp income and finishes in 6 turns, 2 victories, 3 silver, total 225. Each attack spends 10 copper, so these finishes stay at or below the starting copper and the copper term is 0.
 
-**Open balance issue, ruleset 1.** Only the bare rush can be paid. The intended remarkable finish is the short path plus the south stash, and it is short 4 copper at the citadel. A lost fight costs two End Turns of camp income before the next attack. Raising the starting copper, lowering the fee, or adding copper to the rewards on the path fixes it; that is a designer choice and a `rulesetVersion` bump. The campaign editor's Routes tab ([campaign_editor.md](./campaign_editor.md)) is the check.
+**Open balance issue.** Only the bare rush can be paid. The south-stash path is short 4 copper at the citadel. A lost fight costs two End Turns of camp income before the next attack. Raising the starting copper, lowering the fee, or adding copper to the rewards on the path fixes it. Ruleset 2 changes the score and does not add that copper. The campaign editor's Routes tab ([campaign_editor.md](./campaign_editor.md)) is the check.
 
 A finished instance is immutable.
 
-## Chapter I ruleset version 1
+## Chapter I ruleset version 2
 
-Definition id `chapter-i`. Title `Chapter I`. `rulesetVersion` 1. Every neutral garrison uses `npc-v1` and starts from the easy, normal, or hard kit. A tile may name its own `defenderKit`, which replaces the difficulty kit whole; Chapter I version 1 uses none. A tile spec may set `npcAlgorithmId` to `npc-greed-v1` instead. `economyConsumesActionPoint` false. `actionPointsPerTurn` 1. Mine income is per tile, in the map table.
+Definition id `chapter-i`. Title `Chapter I`. `rulesetVersion` 2. Every neutral garrison uses `npc-v1` and starts from the easy, normal, or hard kit. A tile may name its own `defenderKit`, which replaces the difficulty kit whole; this chapter uses none. A tile spec may set `npcAlgorithmId` to `npc-greed-v1` instead. `economyConsumesActionPoint` false. `actionPointsPerTurn` 1. Mine income is per tile, in the map table.
 
-Goal text, safe to show the client: "Take the citadel. Fewer turns, more victories, and more silver and copper make a higher score."
+Goal text, safe to show the client: "Take the citadel. Each victory is 125. Two turns per victory stay free. Further turns cost 50. Silver and copper you keep are added. Eight victories in sixteen turns score 1000."
 
 ### Starting inventory
 
@@ -530,7 +538,7 @@ Goal text, safe to show the client: "Take the citadel. Fewer turns, more victori
 | normal | 9 | 4 | 7 | 1 | 0 | 0 | 0 |
 | hard | 12 | 8 | 8 | 1 | 1 | 1 | 1 |
 
-A tile may name its own `defenderKit`, which replaces the difficulty kit whole. Chapter I version 1 uses none. Defender coins are 0.
+A tile may name its own `defenderKit`, which replaces the difficulty kit whole. This chapter uses none. Defender coins are 0.
 
 ### Economy
 
@@ -623,7 +631,9 @@ Stashes, one pile each. Opening one costs 6 copper.
 
 The cell under "Mine, per level per turn" is the unit, not `mines` times the unit. A copper unit is 2, so the camp cell says 2 copper and a mines value of 1 pays 2. A stone unit is 1. The citadel's unit is 1 paper and its `mines` is 2, so the pay would be 2 paper. Chapter I ends before that pay happens. In the API, stone is `stones`, paper is `papers`, scissors is `scissors`, and copper is `copper`.
 
-The south stash pays its own search back in copper. The prize is 2 silver and one battle of scissors. It was meant to make the three-turn route beat the two-turn rush; with the attack fee, that route cannot pay the citadel attack (see the score examples). The other two stashes replace a lost stack. They are not worth a turn for the score. The citadel is not a neighbor of the camp. `enabled` remains on the tile for a later chapter that needs a blocked hex. Chapter I does not author one.
+The south stash pays its own search back in copper. The prize is 2 silver and one battle of scissors. It was meant to make the three-turn route beat the two-turn rush; with the attack fee, that route cannot pay the citadel attack (see the score examples). The other two stashes replace a lost stack. They are not worth a turn for the score. The citadel is not a neighbor of the camp.
+
+A chapter file marks a wall with `unavailable: true` on the tile and omits the key otherwise. The builder stores `enabled: false`, `owner: null`, no garrison, and mines 0. The view is `blocked`. The player cannot attack it, and capturing a neighbor does not make the wall an attack origin. Chapter I does not author one.
 
 ### Stalls
 
@@ -642,6 +652,7 @@ Player commands, each one transaction on the user document. The client sends `If
 | Command | Body | Success |
 |---|---|---|
 | Start | `{ definitionId }` | New instance, status `started`, turn 0, action points 1, template copied, inventory initialized |
+| Start from file | `{ settings }` | New Chapter I instance from an editor export. `settings.id` must be `chapter-i`. The map, rules, inventory, kits, rounds, and rewards are copied from the file. |
 | End turn | `{ type: end_turn }` | Income, flags cleared, action points restored, turn incremented |
 | Attack | `{ type: attack, q, r, from? }` | Battle open, `gameId` returned. `from` is `{ q, r }` |
 | Autobattle | `{ type: autobattle }` | The open match is simulated. Response includes `battleOutcome` and the campaign view after resolution. |
@@ -652,7 +663,9 @@ Player commands, each one transaction on the user document. The client sends `If
 | Buy | `{ type: buy, item, amount }` | Updated campaign. `item` is a priced key. |
 | Leave | `{ type: leave }` | Status `finished`, reason `abandoned` |
 
-Start is `POST /apiv2/external/campaigns`, not an action on an id. It requires `If-Match`, the same user ETag the catalog returns. The body is `{ campaign }`, and `campaign.id` is the new instance id.
+Start is `POST /apiv2/external/campaigns`, not an action on an id. It requires `If-Match`, the same user ETag the catalog returns. The response body is `{ campaign }`, and `campaign.id` is the new instance id.
+
+The same POST accepts `{ settings }` instead of `{ definitionId }`. `settings` is the editor's chapter file. The server parses it, rejects chapter errors, and copies the built definition the same way Start copies the bundled chapter. Warnings do not block. `settings.id` must be `chapter-i`. A file over 65536 bytes after parse is validation and writes nothing. A body with both keys, or with neither, is validation. The bundled chapter file is not changed. A victory from the file counts on the Chapter I catalog row.
 
 Rejected commands use the existing RFC 7807 error style. The instance is not written.
 
@@ -660,6 +673,7 @@ Rejected commands use the existing RFC 7807 error style. The instance is not wri
 |---|---|
 | Unknown definition, unknown instance, or another player's instance | Not found. Do not reveal that the id exists for someone else. |
 | Start while this player already has `started` for that definition | Conflict |
+| File id is not `chapter-i`, the file fails a chapter check, or the parsed file is over 65536 bytes | Validation, no writes |
 | Any command on a finished instance | Conflict |
 | Stale ETag | Precondition failed |
 | Bad coordinates, missing fields, not a hex neighbor, own tile, disabled tile, unowned dig, kit shortfall, cost shortfall, no action point, second dig this turn, mines already max, no stash, buy amount below 1 | Validation, no writes |
@@ -691,9 +705,9 @@ The body is one object:
 | `attackFee` | 10 copper |
 | `battleKit` | Absent. A wager chapter sends the kit instead of `attackFee`. |
 | `marketplace` | The copper price of each item |
-| `scoreWeights` | `{ base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 }` |
+| `scoreWeights` | `{ perVictory: 125, turnsPerVictory: 2, perExtraTurn: 50, perSilver: 25, perCopper: 1 }` |
 
-`rules` is stored on the instance at start, from that `rulesetVersion`. A later edit to the definition does not change a run already going. The result screen uses the stored `rules.scoreWeights` and the stored `campaign.score`. `perTurn` is subtracted. The others are added. `campaign.score` is the outcome `{ total, turns, victories, silver, copper }`. It is absent until victory. It is not the weights.
+`rules` is stored on the instance at start, from that `rulesetVersion`. A later edit to the definition does not change a run already going. The result screen uses the stored `rules.scoreWeights` and the stored `campaign.score`. On ruleset 2, victories add, turns past `victories × turnsPerVictory` subtract, and silver and copper add. A ruleset 1 run still subtracts `perTurn` and adds `base`. `campaign.score` is the outcome `{ total, turns, victories, silver, copper }`. It is absent until victory. It is not the weights.
 
 `campaign.log` is the last 20 visible events, newest first. Each entry is `{ at, turn, type, summary }`. `type` is one of `income`, `dig`, `search`, `purchase`, `attack`, `battle_won`, `battle_lost`, `battle_refunded`, `mines_increased`, `left`, `victory`. `summary` is a short phrase the player may see, such as `2 stones` or `gate`. It does not name a defender kit or an unfound stash.
 
@@ -874,7 +888,7 @@ The html5 client gains a Chapter I path. Blitz stays. `BlitzGameScene` and `Test
 | Battle | Shown while `activeBattle` is set. Play opens the existing extended-game scene with `gameId`. Autobattle calls the command and shows `battleOutcome` here. |
 | Score | Shown when `campaign.score` is present. One line per input, using `rules.scoreWeights`, then `score.total`. Leave returns to the catalog. An external finish shows the reason and no score. |
 
-The action panel reads the tile view. An owned hex shows `income.product`, `income.perTurn`, and `mines` of `maxMines`. Dig is offered when `dugThisTurn` is false, at `rules.digCost`, including on a copper hex where the yield equals the cost. Search is offered when `searchAvailable` is true and `searchedThisTurn` is false, at `rules.searchCost`. Upgrade is offered when `increasedThisTurn` is false and `mines < maxMines`, at `rules.increaseMinesCost`. A seen hex shows `rounds` and offers Attack when it shares a side with an owned hex, `actionPoints` is at least 1, and `cannot_afford_battle` is absent. The button names the length: best of 5, or best of 7 on the citadel. The price is `rules.attackFee`. A wager chapter names `rules.battleKit` instead. The shop lists `rules.marketplace` and spends copper from the inventory. A finished victory shows the map and the score, and offers none of these actions. Leave returns to the catalog. An external finish shows the reason and no score.
+The action panel reads the tile view. An owned hex shows `income.product`, `income.perTurn`, and `mines` of `maxMines`. Dig is offered when `dugThisTurn` is false, at `rules.digCost`, including on a copper hex where the yield equals the cost. Search is offered when `searchAvailable` is true and `searchedThisTurn` is false, at `rules.searchCost`. Upgrade is offered when `increasedThisTurn` is false and `mines < maxMines`, at `rules.increaseMinesCost`. A seen hex shows `rounds` and offers Attack when it shares a side with an owned hex, `actionPoints` is at least 1, `cannot_afford_battle` is absent, and the inventory holds at least one Stone, Scissors, or Paper. NA effects and Core do not count. The button names the length: best of 5, or best of 7 on the citadel. The price is `rules.attackFee`. A wager chapter names `rules.battleKit` instead. The shop lists `rules.marketplace` and spends copper from the inventory. A finished victory shows the map and the score, and offers none of these actions. Leave returns to the catalog. An external finish shows the reason and no score.
 
 After the extended-game scene sees the match `finished` or `broken`, it returns to the map. The map loads `GET /apiv2/external/campaigns/{id}` before drawing. It does not invent the loot from the game payload.
 

@@ -394,12 +394,6 @@ module "cloudfront" {
 
   custom_error_responses = [
     {
-      error_code            = 400
-      response_code         = "400"
-      response_page_path    = "/api/errors/400.html"
-      error_caching_min_ttl = 300
-    },
-    {
       error_code            = 403
       response_code         = "403"
       response_page_path    = "/api/errors/403.html"
@@ -410,12 +404,6 @@ module "cloudfront" {
       response_code         = "404"
       response_page_path    = "/api/errors/404.html"
       error_caching_min_ttl = 300
-    },
-    {
-      error_code            = 500
-      response_code         = "500"
-      response_page_path    = "/api/errors/500.html"
-      error_caching_min_ttl = 60
     }
   ]
 

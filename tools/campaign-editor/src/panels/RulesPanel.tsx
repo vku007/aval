@@ -18,9 +18,9 @@ const INCOME: readonly { product: MineProduct; word: string }[] = [
 ];
 
 const WEIGHTS = [
-  { key: 'base', label: 'Base' },
-  { key: 'perTurn', label: 'Per turn' },
   { key: 'perVictory', label: 'Per victory' },
+  { key: 'turnsPerVictory', label: 'Turns per victory' },
+  { key: 'perExtraTurn', label: 'Per extra turn' },
   { key: 'perSilver', label: 'Per silver' },
   { key: 'perCopper', label: 'Per copper' }
 ] as const;

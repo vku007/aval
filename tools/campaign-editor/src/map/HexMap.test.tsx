@@ -58,6 +58,26 @@ describe('HexMap', () => {
     expect(camp?.querySelector('.hex-markers')).toBeNull();
   });
 
+  it('draws an unavailable tile as a wall with no mine glyph', () => {
+    const settings = bundled();
+    const gate = settings.tiles.find(tile => tile.q === 0 && tile.r === -1);
+    if (!gate) throw new Error('expected the gate');
+    gate.unavailable = true;
+    gate.difficulty = null;
+    gate.mines = 0;
+    gate.maxMines = 0;
+    const design = renderMap({ settings });
+    const cell = design.container.querySelector('[data-cell="0,-1"]');
+    expect(cell?.getAttribute('aria-label')).toBe('(0,-1) gate, unavailable');
+    expect(cell?.querySelector('.hex-shape')?.classList.contains('hex-fill-unavailable')).toBe(true);
+    expect(cell?.querySelector('.hex-glyph')).toBeNull();
+    expect(cell?.textContent).not.toContain('Pa');
+    cleanup();
+
+    const start = renderMap({ settings, overlay: 'start' });
+    expect(start.container.querySelector('[data-cell="0,-1"] .hex-shape')?.classList.contains('hex-fill-unavailable')).toBe(true);
+  });
+
   it('marks a custom defender kit with k', () => {
     const settings = bundled();
     const gate = settings.tiles.find(tile => tile.q === 0 && tile.r === -1);

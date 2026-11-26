@@ -152,6 +152,16 @@ test('hex placement, neighbors, radius, and cell marks', () => {
     maxMines: 3
   }), 'C 1/3');
   assert.equal(CampaignHex.mark({ visibility: 'hidden' }), '');
+  assert.equal(CampaignHex.mark({ visibility: 'blocked' }), '');
+});
+
+test('an unavailable cell offers no attack', () => {
+  const { CampaignOffers, CampaignHex } = loadCampaign();
+  const view = chapterView();
+  const wall = { q: 1, r: -1, visibility: 'blocked' };
+  const sheet = CampaignOffers.tileSheet(view, wall);
+  same(sheet, { lines: ['Unavailable'], actions: [], garrison: null });
+  assert.equal(CampaignHex.adjacentToOwned(wall, view.tiles), false);
 });
 
 test('camp on turn 1 offers dig, upgrade, neighbor attacks, and a bare end turn', () => {
@@ -308,6 +318,41 @@ test('stall lines stay hidden while a battle is open', () => {
     })),
     ['You need the battle kit before you can attack.']
   );
+  const bare = chapterView();
+  bare.inventory.items = {
+    stones: 0,
+    scissors: 0,
+    papers: 0,
+    NA_effect_stone: 9,
+    NA_effect_scissors: 9,
+    NA_effect_papers: 9,
+    NT_effect: 9
+  };
+  const neighbor = bare.tiles.find((tile) => tile.q === 0 && tile.r === -1);
+  assert.equal(CampaignOffers.attack(bare, neighbor), null);
+  assert.equal(CampaignOffers.tileSheet(bare, neighbor).actions.length, 0);
+  same(CampaignOffers.stallLines(bare), [
+    'You need a Stone, Scissors, or Paper to attack.'
+  ]);
+  bare.inventory.items.stones = 1;
+  assert.equal(CampaignOffers.attack(bare, neighbor).send, true);
+  same(CampaignOffers.stallLines(bare), []);
+  bare.inventory.items.stones = 0;
+  bare.inventory.items.papers = 1;
+  assert.equal(CampaignOffers.attack(bare, neighbor).send, true);
+  bare.inventory.items.papers = 0;
+  bare.inventory.items.scissors = 1;
+  assert.equal(CampaignOffers.attack(bare, neighbor).send, true);
+  bare.inventory.items.scissors = 0;
+  bare.blockedReasons = ['cannot_afford_battle'];
+  same(CampaignOffers.stallLines(bare), [
+    'You need 10 copper to attack.',
+    'You need a Stone, Scissors, or Paper to attack.'
+  ]);
+  const nowhere = chapterView({ blockedReasons: ['no_attack_target'] });
+  nowhere.inventory.items = { stones: 0, scissors: 0, papers: 0, NT_effect: 4 };
+  same(CampaignOffers.stallLines(nowhere), ['No neighboring tile to attack.']);
+
   assert.equal(CampaignOffers.battle(view, false).actions.map((action) => action.id).join(','), 'play,autobattle,cancel');
   assert.equal(CampaignOffers.battle(view, false).actions.find((action) => action.id === 'cancel').body.type, 'cancel_attack');
   same(CampaignOffers.battle(view, true).actions.map((action) => action.id), ['play']);
@@ -322,10 +367,19 @@ test('score lines use the stored total and skip a missing score', () => {
     weights
   );
   assert.equal(lines.find((line) => line.key === 'turns').op, 'subtract');
+  assert.equal(lines.find((line) => line.key === 'turns').text, 'Turns 3 × 50');
   assert.equal(lines.find((line) => line.key === 'base').op, 'add');
   assert.equal(lines.find((line) => line.key === 'victories').op, 'add');
   assert.equal(lines[lines.length - 1].value, 117);
   assert.equal(lines[lines.length - 1].text, 'Total 117');
+  const pace = CampaignScoreLines.lines(
+    { total: 1000, turns: 16, victories: 8, silver: 0, copper: 0 },
+    { perVictory: 125, turnsPerVictory: 2, perExtraTurn: 50, perSilver: 25, perCopper: 1 }
+  );
+  assert.equal(pace.find((line) => line.key === 'victories').text, 'Victories 8 × 125');
+  assert.equal(pace.find((line) => line.key === 'turns').text, 'Turns 16, pace 16, extra 0 × 50');
+  assert.equal(pace.find((line) => line.key === 'turns').op, 'subtract');
+  assert.equal(pace[pace.length - 1].value, 1000);
   same(CampaignScoreLines.lines(null, weights), []);
   same(CampaignScoreLines.lines(undefined, weights), []);
   assert.equal(CampaignLabels.historyLabel({ finishReason: 'victory', score: null }), 'Victory');

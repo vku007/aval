@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>403 - Access Denied</title>
+  <script>
+    (function () {
+      var path = location.pathname;
+      if (path !== '/editor' && path.indexOf('/editor/') !== 0) return;
+      var key = 'editor-session-redirect';
+      var last = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - last < 15000) return;
+      sessionStorage.setItem(key, String(Date.now()));
+      location.replace('/editor/session.html');
+    })();
+  </script>
   <style>
     * {
       margin: 0;

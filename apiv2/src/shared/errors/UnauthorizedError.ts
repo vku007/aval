@@ -5,8 +5,8 @@ import { ApplicationError } from './ApplicationError.js';
  * Thrown when authentication is required but missing or invalid
  */
 export class UnauthorizedError extends ApplicationError {
-  constructor(message: string = 'Authentication required') {
-    super(message, 401);
+  constructor(message: string = 'Authentication required', code?: string) {
+    super(message, 401, code);
     this.name = 'UnauthorizedError';
   }
 }

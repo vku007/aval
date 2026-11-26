@@ -2,7 +2,7 @@
  * Game configuration — logical size 390×844, Scale.FIT into the viewport.
  */
 
-console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, CampaignCatalogScene, CampaignMapScene, CampaignBattleResultScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, BlitzGameScene, AdvancedGameResultsScene, TestsScene, OldUiScenes, UIEditorScene, ButtonsScene, SkinnedButtonScene, CompositeUIEditorScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, AlterSheetScene, SheetScene, MoveHotCircleScene, ErrorModalScene]);
+console.log('[game.js] Initializing game with scenes:', [BootScene, MenuScene, GameSelectScene, CampaignSetupScene, CampaignCatalogScene, CampaignMapScene, CampaignBattleResultScene, AccountModalScene, ClassicGameScene, ExtendedGameScene, BlitzGameScene, AdvancedGameResultsScene, TestsScene, OldUiScenes, UIEditorScene, ButtonsScene, SkinnedButtonScene, CompositeUIEditorScene, TestInventoriesScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, AlterSheetScene, SheetScene, MoveHotCircleScene, ErrorModalScene]);
 
 applyGameFrame(fitGameFrame());
 
@@ -22,7 +22,7 @@ const config = {
         width: GAME_WIDTH,
         height: GAME_HEIGHT
     },
-    scene: [BootScene, MenuScene, GameSelectScene, CampaignCatalogScene, CampaignMapScene, CampaignBattleResultScene, LoginModalScene, RegisterModalScene, ClassicGameScene, ExtendedGameScene, BlitzGameScene, AdvancedGameResultsScene, TestsScene, OldUiScenes, UIEditorScene, ButtonsScene, SkinnedButtonScene, CompositeUIEditorScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, AlterSheetScene, SheetScene, MoveHotCircleScene, ErrorModalScene]
+    scene: [BootScene, MenuScene, GameSelectScene, CampaignSetupScene, CampaignCatalogScene, CampaignMapScene, CampaignBattleResultScene, AccountModalScene, ClassicGameScene, ExtendedGameScene, BlitzGameScene, AdvancedGameResultsScene, TestsScene, OldUiScenes, UIEditorScene, ButtonsScene, SkinnedButtonScene, CompositeUIEditorScene, TestInventoriesScene, UITestScene, HotMapBallScene, RotatedHotMapBallScene, MoveHotRodScene, BackHighlightScene, ShardScene, AlterSheetScene, SheetScene, MoveHotCircleScene, ErrorModalScene]
 };
 
 console.log('[game.js] Creating Phaser.Game', GAME_WIDTH + 'x' + GAME_HEIGHT);
@@ -57,6 +57,9 @@ window.addEventListener('resize', () => {
     resizeTimer = setTimeout(() => {
         applyGameFrame(fitGameFrame());
         game.scale.refresh();
+        if (typeof placeAuthFields === 'function') {
+            placeAuthFields();
+        }
         if (typeof syncEditorToolsBox === 'function') {
             syncEditorToolsBox();
         }

@@ -18,6 +18,7 @@ import { Logger } from '../../shared/logging/Logger.js';
 import { ConflictError, NotFoundError, PreconditionFailedError, ValidationError } from '../../shared/errors/index.js';
 import { Campaign } from '../../domain/campaign/Campaign.js';
 import { CHAPTER_I } from '../../domain/campaign/ChapterI.js';
+import chapterI from '../../domain/campaign/chapter-i.json';
 import { Action } from '../../domain/value-object/Action.js';
 import { ActionType } from '../../domain/value-object/ActionType.js';
 import { ActionContext } from '../../domain/value-object/ActionContext.js';
@@ -246,6 +247,42 @@ describe('CampaignService', () => {
     expect(next?.game.campaignNpcAlgorithmId).toBe('npc-v1');
   });
 
+  it('repairs a finished extended game with no winning rounds as an attacker defeat', async () => {
+    const { campaigns, games } = await boot();
+    const started = await open('player-draw', campaigns);
+    const attacked = await campaigns.act('player-draw', started.id, { type: 'attack', q: 0, r: 1, from: { q: 0, r: 2 } }, started.etag);
+    const paid = attacked.body.campaign as {
+      actionPoints: number;
+      inventory: { currencies: { copper: number } };
+    };
+    const loaded = await games.load(String(attacked.body.gameId));
+    const humanStones = loaded!.game.inventories.find(row => row.userId === 'player-draw')?.items.stones;
+    loaded!.game.setStatus(GameStatus.Finished);
+    await games.save(loaded!.game, loaded!.etag);
+    const repaired = await campaigns.get('player-draw', started.id);
+    const view = repaired.body.campaign as {
+      actionPoints: number;
+      activeBattle: unknown;
+      inventory: { items: { stones: number }; currencies: { copper: number } };
+      tiles: Array<{ q: number; r: number; visibility: string; garrison?: unknown }>;
+    };
+    const gate = view.tiles.find(tile => tile.q === 0 && tile.r === 1);
+    expect(repaired.body.battleOutcome).toEqual(expect.objectContaining({
+      result: 'defeat',
+      playerRoundWins: 0,
+      npcRoundWins: 0,
+      captured: false,
+      reward: null
+    }));
+    expect(view.activeBattle).toBeNull();
+    expect(view.actionPoints).toBe(paid.actionPoints);
+    expect(paid.actionPoints).toBe(0);
+    expect(view.inventory.currencies.copper).toBe(paid.inventory.currencies.copper);
+    expect(view.inventory.items.stones).toBe(humanStones);
+    expect(gate?.visibility).not.toBe('owned');
+    expect(gate?.garrison).toBeDefined();
+  });
+
   it('copies a npc-greed-v1 garrison onto the game and still seats NPC_1', async () => {
     const { campaigns, games, users } = await boot();
     const started = await open('player-6', campaigns);
@@ -408,6 +445,95 @@ describe('CampaignService', () => {
     expect((bought.body.campaign as { inventory: { items: { stones: number }; currencies: { copper: number } } }).inventory)
       .toMatchObject({ items: { stones: 16 }, currencies: { copper: 10 } });
   });
+
+  it('starts Chapter I from an editor file and keeps the bundled chapter', async () => {
+    const { campaigns, users } = await boot();
+    const catalog = await campaigns.catalog('player-file', { name: 'Ada Lovelace', externalId: 17 });
+    const started = await campaigns.startFromFile('player-file', editorFile(), catalog.etag!);
+    const view = started.body.campaign as {
+      definitionId: string;
+      title: string;
+      rules: { attackFee: { copper: number } };
+    };
+    expect(view).toMatchObject({ definitionId: 'chapter-i', title: 'Chapter I' });
+    expect(view.rules.attackFee).toEqual({ copper: CHAPTER_I.rules.attackFee });
+    const stored = await users.findById('player-file');
+    const run = stored?.campaigns[0];
+    expect(run?.rules).toEqual(CHAPTER_I.rules);
+    expect(run?.tiles.find(tile => tile.q === 0 && tile.r === 0)?.label).toBe('camp');
+
+    const changed = editorFile();
+    const gate = changed.tiles.find(tile => tile.q === 0 && tile.r === -1);
+    gate.label = 'north-gate';
+    changed.rules.attackFee = 3;
+    const customCatalog = await campaigns.catalog('player-custom', { name: 'Ada Lovelace', externalId: 18 });
+    const custom = await campaigns.startFromFile('player-custom', changed, customCatalog.etag!);
+    const customView = custom.body.campaign as { rules: { attackFee: { copper: number } }; title: string };
+    expect(customView.title).toBe('Chapter I');
+    expect(customView.rules.attackFee).toEqual({ copper: 3 });
+    const customStored = await users.findById('player-custom');
+    expect(customStored?.campaigns[0].tiles.find(tile => tile.q === 0 && tile.r === -1)?.label).toBe('north-gate');
+    expect(CHAPTER_I.rules.attackFee).toBe(10);
+    expect(CHAPTER_I.tiles.find(tile => tile.q === 0 && tile.r === -1)?.label).toBe('gate');
+
+    const legacy = editorFile();
+    legacy.rules.scoreWeights = { base: 200, perTurn: 50, perVictory: 20, perSilver: 20, perCopper: 1 };
+    const legacyCatalog = await campaigns.catalog('player-legacy', { name: 'Ada Lovelace', externalId: 21 });
+    const legacyStart = await campaigns.startFromFile('player-legacy', legacy, legacyCatalog.etag!);
+    expect((legacyStart.body.campaign as { rules: { scoreWeights: { base: number; perTurn: number } } }).rules.scoreWeights)
+      .toMatchObject({ base: 200, perTurn: 50 });
+
+    const warned = editorFile();
+    warned.tiles.find(tile => tile.q === 0 && tile.r === -1).label = 'camp';
+    const warnedCatalog = await campaigns.catalog('player-warn', { name: 'Ada Lovelace', externalId: 19 });
+    const warnedStart = await campaigns.startFromFile('player-warn', warned, warnedCatalog.etag!);
+    expect((warnedStart.body.campaign as { status: string }).status).toBe('started');
+
+    const bundled = await campaigns.catalog('player-bundled', { name: 'Ada Lovelace', externalId: 20 });
+    const fromDefinition = await campaigns.start('player-bundled', 'chapter-i', bundled.etag!);
+    expect((fromDefinition.body.campaign as { definitionId: string; title: string })).toMatchObject({
+      definitionId: 'chapter-i',
+      title: 'Chapter I'
+    });
+    const bundledStored = await users.findById('player-bundled');
+    expect(bundledStored?.campaigns[0].rules.attackFee).toBe(CHAPTER_I.rules.attackFee);
+    expect(bundledStored?.campaigns[0].tiles.find(tile => tile.q === 0 && tile.r === 0)?.label).toBe('camp');
+  });
+
+  it('rejects a bad editor file and a second Chapter I start', async () => {
+    const { campaigns, users } = await boot();
+    const catalog = await campaigns.catalog('player-file', { name: 'Ada Lovelace', externalId: 17 });
+    const etag = catalog.etag!;
+    await expect(campaigns.startFromFile('player-file', { id: 'chapter-i' }, etag)).rejects.toBeInstanceOf(ValidationError);
+
+    const wrongId = editorFile();
+    wrongId.id = 'chapter-ii';
+    await expect(campaigns.startFromFile('player-file', wrongId, etag)).rejects.toThrow('Campaign file must be Chapter I');
+
+    const broken = editorFile();
+    for (const tile of broken.tiles) delete tile.objective;
+    await expect(campaigns.startFromFile('player-file', broken, etag)).rejects.toThrow('No tile is an objective');
+
+    const huge = editorFile();
+    huge.tiles[0].label = 'x'.repeat(70000);
+    expect(JSON.stringify(huge).length).toBeGreaterThan(65536);
+    await expect(campaigns.startFromFile('player-file', huge, etag)).rejects.toThrow('Campaign file is too large');
+
+    const stored = await users.findById('player-file');
+    expect(stored?.campaigns).toEqual([]);
+
+    const started = await campaigns.startFromFile('player-file', editorFile(), etag);
+    const startedId = (started.body.campaign as { id: string }).id;
+    const again = await campaigns.startFromFile('player-file', editorFile(), started.etag!);
+    const againId = (again.body.campaign as { id: string }).id;
+    expect(againId).not.toBe(startedId);
+    expect((again.body.campaign as { status: string }).status).toBe('started');
+    await expect(campaigns.start('player-file', 'chapter-i', again.etag!)).rejects.toBeInstanceOf(ConflictError);
+    const after = await users.findById('player-file');
+    expect(after?.campaigns).toHaveLength(2);
+    expect(after?.campaigns.find(item => item.id === startedId)?.finishReason).toBe('abandoned');
+    expect(after?.campaigns.find(item => item.id === againId)?.status).toBe('started');
+  });
 });
 
 async function boot() {
@@ -427,6 +553,10 @@ async function boot() {
 }
 
 let dir: string;
+
+function editorFile() {
+  return structuredClone(chapterI);
+}
 
 async function winGame(games: GameProcessorService, gameId: string, userId: string, wins: number) {
   const loaded = await games.load(gameId);

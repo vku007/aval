@@ -367,10 +367,11 @@ function statusText(result: RouteResult): string {
 }
 
 function scoreLines(score: CampaignScoreRecord, weights: ChapterSettings['rules']['scoreWeights']): string[] {
+  const pace = score.victories * weights.turnsPerVictory;
+  const extra = Math.max(0, score.turns - pace);
   return [
-    `base ${weights.base}`,
-    `turns ${score.turns} × -${weights.perTurn} = ${-score.turns * weights.perTurn}`,
     `victories ${score.victories} × ${weights.perVictory} = ${score.victories * weights.perVictory}`,
+    `turns ${score.turns}, pace ${pace}, extra ${extra} × -${weights.perExtraTurn} = ${-extra * weights.perExtraTurn}`,
     `silver ${score.silver} × ${weights.perSilver} = ${score.silver * weights.perSilver}`,
     `copper ${score.copper} × ${weights.perCopper} = ${score.copper * weights.perCopper}`,
     `total ${score.total}`

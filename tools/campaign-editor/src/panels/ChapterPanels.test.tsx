@@ -33,9 +33,10 @@ describe('ChapterPanel', () => {
     expect(screen.queryByLabelText('Id')).toBeNull();
     expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('Chapter I');
 
+    const next = bundled().rulesetVersion + 1;
     fireEvent.click(screen.getByRole('button', { name: 'Bump' }));
-    expect(onAction).toHaveBeenCalledWith({ type: 'setChapter', patch: { rulesetVersion: 2 } });
-    expect(apply(bundled(), onAction.mock.calls[0][0]).rulesetVersion).toBe(2);
+    expect(onAction).toHaveBeenCalledWith({ type: 'setChapter', patch: { rulesetVersion: next } });
+    expect(apply(bundled(), onAction.mock.calls[0][0]).rulesetVersion).toBe(next);
   });
 });
 

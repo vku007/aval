@@ -193,3 +193,40 @@ canvas {
     background: black;
     color: white;
 }
+
+.auth-fields {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.auth-fields[hidden] {
+    display: none !important;
+}
+
+.auth-fields input {
+    position: fixed;
+    box-sizing: border-box;
+    margin: 0;
+    pointer-events: auto;
+    font: 16px monospace;
+    line-height: 1.2;
+    color: #111111;
+    background: #ffffff;
+    border: 1px solid #d0d0d0;
+    outline: none;
+    appearance: none;
+}
+
+.auth-fields input:focus {
+    border: 2px solid #111111;
+}
+
+.auth-fields input:disabled {
+    opacity: 0.7;
+}

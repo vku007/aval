@@ -11,7 +11,7 @@ function loadScene(ctx) {
         'utf8'
     );
     vm.runInContext(
-        `${source}\n;globalThis.BlitzGameScene = BlitzGameScene;\nglobalThis.localAdvancedPanelBoxes = localAdvancedPanelBoxes;\nglobalThis.enemyInventoryStorageSpec = enemyInventoryStorageSpec;`,
+        `${source}\n;globalThis.BlitzGameScene = BlitzGameScene;\nglobalThis.localAdvancedPanelBoxes = localAdvancedPanelBoxes;\nglobalThis.enemyInventoryStorageSpec = enemyInventoryStorageSpec;\nglobalThis.resolveInventoryGrids = resolveInventoryGrids;`,
         ctx,
         { filename: 'BlitzGameScene.js' }
     );
@@ -109,9 +109,11 @@ describe('enemy storage indicators', () => {
         const effects = scene.enemyStoneNaIndicator;
         expect(stones).toBeInstanceOf(ctx.HmVerticalTableAmountIndicator);
         expect(stones.columns).toBe(4);
+        expect(stones.rows).toBe(6);
         expect(stones.direction).toBe('desc');
         expect(stones.shape).toBe('rectangle');
-        expect(stones.maxAmount).toBe(21);
+        expect(stones.maxAmount).toBe(24);
+        expect(stones.items).toHaveLength(24);
         expect(stones.stored).toBe(21);
         expect(stones.selected).toBe(0);
         expect(stones.name).toBe('Enemy Stones');
@@ -229,5 +231,63 @@ describe('enemy storage indicators', () => {
         expect(scene.enemyPapersNaIndicator.stored).toBe(0);
         expect(nt.stored).toBe(0);
         expect(stones.selected).toBe(0);
+    });
+
+    it('uses a separate item grid for the player and the enemy', () => {
+        const ctx = loadHeat();
+        loadScene(ctx);
+        const resolved = ctx.resolveInventoryGrids({
+            player: { items: { columns: 3, rows: 5 } },
+            enemy: { items: { columns: 13, rows: 4 }, na: { columns: 2.5, rows: 3 } }
+        });
+        expect(resolved.player.items).toEqual({ columns: 3, rows: 5 });
+        expect(resolved.player.na).toEqual({ columns: 2, rows: 4 });
+        expect(resolved.player.nt).toEqual({ columns: 2, rows: 3 });
+        expect(resolved.enemy.items).toEqual({ columns: 4, rows: 6 });
+        expect(resolved.enemy.na).toEqual({ columns: 2, rows: 4 });
+        expect(resolved.enemy.nt).toEqual({ columns: 2, rows: 3 });
+
+        const heatMap = createHeatMap(ctx);
+        const boxes = ctx.localAdvancedPanelBoxes(390, 844);
+        const scene = Object.create(ctx.BlitzGameScene.prototype);
+        scene.heatMap = heatMap;
+        scene.inventoryGrids = {
+            player: { items: { columns: 3, rows: 5 } },
+            enemy: { items: { columns: 2, rows: 4 } }
+        };
+        scene._showInventorySelection = false;
+        scene.selectedEffects = [];
+        scene.gameData = advancedStart(NPC_START);
+        scene.createStoneStorageIndicators(box(boxes, 'stone_storage_panel'));
+        scene.createNtEffectsIndicator(box(boxes, 'NT_effects_panel'));
+        scene.createEnemyInventoryReadout(boxes);
+        scene.syncStoneStorageIndicators();
+        scene.syncEnemyStorageIndicators();
+
+        expect(scene.stonesIndicator.columns).toBe(3);
+        expect(scene.stonesIndicator.rows).toBe(5);
+        expect(scene.stonesIndicator.maxAmount).toBe(15);
+        expect(scene.stonesIndicator.items).toHaveLength(15);
+        expect(scene.stonesIndicator.stored).toBe(15);
+        expect(scene.stoneNaIndicator.columns).toBe(2);
+        expect(scene.stoneNaIndicator.rows).toBe(4);
+        expect(scene.stoneNaIndicator.maxAmount).toBe(8);
+        expect(scene.ntEffectsIndicator.columns).toBe(2);
+        expect(scene.ntEffectsIndicator.rows).toBe(3);
+        expect(scene.ntEffectsIndicator.maxAmount).toBe(6);
+
+        const enemyStones = scene.enemyStonesIndicator;
+        expect(enemyStones.columns).toBe(2);
+        expect(enemyStones.rows).toBe(4);
+        expect(enemyStones.maxAmount).toBe(8);
+        expect(enemyStones.stored).toBe(8);
+        expect(enemyStones.selected).toBe(0);
+        expect(scene.enemyStoneNaIndicator.columns).toBe(2);
+        expect(scene.enemyStoneNaIndicator.rows).toBe(4);
+        expect(scene.enemyStoneNaIndicator.maxAmount).toBe(8);
+        expect(scene.enemyNtEffectsIndicator.columns).toBe(2);
+        expect(scene.enemyNtEffectsIndicator.rows).toBe(3);
+        expect(scene.enemyNtEffectsIndicator.maxAmount).toBe(6);
+        expect(scene.enemyNtEffectsIndicator.selected).toBe(0);
     });
 });

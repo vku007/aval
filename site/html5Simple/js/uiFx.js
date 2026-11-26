@@ -54,7 +54,7 @@ function fxPressDown(scene, target, options = {}) {
         ease: 'Quad.easeOut'
     });
     const pos = fxWorldXY(target);
-    const tapFx = options.tapFx || 'stars';
+    const tapFx = options.tapFx || 'none';
     if (tapFx === 'ring') {
         fxTapRing(scene, pos.x, pos.y, {
             radius: Math.max(target.buttonWidth || 64, target.buttonHeight || 48) * 0.55,
@@ -293,7 +293,7 @@ function fxResumeOtherScenes(scene) {
     scene._fxPausedScenes = [];
 }
 
-function fxOpenModal(scene, overlay, card) {
+function fxOpenModal(scene, overlay, card, onReady) {
     if (!scene) return;
     scene.modalOverlay = overlay;
     scene.modalCard = card;
@@ -306,23 +306,36 @@ function fxOpenModal(scene, overlay, card) {
 
     const ms = fxSceneFadeMs() || 80;
     const targetAlpha = overlay && overlay._fxTargetAlpha != null ? overlay._fxTargetAlpha : 0.5;
+    let pending = 0;
+    const done = () => {
+        pending -= 1;
+        if (pending > 0 || scene._fxClosing) return;
+        if (typeof onReady === 'function') onReady();
+    };
 
     if (overlay) {
         overlay.setDepth(0);
         overlay.setAlpha(0);
+        pending += 1;
         scene.tweens.add({
             targets: overlay,
             alpha: targetAlpha,
             duration: ms,
-            ease: 'Quad.easeOut'
+            ease: 'Quad.easeOut',
+            onComplete: done
         });
     }
 
-    if (!card) return;
+    if (!card) {
+        if (pending === 0 && typeof onReady === 'function') onReady();
+        return;
+    }
 
     card.setDepth(10);
+    pending += 1;
     if (UI.fx && UI.fx.modalPop) {
         fxPopIn(scene, card);
+        scene.time.delayedCall(140, done);
     } else {
         card.setScale(1);
         card.setAlpha(0);
@@ -330,7 +343,8 @@ function fxOpenModal(scene, overlay, card) {
             targets: card,
             alpha: 1,
             duration: ms,
-            ease: 'Quad.easeOut'
+            ease: 'Quad.easeOut',
+            onComplete: done
         });
     }
 }
@@ -338,6 +352,7 @@ function fxOpenModal(scene, overlay, card) {
 function fxCloseModal(scene, onDone) {
     if (!scene || scene._fxClosing) return;
     scene._fxClosing = true;
+    if (typeof scene.hideAuthFields === 'function') scene.hideAuthFields();
 
     const finish = () => {
         fxResumeOtherScenes(scene);
@@ -586,114 +601,3 @@ function drawRoundedCard(scene, x, y, width, height, radius = 16) {
     return g;
 }
 
-function createStyledInput(scene, x, y, width, height, options = {}) {
-    const pad = 16;
-    const radius = 12;
-    const field = scene.add.container(x, y);
-    const labelText = options.label || '';
-    const placeholderText = options.placeholder || '';
-
-    const shell = scene.add.graphics();
-    const hit = scene.add.rectangle(0, 0, width, height, 0x000000, 0);
-    hit.setInteractive();
-
-    const label = scene.add.text(-width / 2 + pad, 0, labelText, {
-        font: `${UI.body}px monospace`,
-        fill: '#888888'
-    }).setOrigin(0, 0.5);
-
-    const valueY = 8;
-    const text = scene.add.text(-width / 2 + pad, valueY, '', {
-        font: `${UI.body}px monospace`,
-        fill: '#111111'
-    }).setOrigin(0, 0.5);
-
-    const placeholder = scene.add.text(-width / 2 + pad, valueY, placeholderText, {
-        font: `${UI.body}px monospace`,
-        fill: '#c4c4c4'
-    }).setOrigin(0, 0.5);
-
-    const caret = scene.add.rectangle(-width / 2 + pad, valueY, 2, UI.body + 6, 0x111111);
-    caret.setOrigin(0.5);
-
-    field.add([shell, hit, label, placeholder, text, caret]);
-
-    field.shell = shell;
-    field.text = text;
-    field.cursor = caret;
-    field.name = options.name;
-    field.fieldWidth = width;
-    field.fieldHeight = height;
-    field.isActive = false;
-    field.hasValue = false;
-
-    scene.tweens.add({
-        targets: caret,
-        alpha: 0,
-        duration: 480,
-        yoyo: true,
-        repeat: -1
-    });
-
-    const redraw = () => {
-        const active = field.isActive;
-        const filled = field.hasValue;
-        const floated = active || filled;
-
-        shell.clear();
-        shell.fillStyle(active ? 0xffffff : 0xf4f4f4, 1);
-        shell.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
-        shell.lineStyle(active ? 2 : 1, active ? 0x111111 : 0xd0d0d0, 1);
-        shell.strokeRoundedRect(-width / 2, -height / 2, width, height, radius);
-
-        if (active) {
-            shell.lineStyle(3, 0x111111, 1);
-            shell.beginPath();
-            shell.moveTo(-width / 2 + radius, height / 2 - 1);
-            shell.lineTo(width / 2 - radius, height / 2 - 1);
-            shell.strokePath();
-        }
-
-        label.setFontSize(floated ? UI.small : UI.body);
-        label.setY(floated ? -height / 2 + 12 : 0);
-        label.setColor(active ? '#111111' : '#888888');
-
-        text.setY(floated ? valueY : 0);
-        placeholder.setY(floated ? valueY : 0);
-        placeholder.setVisible(!filled && !active);
-        caret.setVisible(active);
-        caret.y = floated ? valueY : 0;
-    };
-
-    const syncCaret = () => {
-        caret.x = -width / 2 + pad + text.width + 3;
-        caret.y = (field.isActive || field.hasValue) ? valueY : 0;
-        caret.setVisible(field.isActive);
-    };
-
-    field.redraw = redraw;
-    field.syncCaret = syncCaret;
-
-    field.setFocused = (active) => {
-        field.isActive = !!active;
-        redraw();
-        syncCaret();
-    };
-
-    field.setDisplay = (value) => {
-        field.hasValue = String(value || '').length > 0;
-        text.setText(value || '');
-        redraw();
-        syncCaret();
-    };
-
-    hit.on('pointerdown', () => {
-        if (typeof options.onFocus === 'function') {
-            options.onFocus(field.name);
-        }
-    });
-
-    redraw();
-    syncCaret();
-    return field;
-}

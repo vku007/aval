@@ -280,31 +280,23 @@ function uiMenuMarkupBoxes(width, height) {
     const btnW = UI.menuBtnW;
     const gap = 16;
     const specs = [
-        { label: 'LOGIN', height: UI.menuBtnH },
-        { label: 'REGISTER', height: UI.menuBtnH },
-        { label: 'LOGOUT', height: UI.menuBtnH },
-        { label: 'INVENTORY', height: UI.menuBtnH },
+        { label: 'SIGN IN', height: UI.menuBtnH },
         { label: 'START GAME', height: UI.menuPrimaryH },
         { label: 'UI TESTS', height: UI.menuBtnH },
         { label: 'EXIT', height: UI.menuBtnH }
     ];
-    const switcherH = UI.touchMin;
     const skinH = 28;
+    const skinMargin = 16;
     const totalHeight = specs.reduce((sum, btn) => sum + btn.height, 0) + gap * (specs.length - 1);
-    const buttonYStart = 120 + (height - 120 - switcherH - 24 - skinH - 12 - totalHeight) / 2;
+    const buttonYStart = 120 + (height - 120 - skinH - skinMargin - 12 - totalHeight) / 2;
     let y = buttonYStart;
     specs.forEach((btn) => {
         pushCentered(boxes, width / 2, y + btn.height / 2, btnW, btn.height, btn.label);
         y += btn.height + gap;
     });
 
-    const chipW = 170;
-    const chipGap = 8;
-    const chipY = height - 16 - switcherH / 2;
-    const skinY = chipY - switcherH / 2 - 10 - skinH / 2;
+    const skinY = height - skinMargin - skinH / 2;
     pushCentered(boxes, width / 2 + 20, skinY, 88, skinH, 'SKIN');
-    pushCentered(boxes, width / 2 - chipW / 2 - chipGap / 2, chipY, chipW, switcherH, 'LAYOUT');
-    pushCentered(boxes, width / 2 + chipW / 2 + chipGap / 2, chipY, chipW, switcherH, 'FX');
     return boxes;
 }
 

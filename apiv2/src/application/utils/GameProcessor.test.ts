@@ -976,6 +976,81 @@ describe('GameProcessor Extended kind', () => {
     expect(game.inventories.find(item => item.userId === USER_1)!.items.NA_effect_papers).toBe(2);
   });
 
+  it('surrenders the player when their last gesture is spent', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    setItems(game, USER_1, { stones: 1, scissors: 0, papers: 0 });
+
+    processor.playTurn(game, createMoveAction(USER_1, MoveType.Stone, 1), USER_1);
+
+    expect(game.status).toBe(GameStatus.Finished);
+    expect(processor.whoIsWinner(game)).toBe(NPC_1);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.stones).toBe(0);
+    expect(game.rounds.flatMap(round => round.subRounds)
+      .some(subRound => subRound.status === SubRoundStatus.Surrendered)).toBe(true);
+  });
+
+  it('surrenders an empty opponent before the move is charged', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    setItems(game, NPC_1, { stones: 0, scissors: 0, papers: 0 });
+    const stones = game.inventories.find(item => item.userId === USER_1)!.items.stones;
+
+    processor.playTurn(game, createMoveAction(USER_1, MoveType.Stone, 1), USER_1);
+
+    expect(game.status).toBe(GameStatus.Finished);
+    expect(processor.whoIsWinner(game)).toBe(USER_1);
+    expect(game.getMovesForUser(USER_1)).toHaveLength(0);
+    expect(game.getMovesForUser(NPC_1)).toHaveLength(0);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.stones).toBe(stones);
+    expect(game.inventories.find(item => item.userId === NPC_1)!.items.stones).toBe(0);
+  });
+
+  it('surrenders the opponent in the same turn that spends their last gesture', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    setItems(game, NPC_1, { stones: 1, scissors: 0, papers: 0 });
+
+    processor.playTurn(game, createMoveAction(USER_1, MoveType.Paper, 1), USER_1);
+
+    expect(game.status).toBe(GameStatus.Finished);
+    expect(processor.whoIsWinner(game)).toBe(USER_1);
+    expect(game.getMovesForUser(NPC_1)).toHaveLength(1);
+    expect(game.inventories.find(item => item.userId === NPC_1)!.items.stones).toBe(0);
+  });
+
+  it('leaves the match open when a side still has a payable gesture', () => {
+    const game = createExtendedGame('game-1', [USER_1, NPC_1]);
+    setItems(game, USER_1, { stones: 2, scissors: 0, papers: 0 });
+
+    processor.playTurn(game, createMoveAction(USER_1, MoveType.Stone, 1), USER_1);
+
+    expect(game.status).not.toBe(GameStatus.Finished);
+    expect(game.inventories.find(item => item.userId === USER_1)!.items.stones).toBe(1);
+    expect(game.getMovesForUser(USER_1)).toHaveLength(1);
+    expect(game.getMovesForUser(NPC_1)).toHaveLength(1);
+  });
+
+  it('does not surrender a classic player who has no gestures', () => {
+    const classic = new GameProcessor(new ClassicGameResolver(new SimpleGameOutcomeResolver()));
+    const classicGame = new Game(
+      'game-classic-empty',
+      [USER_1, USER_2],
+      GameStatus.Created,
+      new GameCreateContext(
+        GameType.PVP,
+        RoundsLength.BO3,
+        KindOfGame.Classic,
+        new GameLevel('Level1'),
+        new CampaignContext('Episode1')
+      )
+    );
+    setItems(classicGame, USER_1, { stones: 0, scissors: 0, papers: 0 });
+
+    classic.playTurn(classicGame, createMoveAction(USER_1, MoveType.Stone, 1), USER_1);
+
+    expect(classicGame.status).not.toBe(GameStatus.Finished);
+    expect(classicGame.getMovesForUser(USER_1)).toHaveLength(1);
+    expect(classicGame.inventories.find(item => item.userId === USER_1)!.items.stones).toBe(0);
+  });
+
   it('does not spend inventory on a classic move', () => {
     const classic = new GameProcessor(new ClassicGameResolver(new SimpleGameOutcomeResolver()));
     const classicGame = new Game(

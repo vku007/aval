@@ -5,6 +5,7 @@ import {
   type Campaign
 } from '../../domain/campaign/Campaign.js';
 import { GameStatus } from '../../domain/value-object/GameStatus.js';
+import { KindOfGame } from '../../domain/value-object/KindOfGame.js';
 import { RoundStatus } from '../../domain/value-object/RoundStatus.js';
 import { Logger } from '../../shared/logging/Logger.js';
 import type { CampaignGamePort } from '../services/CampaignGamePort.js';
@@ -69,7 +70,10 @@ export function factsFromGame(game: Game, attackId: string): BattleApplyFacts | 
     return 'open';
   }
   const winner = campaignProcessor(game, new Logger()).whoIsWinner(game);
-  if (winner !== humanId && winner !== npcId) {
+  // A finished extended match with a known length and no seat at the best-of
+  // wins is a draw. The attacker loses. Classic, a missing length, and a
+  // winner outside the two seats stay unresolved.
+  if (winner !== humanId && winner !== npcId && !isExtendedDraw(game, winner)) {
     return 'unresolved';
   }
   const human = game.inventories.find(row => row.userId === humanId);
@@ -98,6 +102,13 @@ export function applyLoadedGame(campaign: Campaign, game: Game, now: number): Ba
     return { campaign, outcome: null };
   }
   return campaign.applyBattle(facts, now);
+}
+
+function isExtendedDraw(game: Game, winner: string | null): boolean {
+  const context = game.createContext;
+  return winner === null
+    && context?.kind === KindOfGame.Extended
+    && Boolean(context.rounds);
 }
 
 function roundWins(game: Game, userId: string | undefined): number {

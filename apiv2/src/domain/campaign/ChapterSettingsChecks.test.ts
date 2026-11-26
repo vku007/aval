@@ -313,7 +313,7 @@ describe('checkChapterSettings', () => {
     const baseline = bundled();
     const settings = bundled();
     settings.rules.marketplace.stones = 4;
-    settings.rulesetVersion = 2;
+    settings.rulesetVersion = 3;
     expect(ofCode(settings, 'version-unchanged', baseline)).toEqual([]);
   });
 
@@ -518,4 +518,92 @@ describe('checkChapterSettings', () => {
     patchTile(gestured, 1, -1, { defenderKit: { stones: 1 } });
     expect(ofCode(gestured, 'kit-no-gestures')).toEqual([]);
   });
+
+  it('accepts an unavailable wall and skips the fight checks', () => {
+    const settings = bundled();
+    const index = tileIndex(settings, 0, -1);
+    wallAt(settings, 0, -1);
+    expect(chapterErrors(checkChapterSettings(settings))).toEqual([]);
+    expect(ofCode(settings, 'difficulty-missing')).toEqual([]);
+    expect(ofCode(settings, 'mines-range')).toEqual([]);
+    expect(ofCode(settings, 'mines-zero')).toEqual([]);
+    expect(ofCode(settings, 'objective-sealed')).toEqual([]);
+    expect(ofCode(settings, 'tile-sealed')).toEqual([]);
+    expect(tileAt(settings, 0, -1).unavailable).toBe(true);
+    expect(index).toBe(tileIndex(settings, 0, -1));
+  });
+
+  it('reports unavailable-owned, unavailable-objective, unavailable-field, and unavailable-mines', () => {
+    const owned = bundled();
+    wallAt(owned, 0, 0);
+    tileAt(owned, 0, 0).owner = 'player';
+    expect(the(owned, 'unavailable-owned')).toMatchObject({
+      level: 'error',
+      path: ['tiles', tileIndex(owned, 0, 0), 'owner'],
+      tile: { q: 0, r: 0 }
+    });
+
+    const objective = bundled();
+    wallAt(objective, 0, -2);
+    tileAt(objective, 0, -2).objective = true;
+    expect(the(objective, 'unavailable-objective')).toMatchObject({
+      level: 'error',
+      path: ['tiles', tileIndex(objective, 0, -2), 'objective'],
+      tile: { q: 0, r: -2 }
+    });
+
+    const field = bundled();
+    const gate = tileIndex(field, 0, -1);
+    wallAt(field, 0, -1);
+    tileAt(field, 0, -1).difficulty = 'easy';
+    tileAt(field, 0, -1).reward = { items: { stones: 1 }, currencies: {} };
+    expect(ofCode(field, 'unavailable-field').map(item => item.path)).toEqual([
+      ['tiles', gate, 'difficulty'],
+      ['tiles', gate, 'reward']
+    ]);
+
+    const mines = bundled();
+    wallAt(mines, 1, 0);
+    tileAt(mines, 1, 0).mines = 1;
+    tileAt(mines, 1, 0).maxMines = 2;
+    expect(ofCode(mines, 'unavailable-mines').map(item => item.path)).toEqual([
+      ['tiles', tileIndex(mines, 1, 0), 'mines'],
+      ['tiles', tileIndex(mines, 1, 0), 'maxMines']
+    ]);
+  });
+
+  it('warns when walls seal the objective and the fight behind them', () => {
+    const settings = bundled();
+    wallAt(settings, 0, -1);
+    wallAt(settings, -1, -1);
+    wallAt(settings, 1, -2);
+    const citadel = tileIndex(settings, 0, -2);
+    expect(the(settings, 'objective-sealed')).toMatchObject({
+      level: 'warning',
+      path: ['tiles', citadel, 'objective'],
+      tile: { q: 0, r: -2 },
+      message: 'No capturable path reaches this objective'
+    });
+    expect(the(settings, 'tile-sealed')).toMatchObject({
+      level: 'warning',
+      path: ['tiles', citadel, 'difficulty'],
+      tile: { q: 0, r: -2 },
+      message: 'No capturable path reaches this tile'
+    });
+    expect(chapterErrors(checkChapterSettings(settings))).toEqual([]);
+  });
 });
+
+function wallAt(settings: ChapterSettings, q: number, r: number): void {
+  const tile = tileAt(settings, q, r);
+  delete tile.owner;
+  delete tile.objective;
+  delete tile.reward;
+  delete tile.stash;
+  delete tile.defenderKit;
+  delete tile.npcAlgorithmId;
+  tile.unavailable = true;
+  tile.difficulty = null;
+  tile.mines = 0;
+  tile.maxMines = 0;
+}

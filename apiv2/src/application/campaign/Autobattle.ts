@@ -80,13 +80,8 @@ export function playAutobattle(
       break;
     }
     const processor = campaignProcessor(game, logger);
-    processor.processAction(game, planPlayerThrow(game, memory), humanId);
+    processor.playTurn(game, planPlayerThrow(game, memory), humanId);
     playerThrows += 1;
-    if (processor.isVictoryAchieved(game)) {
-      processor.endingGame(game);
-    } else {
-      processor.doNpcAction(game);
-    }
   }
   return game;
 }

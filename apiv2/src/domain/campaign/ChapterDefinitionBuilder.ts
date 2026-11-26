@@ -53,8 +53,31 @@ function tileLabel(tile: TileSettings, index: number): string {
 }
 
 function makeTile(settings: ChapterSettings, tile: TileSettings, index: number): ServerTile {
-  const reward = effectiveReward(settings, tile);
   const label = tileLabel(tile, index);
+  if (tile.unavailable === true) {
+    return {
+      q: tile.q,
+      r: tile.r,
+      enabled: false,
+      owner: null,
+      revealed: tile.revealed,
+      objective: false,
+      product: tile.product,
+      mines: 0,
+      maxMines: 0,
+      stashes: [],
+      difficulty: null,
+      rounds: null,
+      label,
+      garrison: null,
+      victoryReward: { items: {}, currencies: {} },
+      dugThisTurn: false,
+      searchedThisTurn: false,
+      increasedThisTurn: false,
+      acquiredTurn: null
+    };
+  }
+  const reward = effectiveReward(settings, tile);
   const npcAlgorithmId = tile.npcAlgorithmId ?? NPC_ALGORITHM_V1;
   assertSupportedNpcAlgorithm(npcAlgorithmId);
   return {
@@ -85,7 +108,14 @@ function makeTile(settings: ChapterSettings, tile: TileSettings, index: number):
 }
 
 function validateTile(tile: ServerTile): void {
-  if (tile.owner === 'player') {
+  if (!tile.enabled) {
+    if (tile.owner !== null) {
+      throw new Error(`tile ${tile.label} is unavailable and must not have an owner`);
+    }
+    if (tile.garrison) {
+      throw new Error(`tile ${tile.label} is unavailable and must not have a garrison`);
+    }
+  } else if (tile.owner === 'player') {
     if (tile.garrison) {
       throw new Error(`tile ${tile.label} is owned and must not have a garrison`);
     }

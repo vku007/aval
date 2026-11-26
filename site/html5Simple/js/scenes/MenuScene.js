@@ -1,6 +1,6 @@
 /**
  * MenuScene
- * Candy style menu with Game, Inventory, Start Game, and Exit buttons
+ * Candy style menu with the account button, Start Game, UI Tests, and Exit
  */
 class MenuScene extends Phaser.Scene {
     constructor() {
@@ -53,19 +53,21 @@ class MenuScene extends Phaser.Scene {
         }
 
         const buttons = [
-            { label: 'LOGIN', onClick: () => this.onGameClick(), height: UI.menuBtnH },
-            { label: 'REGISTER', onClick: () => this.onRegisterClick(), height: UI.menuBtnH },
-            { label: 'LOGOUT', onClick: () => this.onLogoutClick(), height: UI.menuBtnH },
-            { label: 'INVENTORY', onClick: () => console.log('Inventory Clicked'), height: UI.menuBtnH },
+            {
+                label: accountButtonLabel(this.registry.get('role')),
+                heatName: 'Account',
+                onClick: () => this.onAccountClick(),
+                height: UI.menuBtnH
+            },
             { label: 'START GAME', onClick: () => this.onStartGameClick(), height: UI.menuPrimaryH },
             { label: 'UI TESTS', onClick: () => this.onUiTestsClick(), height: UI.menuBtnH },
             { label: 'EXIT', onClick: () => console.log('Exit Clicked'), height: UI.menuBtnH },
         ];
         const gap = 16;
         const totalHeight = buttons.reduce((sum, btn) => sum + btn.height, 0) + gap * (buttons.length - 1);
-        const switcherH = UI.touchMin;
         const skinH = 28;
-        const buttonYStart = 120 + (height - 120 - switcherH - 24 - skinH - 12 - totalHeight) / 2;
+        const skinMargin = 16;
+        const buttonYStart = 120 + (height - 120 - skinH - skinMargin - 12 - totalHeight) / 2;
 
         let y = buttonYStart;
         buttons.forEach((btn) => {
@@ -73,8 +75,12 @@ class MenuScene extends Phaser.Scene {
             const made = this.createMenuButton(width / 2, y + btn.height / 2, btn.label, btn.onClick, btn.height, {
                 strong: isPrimary,
                 idleKind: isPrimary && UI.fx.menuPrimaryPulse ? 'pulse' : null,
-                particles: true
+                particles: true,
+                heatName: btn.heatName || ''
             });
+            if (btn.heatName === 'Account') {
+                this.accountBtn = made;
+            }
             if (isPrimary) {
                 this.startGameBtn = made;
             }
@@ -82,33 +88,8 @@ class MenuScene extends Phaser.Scene {
             y += btn.height + gap;
         });
 
-        const chipW = 170;
-        const chipGap = 8;
-        const chipY = height - 16 - switcherH / 2;
-        const skinY = chipY - switcherH / 2 - 10 - skinH / 2;
+        const skinY = height - skinMargin - skinH / 2;
         this.skinSwitch = createUiSkinSwitch(this, (on) => this.setMenuSkin(on), { y: skinY });
-        this.createDebugChip(
-            width / 2 - chipW / 2 - chipGap / 2,
-            chipY,
-            chipW,
-            `Layout: ${UI.layout.label}`,
-            () => {
-                cycleUiLayout();
-                writeUiQueryParams();
-                this.scene.restart();
-            }
-        );
-        this.createDebugChip(
-            width / 2 + chipW / 2 + chipGap / 2,
-            chipY,
-            chipW,
-            `FX: ${UI.fx.label}`,
-            () => {
-                cycleUiFx();
-                writeUiQueryParams();
-                this.scene.restart();
-            }
-        );
         this.setMenuSkin(isUiSkinOn());
     }
 
@@ -123,7 +104,10 @@ class MenuScene extends Phaser.Scene {
             if (!key) {
                 return;
             }
-            const btn = buttons.find((candidate) => menuHighlightKey(candidate.menuLabel) === key);
+            const btn = buttons.find((candidate) => {
+                const name = candidate.heatName || candidate.menuLabel;
+                return menuHighlightKey(name) === key;
+            });
             if (!btn || btn.menuHighlight === item) {
                 return;
             }
@@ -178,52 +162,21 @@ class MenuScene extends Phaser.Scene {
         return lists.every((list) => (list || []).every((item) => heatMapOwns(host.heatMap, item)));
     }
 
-    /**
-     * Handle LOGIN button click - show in-canvas login modal
-     */
-    onGameClick(x, y) {
-        console.log('Login button clicked');
-        
-        // Launch login modal scene as overlay
-        this.scene.launch('LoginModalScene', {
-            onLoginSuccess: (user) => this.updatePlayerPanel(user)
+    onAccountClick() {
+        if (this.scene.isActive('AccountModalScene')) return;
+        const mode = accountButtonLabel(this.registry.get('role')) === 'LOG OUT' ? 'logout' : 'sign-in';
+        this.scene.launch('AccountModalScene', {
+            mode: mode,
+            onSuccess: (user, role) => this.updatePlayerPanel(user, role)
         });
     }
 
-    onRegisterClick() {
-        console.log('[MenuScene] onRegisterClick() called');
-        
-        // Check if user is already a regular user
-        // Guest users have the name "Guest User"
-        const user = this.registry.get('currentUser');
-        console.log('[MenuScene] Current user:', user);
-        console.log('[MenuScene] User name:', user?.name);
-        console.log('[MenuScene] Is guest?', user?.name === 'Guest User');
-        
-        if (user && user.name !== 'Guest User') {
-            // Already a regular user
-            console.log('[MenuScene] User is already registered, not showing modal');
-            // Could show a message or do nothing
-            return;
-        }
-        
-        console.log('[MenuScene] Launching RegisterModalScene...');
-        // Launch register modal scene as overlay
-        this.scene.launch('RegisterModalScene', {
-            onRegisterSuccess: (user) => this.updatePlayerPanel(user)
-        });
-        console.log('[MenuScene] RegisterModalScene launch command sent');
-    }
-
-    onLogoutClick() {
-        if (typeof gameAPI !== 'undefined' && typeof gameAPI.clearAuth === 'function') {
-            gameAPI.clearAuth();
-        } else {
-            localStorage.removeItem('aval_auth_token');
-            localStorage.removeItem('idToken');
-        }
-        this.registry.set('currentUser', null);
-        window.location.reload();
+    setAccountLabel(label) {
+        const btn = this.accountBtn;
+        if (!btn || !btn.buttonText) return;
+        btn.buttonText.setText(label);
+        btn.menuLabel = label;
+        styleUiSkinMenuButton(this, btn, isUiSkinOn());
     }
 
     onStartGameClick() {
@@ -236,35 +189,17 @@ class MenuScene extends Phaser.Scene {
         fxGoTo(this, 'TestsScene');
     }
 
-    updatePlayerPanel(user) {
-        // Update the player text
-        if (this.playerText && user?.name) {
-            this.playerText.setText(`Player: ${user.name}`);
-            this.currentDisplayName = user.name;
+    updatePlayerPanel(user, role) {
+        const nextRole = arguments.length > 1 ? role : tokenRole(gameAPI.token);
+        this.registry.set('role', nextRole);
+        if (user) {
             this.registry.set('currentUser', user);
-            console.log('[MenuScene] Player panel updated to:', user.name);
+            if (this.playerText && user.name) {
+                this.playerText.setText(`Player: ${user.name}`);
+                this.currentDisplayName = user.name;
+            }
         }
-    }
-
-    createDebugChip(x, y, btnWidth, label, onClick) {
-        const btn = this.add.container(x, y);
-        const btnHeight = UI.touchMin;
-
-        const bg = this.add.graphics();
-        bg.lineStyle(2, 0x000000, 1);
-        bg.strokeRect(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-
-        const text = this.add.text(0, 0, label, {
-            font: `${UI.body}px monospace`,
-            fill: '#000000'
-        }).setOrigin(0.5);
-
-        btn.add([bg, text]);
-
-        const hitArea = new Phaser.Geom.Rectangle(-btnWidth/2, -btnHeight/2, btnWidth, btnHeight);
-        btn.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains, { useHandCursor: true });
-        bindPress(this, btn, { onClick });
-        return btn;
+        this.setAccountLabel(accountButtonLabel(nextRole));
     }
 
     createMenuButton(x, y, label, callback, btnHeight = UI.menuBtnH, options = {}) {
@@ -283,6 +218,7 @@ class MenuScene extends Phaser.Scene {
         
         btn.add([bg, text]);
         btn.menuLabel = label;
+        btn.heatName = options.heatName || '';
         btn.buttonBg = bg;
         btn.buttonText = text;
         btn.buttonWidth = btnWidth;

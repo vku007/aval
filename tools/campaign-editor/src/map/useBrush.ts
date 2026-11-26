@@ -29,13 +29,18 @@ export function selectionAfterClick(selection: readonly Cell[], cell: Cell, shif
 
 /**
  * One cell of a brush stroke, or null when the cell is left as it is.
- * Difficulty and kit do not paint an owned tile.
+ * Difficulty and kit do not paint an owned tile or a wall.
+ * The unavailable brush does paint the camp: a wall cannot be owned.
  */
 export function brushAction(brush: Brush, cell: Cell, tile: TileSettings | undefined): DocAction | null {
   if (!tile) return null;
   const target = copyCell(cell);
+  if (brush.field === 'unavailable') {
+    if (tile.unavailable === true) return null;
+    return { type: 'setUnavailable', cells: [target], unavailable: true };
+  }
   if (brush.field === 'difficulty') {
-    if (tile.owner === 'player' || tile.difficulty === brush.value) return null;
+    if (tile.owner === 'player' || tile.unavailable === true || tile.difficulty === brush.value) return null;
     return { type: 'setTiles', cells: [target], patch: { difficulty: brush.value } };
   }
   if (brush.field === 'product') {
@@ -46,7 +51,7 @@ export function brushAction(brush: Brush, cell: Cell, tile: TileSettings | undef
     if (tile.revealed === brush.value) return null;
     return { type: 'setTiles', cells: [target], patch: { revealed: brush.value } };
   }
-  if (tile.owner === 'player' || tile.defenderKit === undefined) return null;
+  if (tile.owner === 'player' || tile.unavailable === true || tile.defenderKit === undefined) return null;
   return { type: 'setKit', cells: [target], kit: null };
 }
 

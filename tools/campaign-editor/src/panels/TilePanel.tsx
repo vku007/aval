@@ -58,6 +58,9 @@ export function TilePanel({ settings, selection, onAction }: TilePanelProps) {
   const difficulty = rankChoice(tiles);
   const revealed = mixedValue(tiles, 'revealed');
   const objective = shared(tiles.map((tile) => tile.objective === true));
+  const unavailable = shared(tiles.map((tile) => tile.unavailable === true));
+  const allUnavailable = unavailable === true;
+  const showFight = !allOwned && !allUnavailable;
   const algorithm = shared(tiles.map((tile) => tile.npcAlgorithmId ?? NPC_ALGORITHM_V1));
   const label = shared(tiles.map((tile) => tile.label ?? ''));
   const rewardMode = presenceMode(tiles.map((tile) => tile.reward !== undefined));
@@ -92,17 +95,21 @@ export function TilePanel({ settings, selection, onAction }: TilePanelProps) {
         options={PRODUCTS}
         onChange={(next) => onAction({ type: 'setTiles', cells, patch: { product: next } })}
       />
-      <NumberField
-        label="Mines"
-        value={mines}
-        onCommit={(next) => onAction({ type: 'setTiles', cells, patch: { mines: next } })}
-      />
-      <NumberField
-        label="Max mines"
-        value={maxMines}
-        onCommit={(next) => onAction({ type: 'setTiles', cells, patch: { maxMines: next } })}
-      />
-      {!allOwned && (
+      {!allUnavailable && (
+        <NumberField
+          label="Mines"
+          value={mines}
+          onCommit={(next) => onAction({ type: 'setTiles', cells, patch: { mines: next } })}
+        />
+      )}
+      {!allUnavailable && (
+        <NumberField
+          label="Max mines"
+          value={maxMines}
+          onCommit={(next) => onAction({ type: 'setTiles', cells, patch: { maxMines: next } })}
+        />
+      )}
+      {showFight && (
         <Choice
           label="Difficulty"
           value={difficulty}
@@ -116,12 +123,19 @@ export function TilePanel({ settings, selection, onAction }: TilePanelProps) {
         onChange={(next) => onAction({ type: 'setTiles', cells, patch: { revealed: next } })}
       />
       <BoolField
-        label="Objective"
-        value={objective}
-        disabled={allOwned}
-        onChange={(next) => onAction({ type: 'setTiles', cells, patch: { objective: next } })}
+        label="Unavailable"
+        value={unavailable}
+        onChange={(next) => onAction({ type: 'setUnavailable', cells, unavailable: next })}
       />
-      {!allOwned && (
+      {!allUnavailable && (
+        <BoolField
+          label="Objective"
+          value={objective}
+          disabled={allOwned}
+          onChange={(next) => onAction({ type: 'setTiles', cells, patch: { objective: next } })}
+        />
+      )}
+      {showFight && (
         <Choice
           label="NPC algorithm"
           value={algorithm}
@@ -129,22 +143,24 @@ export function TilePanel({ settings, selection, onAction }: TilePanelProps) {
           onChange={(next) => onAction({ type: 'setTiles', cells, patch: { npcAlgorithmId: next } })}
         />
       )}
-      <ModeField
-        legend="Reward"
-        value={rewardMode}
-        choices={[
-          { value: 'default', label: 'Default' },
-          { value: 'custom', label: 'Custom' }
-        ]}
-        onChoose={(next) => chooseReward(settings, tiles, cells, rewardMode, next, onAction)}
-      >
-        <RewardBody
-          mode={rewardMode}
-          reward={reward}
-          onChange={(next) => onAction({ type: 'setReward', cells, reward: next })}
-        />
-      </ModeField>
-      {!allOwned && (
+      {!allUnavailable && (
+        <ModeField
+          legend="Reward"
+          value={rewardMode}
+          choices={[
+            { value: 'default', label: 'Default' },
+            { value: 'custom', label: 'Custom' }
+          ]}
+          onChoose={(next) => chooseReward(settings, tiles, cells, rewardMode, next, onAction)}
+        >
+          <RewardBody
+            mode={rewardMode}
+            reward={reward}
+            onChange={(next) => onAction({ type: 'setReward', cells, reward: next })}
+          />
+        </ModeField>
+      )}
+      {showFight && (
         <ModeField
           legend="Defender kit"
           value={kitMode}
@@ -170,32 +186,36 @@ export function TilePanel({ settings, selection, onAction }: TilePanelProps) {
           )}
         </ModeField>
       )}
-      <ModeField
-        legend="Stash"
-        value={stashMode}
-        choices={[
-          { value: 'default', label: 'None' },
-          { value: 'custom', label: 'One pile' }
-        ]}
-        onChoose={(next) => chooseStash(tiles, cells, stashMode, next, onAction)}
-      >
-        <StashBody
-          mode={stashMode}
-          stash={stash}
-          onChange={(next) => onAction({ type: 'setStash', cells, stash: next })}
-        />
-      </ModeField>
-      <section class="tile-facts" aria-label="Derived">
-        <Fact label="Income per turn" value={shared(facts.map(incomeText))} />
-        <Fact label="Dig yield" value={shared(facts.map((fact) => String(fact.digYield)))} />
-        {facts.some((fact) => fact.digNet !== null) && (
-          <Fact label="Dig net" value={shared(facts.map((fact) => (fact.digNet === null ? '—' : String(fact.digNet))))} />
-        )}
-        <Fact label="Rounds" value={shared(facts.map((fact) => fact.rounds ?? 'none'))} />
-        <Fact label="Garrison" value={shared(facts.map((fact) => formatStack(fact.kit)))} />
-      </section>
+      {!allUnavailable && (
+        <ModeField
+          legend="Stash"
+          value={stashMode}
+          choices={[
+            { value: 'default', label: 'None' },
+            { value: 'custom', label: 'One pile' }
+          ]}
+          onChoose={(next) => chooseStash(tiles, cells, stashMode, next, onAction)}
+        >
+          <StashBody
+            mode={stashMode}
+            stash={stash}
+            onChange={(next) => onAction({ type: 'setStash', cells, stash: next })}
+          />
+        </ModeField>
+      )}
+      {!allUnavailable && (
+        <section class="tile-facts" aria-label="Derived">
+          <Fact label="Income per turn" value={shared(facts.map(incomeText))} />
+          <Fact label="Dig yield" value={shared(facts.map((fact) => String(fact.digYield)))} />
+          {facts.some((fact) => fact.digNet !== null) && (
+            <Fact label="Dig net" value={shared(facts.map((fact) => (fact.digNet === null ? '—' : String(fact.digNet))))} />
+          )}
+          <Fact label="Rounds" value={shared(facts.map((fact) => fact.rounds ?? 'none'))} />
+          <Fact label="Garrison" value={shared(facts.map((fact) => formatStack(fact.kit)))} />
+        </section>
+      )}
       <section data-slot="simulation">
-        {!allOwned && <SimulationPanel settings={settings} tiles={tiles} />}
+        {showFight && <SimulationPanel settings={settings} tiles={tiles} />}
       </section>
     </div>
   );

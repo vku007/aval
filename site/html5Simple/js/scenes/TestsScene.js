@@ -38,6 +38,7 @@ class TestsScene extends Phaser.Scene {
             { label: 'BUTTONS', onClick: () => this.onButtonsClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'SKINNED BUTTON', onClick: () => this.onSkinnedButtonClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'COMPOSITE UI EDITOR', onClick: () => this.onCompositeUiEditorClick(), height: UI.menuPrimaryH, strong: true },
+            { label: 'TEST INVENTORIES', onClick: () => this.onTestInventoriesClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'MOVE HOT ROD', onClick: () => this.onMoveHotRodClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'BACK HIGHLIGHT', onClick: () => this.onBackHighlightClick(), height: UI.menuPrimaryH, strong: true },
             { label: 'SHARD', onClick: () => this.onShardClick(), height: UI.menuPrimaryH, strong: true },
@@ -170,6 +171,11 @@ class TestsScene extends Phaser.Scene {
     onCompositeUiEditorClick() {
         console.log('[TestsScene] Composite UI Editor clicked');
         fxGoTo(this, 'CompositeUIEditorScene');
+    }
+
+    onTestInventoriesClick() {
+        console.log('[TestsScene] Test inventories clicked');
+        fxGoTo(this, 'TestInventoriesScene');
     }
 
     onMoveHotRodClick() {

@@ -5,8 +5,8 @@ import { ApplicationError } from './ApplicationError.js';
  * Thrown when user is authenticated but lacks permission
  */
 export class ForbiddenError extends ApplicationError {
-  constructor(message: string = 'Access forbidden') {
-    super(message, 403);
+  constructor(message: string = 'Access forbidden', code?: string) {
+    super(message, 403, code);
     this.name = 'ForbiddenError';
   }
 }

@@ -60,6 +60,14 @@ class CampaignClient {
     });
   }
 
+  startFromFile(settings, etag) {
+    return this.request('/campaigns', {
+      method: 'POST',
+      headers: { 'If-Match': etag },
+      body: JSON.stringify({ settings })
+    });
+  }
+
   get(id) {
     return this.request(`/campaigns/${encodeURIComponent(id)}`, { method: 'GET' });
   }

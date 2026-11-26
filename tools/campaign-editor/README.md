@@ -30,7 +30,7 @@ The document and the designer's routes are stored in `localStorage` on each chan
 
 ## Routes
 
-The Routes tab walks the reference routes in `routes/chapter-i.routes.json` and any route added with **Add route**. Every route re-runs on each edit. The tab label shows how many fail. On the bundled file the bare rush scores 200, and the south-stash route stops at the citadel attack with 6 copper.
+The Routes tab walks the reference routes in `routes/chapter-i.routes.json` and any route added with **Add route**. Every route re-runs on each edit. The tab label shows how many fail. On the bundled file the bare rush scores 325, and the south-stash route stops at the citadel attack with 6 copper.
 
 ## Simulation
 

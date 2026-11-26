@@ -48,8 +48,11 @@ The campaign routes already exist on the API. This plan only consumes them.
 ```mermaid
 flowchart TD
   Select[GameSelectScene] -->|CHAPTER I| Catalog[CampaignCatalogScene]
+  Select -->|CUSTOM CAMPAIGN| Setup[CampaignSetupScene]
+  Setup -->|FROM CAMPAIGN FILE| Map[CampaignMapScene]
+  Setup -->|BACK| Select
   Catalog -->|BACK| Select
-  Catalog -->|START or CONTINUE or a history row| Map[CampaignMapScene]
+  Catalog -->|START or CONTINUE or a history row| Map
   Map -->|BACK| Catalog
   Map -->|PLAY| Play[BlitzGameScene]
   Play -->|BACK while the match is open| Map
@@ -109,7 +112,9 @@ A failed command is never posted again by itself. The player taps it again when 
 
 ## Catalog
 
-`GameSelectScene` adds **CHAPTER I** above **BLITZ GAME**, same primary button. It starts `CampaignCatalogScene`.
+`GameSelectScene` adds **CHAPTER I** above **BLITZ GAME**, same primary button. It starts `CampaignCatalogScene`. **CUSTOM CAMPAIGN** starts `CampaignSetupScene`.
+
+**FROM CAMPAIGN FILE** reads an editor export and posts `{ settings }` to the same Start route. The file's `id` must be `chapter-i`. Success opens `CampaignMapScene` with the new instance id. The map GETs before drawing. BACK on setup returns to Choose a game. A file run is the started Chapter I, so the catalog shows **CONTINUE** for it.
 
 The scene GETs the catalog and keeps that ETag for Start.
 
@@ -151,6 +156,8 @@ Chrome buttons while `status` is `started` and `activeBattle` is null: **END TUR
 | `cannot_afford_battle` | You need 10 copper to attack. A wager chapter says the battle kit is required. |
 | `no_attack_target` | No neighboring tile to attack. |
 
+When a neighboring tile can be attacked and the inventory has no Stone, Scissors, or Paper, the map adds **You need a Stone, Scissors, or Paper to attack.** NA effects and Core do not count. That line is not a `blockedReasons` code.
+
 An empty array shows nothing. Action points are never turned into a reason code.
 
 ### Hexes
@@ -167,7 +174,7 @@ y = size * (sqrt(3) / 2 * q + sqrt(3) * r)
 | View | Mark on the cell |
 |---|---|
 | `hidden` | Gray stroke, no text. |
-| `blocked` | Gray fill. Chapter I authors none. The branch still draws. |
+| `blocked` | Gray fill, no letter. The sheet says **Unavailable**. Chapter I authors none. |
 | `seen` | `E`, `N`, or `H`. An objective cell adds `*`. |
 | `owned` | `St`, `Sc`, `Pa`, or `C`, then `mines/maxMines`. The camp at one of three copper mines is `C 1/3`. |
 
@@ -193,7 +200,7 @@ A spent action stays on the sheet as disabled text (**Dug**, **Searched**, **Upg
 
 Seen cell, started, no battle:
 
-The sheet shows the difficulty and the length. **Best of 5** for `BO5`, **Best of 7** for `BO7`. **Attack** is offered only when the cell shares a side with an owned cell, `actionPoints >= 1`, and `cannot_afford_battle` is absent. On a fee chapter the button names the length and the copper price (**Attack · Best of 5 · 10 copper**). That tap opens a card on the map, **This attack costs {attackFee.copper} copper.** Under the sentence is a checkbox, **do not show this window**, starting clear. **ATTACK** sends the command. **BACK**, or a tap on the dim layer, closes the card and leaves the wallet as it is. Closing the card with the box checked stores `settings.hideAttackFeeNotice` on the player (`PATCH /apiv2/external/me` with the map's user-document `If-Match`, then the map keeps the returned ETag). A failed write still closes the card, and **ATTACK** still sends. The next Attack on a fee chapter skips the card when that flag is strictly `true`. A clear close writes nothing. On a wager chapter the button lists `rules.battleKit` with the display words (**8 Stone, 5 Scissors, …**) and the first tap sends the command. Otherwise the length is shown and Attack is absent. Hidden and blocked cells have no actions.
+The sheet shows the difficulty and the length. **Best of 5** for `BO5`, **Best of 7** for `BO7`. **Attack** is offered only when the cell shares a side with an owned cell, `actionPoints >= 1`, `cannot_afford_battle` is absent, and the inventory holds at least one Stone, Scissors, or Paper. NA effects and Core do not count. On a fee chapter the button names the length and the copper price (**Attack · Best of 5 · 10 copper**). That tap opens a card on the map, **This attack costs {attackFee.copper} copper.** Under the sentence is a checkbox, **do not show this window**, starting clear. **ATTACK** sends the command. **BACK**, or a tap on the dim layer, closes the card and leaves the wallet as it is. Closing the card with the box checked stores `settings.hideAttackFeeNotice` on the player (`PATCH /apiv2/external/me` with the map's user-document `If-Match`, then the map keeps the returned ETag). A failed write still closes the card, and **ATTACK** still sends. The next Attack on a fee chapter skips the card when that flag is strictly `true`. A clear close writes nothing. On a wager chapter the button lists `rules.battleKit` with the display words (**8 Stone, 5 Scissors, …**) and the first tap sends the command. Otherwise the length is shown and Attack is absent. A hidden cell's sheet says **Hidden**. A blocked cell's sheet says **Unavailable**. Neither offers an action.
 
 END TURN is legal with the point spent or unspent. The label is **End turn**, with no amount. Owned tiles already show `income.perTurn`, including a tile taken this turn, and the server skips that tile until the next End Turn. `acquiredTurn` is not on the view, so a sum would overstate the payday. The log line after the command is the amount that was paid. The button is hidden while a battle is open or the run is finished.
 
@@ -255,14 +262,13 @@ When `campaign.score` is present, the score sheet is the bottom sheet and the ac
 
 | Line | Arithmetic |
 |---|---|
-| Base | `scoreWeights.base` |
-| Turns | `score.turns`, subtracted by `perTurn` each |
 | Victories | `score.victories`, added by `perVictory` each |
+| Turns | `extra = max(0, score.turns − score.victories × turnsPerVictory)`, subtracted by `perExtraTurn` each. The line still shows when `extra` is 0. |
 | Silver gained | `score.silver`, added by `perSilver` each |
 | Copper gained | `score.copper`, added by `perCopper` each |
 | Total | `score.total` |
 
-`perTurn` is the weight that is subtracted. The others are added. The total shown is the stored total. The lines explain it. They are not a second score the client stores.
+A run whose weights still have `perTurn` shows the older lines: Base, then Turns subtracted by `perTurn`, then Victories, Silver, Copper, and Total. The total shown is the stored total. The lines explain it. They are not a second score the client stores.
 
 A finished run without `score` uses the finish-reason sheet from the map section. The catalog's **Best** is `bestScore` from the catalog GET, not a total summed on the client.
 

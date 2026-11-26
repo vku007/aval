@@ -2,8 +2,9 @@
  * Layout for the amount indicators.
  * Width and height are the outer size in heat cells. Horizontal splits the
  * width; vertical splits the height. The gap aims at 10 cells so diffusion
- * leaves a darker band between neighbors. It shrinks when a slot would be
- * thinner than 4 cells.
+ * leaves a darker band between neighbors. A caller can pass a smaller aim
+ * so the pieces take the rest of the span. The gap shrinks when a slot
+ * would be thinner than 4 cells.
  * Index 0 is the start (left, or the end named by direction). Later indexes
  * run toward the other end. Vertical `asc` begins at the top. `desc` begins
  * at the bottom.
@@ -80,7 +81,14 @@ function amountIndicatorHeat(role) {
     return AMOUNT_INDICATOR_COLD;
 }
 
-function amountIndicatorMeasure(width, height, count, axis) {
+function amountIndicatorGapAim(value) {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        return value;
+    }
+    return AMOUNT_INDICATOR_GAP_AIM;
+}
+
+function amountIndicatorMeasure(width, height, count, axis, gapAim) {
     const n = Math.max(0, Math.round(Number(count) || 0));
     const w = Math.max(0, Number(width) || 0);
     const h = Math.max(0, Number(height) || 0);
@@ -99,15 +107,16 @@ function amountIndicatorMeasure(width, height, count, axis) {
             span: span
         };
     }
+    const aim = amountIndicatorGapAim(gapAim);
     const pitch = span / n;
     let gap = 0;
     if (n > 1) {
         const maxGap = (span - n * AMOUNT_INDICATOR_PIECE_MIN) / (n - 1);
         if (maxGap >= 1) {
-            gap = Math.min(AMOUNT_INDICATOR_GAP_AIM, maxGap);
+            gap = Math.min(aim, maxGap);
         } else {
             const thinGap = (span - n) / (n - 1);
-            gap = Math.max(0, Math.min(2, thinGap));
+            gap = Math.max(0, Math.min(Math.min(2, aim), thinGap));
         }
     }
     let piece = (span - gap * (n - 1)) / n;
@@ -171,8 +180,8 @@ function layoutAmountTable(group) {
     const count = group.parts.length;
     const columns = Math.max(1, Math.min(count || 1, group.columns || 1));
     const rows = Math.max(1, Math.ceil(count / columns) || 1);
-    const across = amountIndicatorMeasure(group.width, group.height, columns, 'horizontal');
-    const down = amountIndicatorMeasure(group.width, group.height, rows, 'vertical');
+    const across = amountIndicatorMeasure(group.width, group.height, columns, 'horizontal', group.fitGap);
+    const down = amountIndicatorMeasure(group.width, group.height, rows, 'vertical', group.fitGap);
     const descending = group.direction === 'desc';
     const origin = group.center;
     group.parts.forEach((part, index) => {

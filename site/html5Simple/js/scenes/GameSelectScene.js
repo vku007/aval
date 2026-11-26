@@ -40,6 +40,12 @@ class GameSelectScene extends Phaser.Scene {
                 strong: true
             },
             {
+                label: 'CUSTOM CAMPAIGN',
+                kind: 'custom',
+                height: UI.menuPrimaryH,
+                strong: true
+            },
+            {
                 label: 'BLITZ GAME',
                 kind: 'blitz',
                 height: UI.menuPrimaryH,
@@ -88,6 +94,10 @@ class GameSelectScene extends Phaser.Scene {
         console.log('[GameSelectScene] Selected kind:', kind);
         if (kind === 'chapter') {
             fxGoTo(this, 'CampaignCatalogScene', undefined, { flash: true });
+            return;
+        }
+        if (kind === 'custom') {
+            fxGoTo(this, 'CampaignSetupScene', undefined, { flash: true });
             return;
         }
         if (kind === 'blitz') {

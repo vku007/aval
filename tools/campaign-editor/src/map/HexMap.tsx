@@ -85,12 +85,12 @@ export function HexMap({
             {tile && tile.revealed === false ? <polygon class="hex-hatch" points={points} /> : null}
             {reveal.has(key) ? <polygon class="hex-reveal-ring" points={points} /> : null}
             {classes.includes('hex-selected') ? <polygon class="hex-select" points={points} /> : null}
-            {tile?.objective === true ? (
+            {tile?.objective === true && tile.unavailable !== true ? (
               <text class="hex-star" x={cell.x} y={cell.y - layout.size * 0.38} font-size={layout.size * 0.34}>
                 ★
               </text>
             ) : null}
-            {tile ? (
+            {tile && tile.unavailable !== true ? (
               <text class="hex-glyph" x={cell.x} y={cell.y + layout.size * 0.02} font-size={layout.size * 0.3}>
                 {`${GLYPH[tile.product]} ${tile.mines}/${tile.maxMines}`}
               </text>
@@ -118,6 +118,7 @@ function indexTiles(settings: ChapterSettings): Map<string, TileSettings> {
 
 function cellLabel(tile: TileSettings): string {
   const name = tile.label ? tile.label : `(${tile.q},${tile.r})`;
+  if (tile.unavailable === true) return `(${tile.q},${tile.r}) ${name}, unavailable`;
   const rank = tile.owner === 'player' ? 'player' : tile.difficulty ?? 'unset';
   return `(${tile.q},${tile.r}) ${name}, ${rank}, ${tile.product} ${tile.mines}/${tile.maxMines}`;
 }
@@ -137,9 +138,11 @@ function fillClass(
 ): string {
   if (overlay === 'start') {
     if (visibility === 'owned') return 'hex-fill-player';
+    if (visibility === 'blocked') return 'hex-fill-unavailable';
     if (visibility === 'seen') return 'hex-fill-seen';
     return 'hex-fill-hidden';
   }
+  if (tile?.unavailable === true) return 'hex-fill-unavailable';
   if (tile?.owner === 'player') return 'hex-fill-player';
   if (tile?.difficulty === 'easy') return 'hex-fill-easy';
   if (tile?.difficulty === 'normal') return 'hex-fill-normal';

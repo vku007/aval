@@ -88,9 +88,9 @@ function writeRules(rules: ChapterSettings['rules']): Record<string, unknown> {
   if (rules.battleKit) out.battleKit = writeItemStack(rules.battleKit, false);
   out.marketplace = writeItemStack(rules.marketplace, false);
   out.scoreWeights = {
-    base: rules.scoreWeights.base,
-    perTurn: rules.scoreWeights.perTurn,
     perVictory: rules.scoreWeights.perVictory,
+    turnsPerVictory: rules.scoreWeights.turnsPerVictory,
+    perExtraTurn: rules.scoreWeights.perExtraTurn,
     perSilver: rules.scoreWeights.perSilver,
     perCopper: rules.scoreWeights.perCopper
   };
@@ -109,6 +109,7 @@ function writeTile(tile: TileSettings): Record<string, unknown> {
     difficulty: tile.difficulty,
     revealed: tile.revealed
   };
+  if (tile.unavailable === true) out.unavailable = true;
   if (tile.owner === 'player') out.owner = 'player';
   if (tile.objective === true) out.objective = true;
   out.label = tile.label !== undefined && tile.label.length > 0 ? tile.label : `(${tile.q},${tile.r})`;

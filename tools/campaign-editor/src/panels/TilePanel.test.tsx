@@ -33,6 +33,23 @@ describe('TilePanel', () => {
     expect(screen.queryByLabelText('Owner')).toBeNull();
   });
 
+  it('hides the fight when the tile is unavailable', () => {
+    const settings = bundled();
+    const state = apply(settings, { type: 'setUnavailable', cells: [gate], unavailable: true });
+    const { onAction } = open([gate], state);
+    expect(screen.getByLabelText('Unavailable')).toBeTruthy();
+    expect((screen.getByLabelText('Unavailable') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByLabelText('Product')).toBeTruthy();
+    expect(screen.getByLabelText('Revealed')).toBeTruthy();
+    expect(screen.queryByLabelText('Mines')).toBeNull();
+    expect(screen.queryByLabelText('Difficulty')).toBeNull();
+    expect(screen.queryByLabelText('Objective')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Defender kit' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Stash' })).toBeNull();
+    fireEvent.click(screen.getByLabelText('Unavailable'));
+    expect(onAction).toHaveBeenCalledWith({ type: 'setUnavailable', cells: [gate], unavailable: false });
+  });
+
   it('hides difficulty and the kit when the owner becomes Player', () => {
     const { onAction, rerender } = open([gate]);
     expect(screen.getByLabelText('Difficulty')).toBeTruthy();

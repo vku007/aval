@@ -27,8 +27,9 @@ describe('RoutesPanel', () => {
     const rush = document.querySelector('[data-route="Bare rush"]');
     const south = document.querySelector('[data-route="South stash"]');
     expect(rush?.getAttribute('data-completed')).toBe('true');
-    expect(rush?.textContent).toContain('Score 200');
-    expect(rush?.textContent).toContain('total 200');
+    expect(rush?.textContent).toContain('Score 325');
+    expect(rush?.textContent).toContain('pace 4, extra 0');
+    expect(rush?.textContent).toContain('total 325');
     expect(south?.getAttribute('data-completed')).toBe('false');
     expect(south?.textContent).toContain('Not enough copper');
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();

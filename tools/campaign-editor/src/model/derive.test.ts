@@ -68,12 +68,21 @@ describe('tileFacts', () => {
 describe('startView', () => {
   it('marks 7 cells visible on the bundled file', () => {
     const view = startView(bundled());
-    const counts = { owned: 0, seen: 0, hidden: 0 };
+    const counts = { owned: 0, seen: 0, hidden: 0, blocked: 0 };
     for (const value of Object.values(view)) counts[value] += 1;
     expect(Object.keys(view)).toHaveLength(19);
-    expect(counts).toEqual({ owned: 1, seen: 6, hidden: 12 });
+    expect(counts).toEqual({ owned: 1, seen: 6, hidden: 12, blocked: 0 });
     expect(view['0,0']).toBe('owned');
     expect(view['0,-1']).toBe('seen');
+    expect(view['0,-2']).toBe('hidden');
+  });
+
+  it('shows a revealed wall as blocked and a hidden wall as hidden', () => {
+    const settings = bundled();
+    tileAt(settings, 0, -1).unavailable = true;
+    tileAt(settings, 0, -2).unavailable = true;
+    const view = startView(settings);
+    expect(view['0,-1']).toBe('blocked');
     expect(view['0,-2']).toBe('hidden');
   });
 });

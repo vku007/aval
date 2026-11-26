@@ -256,8 +256,9 @@ Catalog GET ensures the user row exists, the same way `GET /apiv2/external/me` a
 Bodies, Zod:
 
 ```ts
-// POST /campaigns
+// POST /campaigns — one of these, strict
 { definitionId: z.string().min(1) }
+{ settings: ChapterSettingsSchema }
 
 // POST /campaigns/:id/actions
 z.discriminatedUnion('type', [
@@ -304,7 +305,8 @@ Catalog body is the summary in the design's Reads section, not this object. Its 
 | Situation | Status |
 |---|---|
 | Unknown definition, unknown instance, id not on this user | 404 |
-| Start while this definition is already `started` | 409 |
+| Bundled start while this definition is already `started` | 409 |
+| File start while this definition is already `started` | The started run finishes `abandoned`, then the file starts |
 | Command on a finished instance | 409 |
 | Stale ETag | 412 |
 | Missing If-Match | 428 |
@@ -363,7 +365,7 @@ Persistence and the read path. Map is stored and returned as views. Attack, Dig,
 - `Campaign.start(definition, now, id)` copies template, rules, and starting inventory. Id shape `campaign-${Date.now()}-${suffix}`, same generator style as game ids.
 - Routes above except internal finish. Catalog computes `not_started` / `started`, `bestScore`, and history newest first.
 - Leave finishes `abandoned`, no score, no income.
-- One `started` instance per definition. A second start is 409. After finish, start allocates a new id. Start is not idempotent.
+- One `started` instance per definition. A second bundled start is 409. A file start abandons the started run and starts the file. After finish, start allocates a new id. Start is not idempotent.
 - Finished instance rejects every command with 409 and remains readable.
 - ETag required on start and actions. Two End Turn stubs are not in this slice; the conflict test uses Leave against a stale ETag, and a parallel start.
 

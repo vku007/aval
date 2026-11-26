@@ -252,7 +252,7 @@ export class GameProcessorService {
 
       // Process action and get updated game
       const processor = this.processorFor(testGame);
-      const updatedGame = processor.processAction(testGame, action, userId);
+      const updatedGame = processor.playTurn(testGame, action, userId);
 
       const gameContext = GameContext.fromCreateContext(updatedGame.status, updatedGame.createContext);
       const playerContext = this.buildPlayerContext(userId, updatedGame);
@@ -309,18 +309,9 @@ export class GameProcessorService {
       // Convert GameEntity to Game domain object
       const game = gameEntity.toGame();
 
-      // Process action and get updated game
+      // Process action, let the NPC answer, then surrender a side that cannot throw.
       const processor = this.processorFor(game);
-      const updatedGame = processor.processAction(game, action, userId);
-
-      // check if game is finished 
-      // todo check for end of game is already done in processAction
-      if (processor.isVictoryAchieved(updatedGame)) {
-        processor.endingGame(updatedGame);
-      } else {
-        // if we in pve, lets make a move for pve player
-        processor.doNpcAction(updatedGame);
-      }
+      const updatedGame = processor.playTurn(game, action, userId);
 
       // Convert updated Game back to GameEntity and save
       const updatedGameEntity = this.toEntity(

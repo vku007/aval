@@ -166,6 +166,10 @@ button {
   fill: #e7e5e4;
 }
 
+.hex-fill-unavailable {
+  fill: #78716c;
+}
+
 .hex-hatch {
   fill: url(#hex-hatch);
   stroke: none;

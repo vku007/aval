@@ -14,7 +14,8 @@ export type Brush =
   | { field: 'difficulty'; value: 'easy' | 'normal' | 'hard' }
   | { field: 'product'; value: 'stones' | 'scissors' | 'papers' | 'copper' }
   | { field: 'revealed'; value: boolean }
-  | { field: 'kit'; value: 'default' };
+  | { field: 'kit'; value: 'default' }
+  | { field: 'unavailable' };
 
 export type StackPath =
   | ['startingInventory']
@@ -70,6 +71,7 @@ export type DocAction =
   | { type: 'setRounds'; difficulty: 'easy' | 'normal' | 'hard'; rounds: 'BO5' | 'BO7' }
   | { type: 'setTiles'; cells: Cell[]; patch: TilePatch }
   | { type: 'setOwner'; cells: Cell[]; owner: 'player' | 'neutral' }
+  | { type: 'setUnavailable'; cells: Cell[]; unavailable: boolean }
   | { type: 'setReward'; cells: Cell[]; reward: RewardSettings | null }
   | { type: 'setKit'; cells: Cell[]; kit: ItemStack | 'copy-difficulty' | null }
   | { type: 'setStash'; cells: Cell[]; stash: RewardSettings | null };
@@ -127,6 +129,13 @@ export function reduce(state: EditorState, action: DocAction | UiAction): Editor
       return { ...state, doc: editTiles(state.doc, action.cells, tile => applyTilePatch(tile, action.patch)) };
     case 'setOwner':
       return setOwner(state, action.cells, action.owner);
+    case 'setUnavailable':
+      return {
+        ...state,
+        doc: editTiles(state.doc, action.cells, tile =>
+          action.unavailable ? asUnavailable(tile) : asAvailable(tile)
+        )
+      };
     case 'setReward':
       return {
         ...state,
@@ -295,6 +304,35 @@ function snapshot(tile: TileSettings): OwnerSnapshot {
   if (tile.reward) saved.reward = cloneReward(tile.reward);
   if (tile.defenderKit) saved.defenderKit = { ...tile.defenderKit };
   return saved;
+}
+
+function asUnavailable(tile: TileSettings): TileSettings {
+  const next: TileSettings = {
+    q: tile.q,
+    r: tile.r,
+    product: tile.product,
+    mines: 0,
+    maxMines: 0,
+    difficulty: null,
+    revealed: tile.revealed,
+    unavailable: true
+  };
+  if (tile.label !== undefined) next.label = tile.label;
+  return next;
+}
+
+function asAvailable(tile: TileSettings): TileSettings {
+  const next: TileSettings = {
+    q: tile.q,
+    r: tile.r,
+    product: tile.product,
+    mines: 1,
+    maxMines: 1,
+    difficulty: 'easy',
+    revealed: tile.revealed
+  };
+  if (tile.label !== undefined) next.label = tile.label;
+  return next;
 }
 
 function asPlayer(tile: TileSettings): TileSettings {

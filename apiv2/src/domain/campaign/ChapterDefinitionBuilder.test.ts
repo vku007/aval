@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import golden from './__fixtures__/chapter-i.definition.json';
-import { bundled } from './__fixtures__/chapterSettings.js';
+import { bundled, tileAt } from './__fixtures__/chapterSettings.js';
 import { positiveCurrencies, positiveItems } from './CampaignInventory.js';
 import { CHAPTER_I } from './ChapterI.js';
 import {
@@ -59,5 +59,38 @@ describe('ChapterDefinitionBuilder', () => {
     }
     expect(tileRounds(settings, owned)).toBeNull();
     expect(tileRounds(settings, hard)).toBe(settings.rounds.hard);
+  });
+
+  it('builds an unavailable tile as a disabled wall', () => {
+    const settings = bundled();
+    const gate = tileAt(settings, 0, -1);
+    delete gate.owner;
+    delete gate.objective;
+    delete gate.reward;
+    delete gate.stash;
+    delete gate.defenderKit;
+    delete gate.npcAlgorithmId;
+    gate.unavailable = true;
+    gate.difficulty = null;
+    gate.mines = 0;
+    gate.maxMines = 0;
+
+    const definition = buildChapterDefinition(settings);
+    const tile = definition.tiles.find(item => item.q === 0 && item.r === -1);
+    expect(tile).toMatchObject({
+      enabled: false,
+      owner: null,
+      revealed: true,
+      objective: false,
+      product: 'papers',
+      mines: 0,
+      maxMines: 0,
+      stashes: [],
+      difficulty: null,
+      rounds: null,
+      label: 'gate',
+      garrison: null,
+      victoryReward: { items: {}, currencies: {} }
+    });
   });
 });

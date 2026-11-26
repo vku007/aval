@@ -72,6 +72,39 @@ describe('serializeChapter', () => {
     expect(custom.defenderKit).toEqual(settings.defenderKits.normal);
   });
 
+  it('writes unavailable and omits the fight', () => {
+    const settings = readOk(chapterRaw);
+    const gate = tileAt(settings, 0, -1);
+    delete gate.owner;
+    delete gate.objective;
+    delete gate.reward;
+    delete gate.defenderKit;
+    delete gate.npcAlgorithmId;
+    delete gate.stash;
+    gate.unavailable = true;
+    gate.difficulty = null;
+    gate.mines = 0;
+    gate.maxMines = 0;
+    const written = parsedTile(serializeChapter(settings), 0, -1);
+    expect(Object.keys(written)).toEqual([
+      'q',
+      'r',
+      'product',
+      'mines',
+      'maxMines',
+      'difficulty',
+      'revealed',
+      'unavailable',
+      'label'
+    ]);
+    expect(written.unavailable).toBe(true);
+    expect(written.mines).toBe(0);
+    expect(written.maxMines).toBe(0);
+    expect(written.difficulty).toBeNull();
+    const loaded = tileAt(readOk(serializeChapter(settings)), 0, -1);
+    expect(loaded.unavailable).toBe(true);
+  });
+
   it('drops zero amounts except starting inventory, and omits an item that is not for sale', () => {
     const settings = readOk(chapterRaw);
     const gate = tileAt(settings, 0, -1);

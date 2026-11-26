@@ -250,6 +250,8 @@ NPC is **not** inside `processAction`. After a human move, `updateGame` calls `d
 
 Otherwise it returns `null`. Classic NPC uses `size: 0`. An extended NPC picks a type that still has items and attaches no effects. `NPC_1` then picks a size from `1` through `min(that type's turn cap, items of that type)`. `NPC_greed_1` always throws size `1`. When no type can be paid for, the action is `Surrender` and `doNpcAction` applies it, so the opponent wins.
 
+A playable gesture has stock of at least 1 and a turn cap of at least 1. Effects and coins do not count. On an extended game, `playTurn` checks both sides. Before an opening move is charged, the player surrenders if they cannot throw; otherwise an opponent who cannot throw surrenders and that move is not spent. After the exchange, the player is checked first, then the opponent. If both cannot throw, the player surrenders. Classic play does not surrender for an empty inventory.
+
 `GameProcessor.doNpcAction` applies that action via `processAction`. Typical PVE: player throws → sub-round `wait_player` → NPC throws → resolve → maybe new round.
 
 ### Surrender

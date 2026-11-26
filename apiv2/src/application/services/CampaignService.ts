@@ -1,4 +1,11 @@
 import { Campaign, type BattleOutcome } from '../../domain/campaign/Campaign.js';
+import type { CampaignDefinition } from '../../domain/campaign/CampaignDefinition.js';
+import { buildChapterDefinition } from '../../domain/campaign/ChapterDefinitionBuilder.js';
+import {
+  chapterErrors,
+  checkChapterSettings,
+  safeParseChapterFile
+} from '../../domain/campaign/ChapterSettingsSchema.js';
 import { assertSupportedNpcAlgorithm } from '../../domain/campaign/Garrison.js';
 import { findDefinition, listDefinitions } from '../../domain/campaign/CampaignRegistry.js';
 import { toCampaignView } from '../../domain/campaign/CampaignView.js';
@@ -55,12 +62,49 @@ export class CampaignService implements CampaignBattleSink {
     if (!definition) {
       throw new NotFoundError(`Campaign definition '${definitionId}' not found`);
     }
-    if (user.campaigns.some(campaign => campaign.definitionId === definitionId && campaign.status === 'started')) {
-      throw new ConflictError('This campaign is already started');
+    return this.commit(user, definition, ifMatch);
+  }
+
+  async startFromFile(userId: string, settings: unknown, ifMatch: string): Promise<CampaignHttpResult> {
+    const parsed = safeParseChapterFile(settings);
+    if (!parsed.ok) {
+      throw new ValidationError(parsed.issues[0]?.message ?? 'Invalid chapter settings');
     }
-    const created = Campaign.start(definition, Date.now(), newId('campaign'));
+    const chapter = parsed.settings;
+    if (chapter.id !== 'chapter-i') {
+      throw new ValidationError('Campaign file must be Chapter I');
+    }
+    if (JSON.stringify(chapter).length > CAMPAIGN_FILE_LIMIT) {
+      throw new ValidationError('Campaign file is too large');
+    }
+    const errors = chapterErrors(checkChapterSettings(chapter));
+    if (errors.length > 0) {
+      throw new ValidationError(errors[0].message);
+    }
+    const definition = buildChapterDefinition(chapter);
+    const loaded = await this.requireUser(userId);
+    const repaired = await this.repairAll(loaded);
+    return this.commit(repaired.user, definition, ifMatch, { replaceStarted: true });
+  }
+
+  private async commit(
+    user: User,
+    definition: CampaignDefinition,
+    ifMatch: string,
+    options?: { replaceStarted?: boolean }
+  ): Promise<CampaignHttpResult> {
+    const now = Date.now();
+    let campaigns = user.campaigns;
+    const existing = campaigns.find(campaign => campaign.definitionId === definition.id && campaign.status === 'started');
+    if (existing) {
+      if (!options?.replaceStarted) {
+        throw new ConflictError('This campaign is already started');
+      }
+      campaigns = campaigns.map(campaign => campaign.id === existing.id ? campaign.supersede(now) : campaign);
+    }
+    const created = Campaign.start(definition, now, newId('campaign'));
     const saved = await this.users.save(
-      user.withCampaigns([...user.campaigns, created]),
+      user.withCampaigns([...campaigns, created]),
       { ifMatch }
     );
     return { body: { campaign: toCampaignView(created) }, etag: saved.metadata?.etag };
@@ -363,6 +407,8 @@ function etagMatches(header: string, stored: string | undefined): boolean {
   }
   return etagsEqual(header, stored);
 }
+
+const CAMPAIGN_FILE_LIMIT = 65536;
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
